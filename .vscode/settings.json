@@ -1,0 +1,44 @@
+{
+    "cmake.configureOnOpen": false,
+    "cmake.buildDirectory": "${workspaceRoot}/_build",
+    "cmake.configureSettings": {
+    },
+    "cmake.ctestArgs": ["-LE", "JTAG"],
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "googletest.failed",
+                "settings": {
+                    "foreground": "#f00"
+                }
+            },
+            {
+                "scope": "googletest.passed",
+                "settings": {
+                    "foreground": "#0f0"
+                }
+            },
+            {
+                "scope": "googletest.run",
+                "settings": {
+                    "foreground": "#0f0"
+                }
+            }
+        ]
+    },
+    "catch2TestExplorer.executables": [
+        {
+            "name": "${filename} (${relDirpath})",
+            "pattern": "{_build,build,Build,BUILD,out,Out,OUT}/**/*{test,Test,TEST}*",
+            "cwd": "${absDirpath}",
+            "env": {
+                "C2TESTEXECUTABLEPATH": "${absPath}"
+            }
+        }
+    ],
+    "files.exclude": {
+        "_build": true,
+        "build": true
+    },
+    "gtest-adapter.supportLocation": true
+}

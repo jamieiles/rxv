@@ -13,65 +13,34 @@ class ComplianceTest
 {
 public:
     explicit ComplianceTest(const std::string &filename)
-	    : elf(filename), sim(128 * 1024, 0x80000000)
+        : elf(filename), sim(1024 * 1024, 0x80000000), test_status(RUNNING)
     {
         sim.load_elf(elf);
         load_io_writes();
         load_gpr_assertions();
+        to_host_addr = elf.sym_addr("tohost");
     }
 
-    void run()
+    bool run()
     {
         for (int i = 0; i < 100000; ++i) {
-            auto pc = sim.get_pc();
+            check_for_completion();
+            handle_io();
+            check_assertions();
 
-            if (sim.read_mem<uint32_t>(pc) == 0xc0001073)
+            if (test_status != RUNNING)
                 break;
-
-            if (io_writes.find(pc) != io_writes.end()) {
-                std::cerr << io_writes.at(pc);
-                std::cerr.flush();
-            }
-
-            if (gpr_assertions.find(pc) != gpr_assertions.end()) {
-                auto assertion = gpr_assertions.at(pc);
-                if (sim.read_reg(assertion.regnum) != assertion.expected) {
-                    std::cerr << "ASSERTION FAILED AT " << std::hex
-                              << assertion.location << ": x" << std::dec
-                              << assertion.regnum << " != " << std::hex
-                              << assertion.expected << ", got "
-                              << sim.read_reg(assertion.regnum) << std::endl;
-                    abort();
-                } else {
-                    std::cerr << "ASSERTION PASSED AT " << std::hex
-                              << assertion.location << ": x" << std::dec
-                              << assertion.regnum << " == " << std::hex
-                              << assertion.expected << std::endl;
-                }
-            }
-
             sim.step();
         }
 
         output_signature();
-    }
 
-    void output_signature() const
-    {
-        auto begin_signature = elf.sym_addr("begin_signature");
-        auto end_signature = elf.sym_addr("end_signature");
-        auto signature = sim.read_mem<uint32_t>(
-            begin_signature, (end_signature - begin_signature) / 4);
-
-        boost::io::ios_flags_saver ifs(std::cout);
-        std::cout << std::setfill('0') << std::setw(8);
-        for (auto &v : signature)
-            std::cout << std::setfill('0') << std::setw(8) << std::hex << v
-                      << "\n";
-        std::cout.flush();
+        return test_status == PASSED ? true : false;
     }
 
 private:
+    enum { RUNNING, PASSED, FAILED } test_status;
+
     struct IOWrite {
         uint32_t instr_addr;
         uint32_t string_addr;
@@ -89,6 +58,68 @@ private:
         uint32_t expected;
         std::string location;
     };
+
+    void handle_io()
+    {
+        auto pc = sim.get_pc();
+
+        if (io_writes.find(pc) == io_writes.end())
+            return;
+
+        std::cerr << io_writes.at(pc);
+        std::cerr.flush();
+    }
+
+    void check_for_completion()
+    {
+        auto to_host = sim.read_mem<uint32_t>(to_host_addr);
+        if (to_host != 0)
+            test_status = to_host == 1 ? PASSED : FAILED;
+    }
+
+    void check_assertions()
+    {
+        auto pc = sim.get_pc();
+        if (gpr_assertions.find(pc) == gpr_assertions.end())
+            return;
+
+        auto assertion = gpr_assertions.at(pc);
+        if (sim.read_reg(assertion.regnum) != assertion.expected) {
+            std::cerr << "ASSERTION FAILED AT " << std::hex
+                      << assertion.location << ": x" << std::dec
+                      << assertion.regnum << " != " << std::hex
+                      << assertion.expected << ", got "
+                      << sim.read_reg(assertion.regnum) << std::endl;
+            test_status = FAILED;
+        } else {
+            std::cerr << "ASSERTION PASSED AT " << std::hex
+                      << assertion.location << ": x" << std::dec
+                      << assertion.regnum << " == " << std::hex
+                      << assertion.expected << std::endl;
+        }
+    }
+
+    void output_signature() const
+    {
+        uint32_t begin_signature, end_signature;
+
+        try {
+            begin_signature = elf.sym_addr("begin_signature");
+            end_signature = elf.sym_addr("end_signature");
+        } catch (std::out_of_range &) {
+            return;
+        }
+
+        auto signature = sim.read_mem<uint32_t>(
+            begin_signature, (end_signature - begin_signature) / 4);
+
+        boost::io::ios_flags_saver ifs(std::cout);
+        std::cout << std::setfill('0') << std::setw(8);
+        for (auto &v : signature)
+            std::cout << std::setfill('0') << std::setw(8) << std::hex << v
+                      << "\n";
+        std::cout.flush();
+    }
 
     void load_io_writes()
     {
@@ -115,4 +146,5 @@ private:
 
     RiscVELF elf;
     RXVSim sim;
+    uint32_t to_host_addr;
 };

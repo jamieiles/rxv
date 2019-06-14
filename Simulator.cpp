@@ -6,7 +6,6 @@ int main(int argc, char *argv[])
         return -1;
 
     ComplianceTest test(argv[1]);
-    test.run();
 
-    return 0;
+    return test.run() ? 0 : 1;
 }

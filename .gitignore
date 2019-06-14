@@ -5,3 +5,4 @@
 *.pyo
 /_build
 *.tar.xz
+.vscode/ipch

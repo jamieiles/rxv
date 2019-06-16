@@ -3,7 +3,7 @@
     "cmake.buildDirectory": "${workspaceRoot}/_build",
     "cmake.configureSettings": {
     },
-    "cmake.ctestArgs": ["-LE", "JTAG"],
+    "cmake.ctestArgs": [],
     "editor.tokenColorCustomizations": {
         "textMateRules": [
             {
@@ -29,16 +29,13 @@
     "catch2TestExplorer.executables": [
         {
             "name": "${filename} (${relDirpath})",
-            "pattern": "{_build,build,Build,BUILD,out,Out,OUT}/**/*{test,Test,TEST}*",
-            "cwd": "${absDirpath}",
-            "env": {
-                "C2TESTEXECUTABLEPATH": "${absPath}"
-            }
+            "pattern": "{_build,build,Build,BUILD,out,Out,OUT}/**/*unittest*"
         }
     ],
     "files.exclude": {
         "_build": true,
         "build": true
     },
-    "gtest-adapter.supportLocation": true
+    "gtest-adapter.supportLocation": true,
+    "gtest-adapter.debugConfig": "rtl-unittest"
 }

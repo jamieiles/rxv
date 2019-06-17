@@ -8,6 +8,7 @@ verilate(TOPLEVEL RegFile
          VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RegFile.sv)
 
 add_executable(rtl-unittest
+               TestRegisterFile.cpp
                main.cpp)
 target_link_libraries(rtl-unittest
                       gtest

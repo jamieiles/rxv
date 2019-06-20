@@ -123,3 +123,199 @@ TEST_F(RXVCoreTestbench, JALR)
     EXPECT_EQ(0x00000008, instr.rd_val);
     EXPECT_EQ(256 + 0x200, instr.next_pc);
 }
+
+TEST_F(RXVCoreTestbench, BEQTaken)
+{
+    write_reg(2, 0x200);
+    write_reg(3, 0x200);
+    instr_mem[0] = 0;
+    // beq     x2,x3,c
+    instr_mem[1] = 0x00310463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BEQNotTaken)
+{
+    write_reg(2, 0x200);
+    write_reg(3, 0x201);
+    instr_mem[0] = 0;
+    // beq     x2,x3,c
+    instr_mem[1] = 0x00310463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BNETaken)
+{
+    write_reg(2, 0x200);
+    write_reg(3, 0x201);
+    instr_mem[0] = 0;
+    // bne     x2,x3,c
+    instr_mem[1] = 0x00311463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BNENotTaken)
+{
+    write_reg(2, 0x200);
+    write_reg(3, 0x200);
+    instr_mem[0] = 0;
+    // bne     x2,x3,c
+    instr_mem[1] = 0x00311463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BLTTaken)
+{
+    write_reg(2, -2);
+    write_reg(3, -1);
+    instr_mem[0] = 0;
+    // blt     x2,x3,c
+    instr_mem[1] = 0x00314463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BLTNotTaken)
+{
+    write_reg(2, 1);
+    write_reg(3, -1);
+    instr_mem[0] = 0;
+    // blt     x2,x3,c
+    instr_mem[1] = 0x00314463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BGETakenGreater)
+{
+    write_reg(2, 2);
+    write_reg(3, 1);
+    instr_mem[0] = 0;
+    // bge     x2,x3,c
+    instr_mem[1] = 0x00315463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BGETakenEqual)
+{
+    write_reg(2, 2);
+    write_reg(3, 2);
+    instr_mem[0] = 0;
+    // bge     x2,x3,c
+    instr_mem[1] = 0x00315463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BGENotTaken)
+{
+    write_reg(2, -2);
+    write_reg(3, -1);
+    instr_mem[0] = 0;
+    // bge     x2,x3,c
+    instr_mem[1] = 0x00315463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BLTUTaken)
+{
+    write_reg(2, 2);
+    write_reg(3, 3);
+    instr_mem[0] = 0;
+    // bltu     x2,x3,c
+    instr_mem[1] = 0x00316463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BLTUNotTaken)
+{
+    write_reg(2, -2);
+    write_reg(3, 2);
+    instr_mem[0] = 0;
+    // bltu     x2,x3,c
+    instr_mem[1] = 0x00316463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BGEUTakenGreater)
+{
+    write_reg(2, -1);
+    write_reg(3, -2);
+    instr_mem[0] = 0;
+    // bgeu     x2,x3,c
+    instr_mem[1] = 0x00317463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BGEUTakenEqual)
+{
+    write_reg(2, 2);
+    write_reg(3, 2);
+    instr_mem[0] = 0;
+    // bgeu     x2,x3,c
+    instr_mem[1] = 0x00317463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0xc, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, BGEUNotTaken)
+{
+    write_reg(2, 2);
+    write_reg(3, 3);
+    instr_mem[0] = 0;
+    // bgeu     x2,x3,c
+    instr_mem[1] = 0x00317463;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+}

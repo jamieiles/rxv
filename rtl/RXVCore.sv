@@ -59,7 +59,8 @@ localparam INSTR_ECALL  = 32'h00000073,
 
 localparam BRANCH_NONE  = 2'b00,
            BRANCH_IMMED = 2'b01,
-           BRANCH_INDIR = 2'b10;
+           BRANCH_INDIR = 2'b10,
+           BRANCH_COND  = 2'b11;
 
 wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
                           d_opcode == OPC_AUIPC ? u_immed :
@@ -111,7 +112,7 @@ wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
                           d_bad_arithi | d_bad_arith | d_bad_env;
 wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
                           d_opcode == OPC_JALR ? BRANCH_INDIR :
-                          d_opcode == OPC_BRANCH ? BRANCH_IMMED : BRANCH_NONE;
+                          d_opcode == OPC_BRANCH ? BRANCH_COND : BRANCH_NONE;
 
 // Instruction execution
 wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
@@ -122,8 +123,15 @@ wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
 wire [31:0] e_indir_tgt = rs1_data + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
                           de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
+                          de_br_type == BRANCH_COND && e_br_taken ? de_pc + de_immed :
                           de_pc + 32'd4;
 wire e_write_pc         = de_br_type == BRANCH_IMMED || de_br_type == BRANCH_INDIR;
+wire e_br_taken         = de_funct3 == 3'd0 ? rs1_data == rs2_data :
+                          de_funct3 == 3'd1 ? rs1_data != rs2_data :
+                          de_funct3 == 3'd4 ? $signed(rs1_data) < $signed(rs2_data) :
+                          de_funct3 == 3'd5 ? $signed(rs1_data) >= $signed(rs2_data) :
+                          de_funct3 == 3'd6 ? rs1_data < rs2_data :
+                          de_funct3 == 3'd7 ? rs1_data >= rs2_data : 1'b0;
 
 reg [31:0] pc;
 wire [31:0] next_pc     = ef_write_pc ? ew_next_pc : pc + 32'd4;
@@ -157,6 +165,7 @@ reg de_illegal_instr;
 reg [31:0] de_instruction;
 reg de_valid;
 reg [1:0] de_br_type;
+reg [2:0] de_funct3;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -171,6 +180,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_illegal_instr <= d_illegal_instr;
         de_valid <= fd_fetched && !insert_bubble;
         de_br_type <= d_br_type;
+        de_funct3 <= funct3;
     end
 end
 

@@ -90,6 +90,9 @@ wire d_bad_opc          = !(d_opcode == OPC_LUI ||
                             d_opcode == OPC_ARITH ||
                             d_opcode == OPC_FENCE ||
                             d_opcode == OPC_ENV);
+wire d_is_branch        = d_opcode == OPC_JAL ||
+                          d_opcode == OPC_JALR ||
+                          d_opcode == OPC_BRANCH;
 wire d_bad_branch       = d_opcode == OPC_BRANCH &&
                           (funct3 == 3'd2 || funct3 == 3'd3);
 wire d_bad_load         = d_opcode == OPC_LOAD &&
@@ -114,24 +117,36 @@ wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
 wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_AUIPC ? de_immed + de_pc :
                           de_opcode == OPC_JAL ? de_pc + 32'd4 :
+                          de_opcode == OPC_JALR ? de_pc + 32'd4 :
                           32'b0;
 wire [31:0] e_indir_tgt = rs1_data + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
                           de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
                           de_pc + 32'd4;
+wire e_write_pc         = de_br_type == BRANCH_IMMED || de_br_type == BRANCH_INDIR;
 
 reg [31:0] pc;
-wire [31:0] next_pc     = pc + 32'd4;
+wire [31:0] next_pc     = ef_write_pc ? ew_next_pc : pc + 32'd4;
 assign i_addr = pc;
 wire [31:0] rs1_data, rs2_data;
 
 reg fd_fetched;
+reg insert_bubble;
+reg ef_write_pc;
 
-always_ff @(posedge clk or posedge reset)
-    if (reset)
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
         fd_fetched <= 1'b0;
-    else
-        fd_fetched <= 1'b1;
+    end else begin
+        if (d_is_branch) begin
+            insert_bubble <= 1'b1;
+        end else if (ef_write_pc) begin
+            insert_bubble <= 1'b0;
+        end else begin
+            fd_fetched <= 1'b1;
+        end
+    end
+end
 
 reg [6:0] de_opcode;
 reg [31:0] de_immed;
@@ -154,7 +169,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_rd <= d_rd;
         de_pc <= pc;
         de_illegal_instr <= d_illegal_instr;
-        de_valid <= fd_fetched;
+        de_valid <= fd_fetched && !insert_bubble;
         de_br_type <= d_br_type;
     end
 end
@@ -171,7 +186,7 @@ always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
         ew_valid <= 1'b0;
     end else begin
-        ew_writeback <= de_writeback;
+        ew_writeback <= de_valid && de_writeback;
         ew_rd <= de_rd;
         ew_result <= alu_out;
         ew_pc <= de_pc;
@@ -179,6 +194,8 @@ always_ff @(posedge clk or posedge reset) begin
         ew_next_pc <= e_next_pc;
         ew_illegal_instr <= de_illegal_instr;
         ew_valid <= de_valid;
+
+        ef_write_pc <= de_valid && e_write_pc;
     end
 end
 

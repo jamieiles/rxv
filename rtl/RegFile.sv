@@ -23,4 +23,16 @@ always_ff @(posedge clk) begin
     rd_data_b <= bank_b[rd_addr_b];
 end
 
+`ifdef verilator
+export "DPI-C" function write_reg;
+
+function void write_reg;
+    input int r;
+    input int v;
+
+    bank_a[r] = v;
+    bank_b[r] = v;
+endfunction
+`endif // verilator
+
 endmodule

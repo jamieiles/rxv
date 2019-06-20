@@ -18,8 +18,15 @@ class RXVCoreTestbench
     , public ::testing::Test
 {
 public:
+    static constexpr int num_instructions = 4096;
+
     RXVCoreTestbench()
     {
+        reg_file_scope = svGetScopeFromName("TOP.RXVCore.RegFile");
+
+        for (auto i = 0; i < num_instructions; ++i)
+            instr_mem[i] = 0;
+
         periodic(ClockSetup, [&] {
             after_n_cycles(0, [&] {
                 this->dut.i_data = this->instr_mem[this->dut.i_addr >> 2];
@@ -29,15 +36,24 @@ public:
             if (!this->dut.rvfi_valid)
                 return;
 
-            this->retired_instructions.emplace_back(
-                RetiredInstruction{this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
-                                   this->dut.rvfi_pc_wdata, this->dut.rvfi_rd_wdata,
-                                   this->dut.verif_writeback, this->dut.rvfi_rd_addr});
+            this->retired_instructions.emplace_back(RetiredInstruction{
+                this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
+                this->dut.rvfi_pc_wdata, this->dut.rvfi_rd_wdata,
+                this->dut.verif_writeback, this->dut.rvfi_rd_addr});
         });
     }
 
+    void write_reg(int r, int v)
+    {
+        svSetScope(reg_file_scope);
+        this->dut.write_reg(r, v);
+    }
+
     std::vector<RetiredInstruction> retired_instructions;
-    uint32_t instr_mem[4096];
+    uint32_t instr_mem[num_instructions];
+
+private:
+    svScope reg_file_scope;
 };
 
 TEST_F(RXVCoreTestbench, LUI)
@@ -73,6 +89,7 @@ TEST_F(RXVCoreTestbench, JAL)
     // jal x10, 0x100
     instr_mem[1] = 0x1000056f;
     instr_mem[2] = 0xdeadbeef;
+    instr_mem[0x104 / 4] = 0x0100056f;
     cycle(10);
 
     auto instr = retired_instructions[0];
@@ -81,6 +98,28 @@ TEST_F(RXVCoreTestbench, JAL)
     EXPECT_EQ(0x00000008, instr.rd_val);
     EXPECT_EQ(0x104, instr.next_pc);
 
-    EXPECT_EQ(0x104, retired_instructions[1].pc);
-    EXPECT_NE(0xdeadbeef, retired_instructions[1].insn);
+    instr = retired_instructions[1];
+    EXPECT_EQ(0x104, instr.pc);
+    EXPECT_NE(0xdeadbeef, instr.insn);
+    EXPECT_EQ(0x0100056f, instr.insn);
+    EXPECT_EQ(0x114, instr.next_pc);
+    EXPECT_EQ(1, instr.rd_written);
+    EXPECT_EQ(10, instr.rd);
+    EXPECT_EQ(0x00000108, instr.rd_val);
+}
+
+TEST_F(RXVCoreTestbench, JALR)
+{
+    write_reg(2, 0x200);
+    instr_mem[0] = 0;
+    // jalr    x10,256(x2)
+    instr_mem[1] = 0x10010567;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(1, instr.rd_written);
+    EXPECT_EQ(10, instr.rd);
+    EXPECT_EQ(0x00000008, instr.rd_val);
+    EXPECT_EQ(256 + 0x200, instr.next_pc);
 }

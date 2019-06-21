@@ -105,9 +105,11 @@ wire d_bad_arithi       = d_opcode == OPC_ARITHI &&
                            (funct3 == 3'd5 && ~|{funct7[6], funct7[5:0]}));
 wire d_bad_arith        = d_opcode == OPC_ARITH &&
                           ((funct3 == 3'd0 || funct7 == 7'd5) && ~|{funct7[6], funct7[5:0]});
-wire d_bad_env          = funct3 == 3'd4 || (instruction != INSTR_ECALL &&
-                                             instruction != INSTR_EBREAK &&
-                                             instruction != INSTR_MRET);
+wire d_bad_env          = d_opcode == OPC_ENV &&
+                          (funct3 == 3'd4 ||
+                           !(instruction == INSTR_ECALL ||
+                             instruction == INSTR_EBREAK ||
+                             instruction == INSTR_MRET));
 wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
                           d_bad_arithi | d_bad_arith | d_bad_env;
 wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :

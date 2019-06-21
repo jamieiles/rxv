@@ -290,7 +290,7 @@ void RXVSim::step()
             break;
         case 0x1:
             if (funct7 == 0) // SLLI
-                write_reg(rd, regs[rs1] << i_immed);
+                write_reg(rd, regs[rs1] << (i_immed & 0x1f));
             else
                 illegal_instruction = true;
             break;
@@ -311,9 +311,9 @@ void RXVSim::step()
             break;
         case 0x5:
             if (funct7 == 0) // SLRI
-                write_reg(rd, regs[rs1] >> i_immed);
+                write_reg(rd, regs[rs1] >> (i_immed & 0x1f));
             else if (funct7 == 0x20) // SRAI
-                write_reg(rd, static_cast<int32_t>(regs[rs1]) >> i_immed);
+                write_reg(rd, static_cast<int32_t>(regs[rs1]) >> (i_immed & 0x1f));
             else
                 illegal_instruction = true;
             break;

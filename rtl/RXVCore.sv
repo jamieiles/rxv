@@ -115,10 +115,13 @@ wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
                           d_opcode == OPC_BRANCH ? BRANCH_COND : BRANCH_NONE;
 
 // Instruction execution
+wire e_sub_b;
+wire [31:0] e_sub;
 wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_AUIPC ? de_immed + de_pc :
                           de_opcode == OPC_JAL ? de_pc + 32'd4 :
                           de_opcode == OPC_JALR ? de_pc + 32'd4 :
+                          de_opcode == OPC_ARITHI || de_opcode == OPC_ARITH ? e_arith_res :
                           32'b0;
 wire [31:0] e_indir_tgt = rs1_data + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
@@ -132,6 +135,30 @@ wire e_br_taken         = de_funct3 == 3'd0 ? rs1_data == rs2_data :
                           de_funct3 == 3'd5 ? $signed(rs1_data) >= $signed(rs2_data) :
                           de_funct3 == 3'd6 ? rs1_data < rs2_data :
                           de_funct3 == 3'd7 ? rs1_data >= rs2_data : 1'b0;
+wire [31:0] e_arith_op2 = de_opcode == OPC_ARITHI ? de_immed : rs2_data;
+wire [4:0] e_shift_cnt  = de_opcode == OPC_ARITHI ? de_immed[4:0] : rs2_data[4:0];
+wire [31:0] e_sll       = rs1_data << e_shift_cnt;
+wire [31:0] e_srl       = rs1_data >> e_shift_cnt;
+wire [31:0] e_sra       = $signed(rs1_data) >>> e_shift_cnt;
+wire [31:0] e_add       = rs1_data + e_arith_op2;
+assign {e_sub_b, e_sub} = {1'b0, rs1_data} - {1'b0, e_arith_op2};
+wire [31:0] e_xor       = rs1_data ^ e_arith_op2;
+wire [31:0] e_or        = rs1_data | e_arith_op2;
+wire [31:0] e_and       = rs1_data & e_arith_op2;
+wire [31:0] e_lt        = {31'b0, e_sub[31]};
+wire [31:0] e_ltu       = {31'b0, e_sub_b};
+wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_funct7[5] ? e_add :
+                          de_opcode == OPC_ARITH && de_funct3 == 3'd0 &&  de_funct7[5] ? e_sub :
+                          de_opcode == OPC_ARITHI && de_funct3 == 3'd0 ? e_add :
+                          de_funct3 == 3'd1 ? e_sll :
+                          de_funct3 == 3'd2 ? e_lt :
+                          de_funct3 == 3'd3 ? e_ltu :
+                          de_funct3 == 3'd4 ? e_xor :
+                          de_funct3 == 3'd5 && ~de_funct7[5] ? e_srl :
+                          de_funct3 == 3'd5 &&  de_funct7[5] ? e_sra :
+                          de_funct3 == 3'd6 ? e_or :
+                          de_funct3 == 3'd7 ? e_and :
+                          32'b0;
 
 reg [31:0] pc;
 wire [31:0] next_pc     = ef_write_pc ? ew_next_pc : pc + 32'd4;
@@ -166,6 +193,7 @@ reg [31:0] de_instruction;
 reg de_valid;
 reg [1:0] de_br_type;
 reg [2:0] de_funct3;
+reg [6:0] de_funct7;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -181,6 +209,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_valid <= fd_fetched && !insert_bubble;
         de_br_type <= d_br_type;
         de_funct3 <= funct3;
+        de_funct7 <= funct7;
     end
 end
 

@@ -125,28 +125,28 @@ wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_JALR ? de_pc + 32'd4 :
                           de_opcode == OPC_ARITHI || de_opcode == OPC_ARITH ? e_arith_res :
                           32'b0;
-wire [31:0] e_indir_tgt = rs1_data + de_immed;
+wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
                           de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
                           de_br_type == BRANCH_COND && e_br_taken ? de_pc + de_immed :
                           de_pc + 32'd4;
 wire e_write_pc         = de_br_type == BRANCH_IMMED || de_br_type == BRANCH_INDIR;
-wire e_br_taken         = de_funct3 == 3'd0 ? rs1_data == rs2_data :
-                          de_funct3 == 3'd1 ? rs1_data != rs2_data :
-                          de_funct3 == 3'd4 ? $signed(rs1_data) < $signed(rs2_data) :
-                          de_funct3 == 3'd5 ? $signed(rs1_data) >= $signed(rs2_data) :
-                          de_funct3 == 3'd6 ? rs1_data < rs2_data :
-                          de_funct3 == 3'd7 ? rs1_data >= rs2_data : 1'b0;
-wire [31:0] e_arith_op2 = de_opcode == OPC_ARITHI ? de_immed : rs2_data;
-wire [4:0] e_shift_cnt  = de_opcode == OPC_ARITHI ? de_immed[4:0] : rs2_data[4:0];
-wire [31:0] e_sll       = rs1_data << e_shift_cnt;
-wire [31:0] e_srl       = rs1_data >> e_shift_cnt;
-wire [31:0] e_sra       = $signed(rs1_data) >>> e_shift_cnt;
-wire [31:0] e_add       = rs1_data + e_arith_op2;
-assign {e_sub_b, e_sub} = {1'b0, rs1_data} - {1'b0, e_arith_op2};
-wire [31:0] e_xor       = rs1_data ^ e_arith_op2;
-wire [31:0] e_or        = rs1_data | e_arith_op2;
-wire [31:0] e_and       = rs1_data & e_arith_op2;
+wire e_br_taken         = de_funct3 == 3'd0 ? rs1_fwd == rs2_fwd :
+                          de_funct3 == 3'd1 ? rs1_fwd != rs2_fwd :
+                          de_funct3 == 3'd4 ? $signed(rs1_fwd) < $signed(rs2_fwd) :
+                          de_funct3 == 3'd5 ? $signed(rs1_fwd) >= $signed(rs2_fwd) :
+                          de_funct3 == 3'd6 ? rs1_fwd < rs2_fwd :
+                          de_funct3 == 3'd7 ? rs1_fwd >= rs2_fwd : 1'b0;
+wire [31:0] e_arith_op2 = de_opcode == OPC_ARITHI ? de_immed : rs2_fwd;
+wire [4:0] e_shift_cnt  = de_opcode == OPC_ARITHI ? de_immed[4:0] : rs2_fwd[4:0];
+wire [31:0] e_sll       = rs1_fwd << e_shift_cnt;
+wire [31:0] e_srl       = rs1_fwd >> e_shift_cnt;
+wire [31:0] e_sra       = $signed(rs1_fwd) >>> e_shift_cnt;
+wire [31:0] e_add       = rs1_fwd + e_arith_op2;
+assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
+wire [31:0] e_xor       = rs1_fwd ^ e_arith_op2;
+wire [31:0] e_or        = rs1_fwd | e_arith_op2;
+wire [31:0] e_and       = rs1_fwd & e_arith_op2;
 wire [31:0] e_lt        = {31'b0, e_sub[31]};
 wire [31:0] e_ltu       = {31'b0, e_sub_b};
 wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_funct7[5] ? e_add :
@@ -166,6 +166,9 @@ reg [31:0] pc;
 wire [31:0] next_pc     = ef_write_pc ? ew_next_pc : pc + 32'd4;
 assign i_addr = pc;
 wire [31:0] rs1_data, rs2_data;
+
+wire [31:0] rs1_fwd = fwd_rs1_e ? ew_result : rs1_data;
+wire [31:0] rs2_fwd = fwd_rs2_e ? ew_result : rs2_data;
 
 reg fd_fetched;
 reg insert_bubble;
@@ -196,6 +199,8 @@ reg de_valid;
 reg [1:0] de_br_type;
 reg [2:0] de_funct3;
 reg [6:0] de_funct7;
+// Forward from end of exec stage back to start of exec?
+reg fwd_rs1_e, fwd_rs2_e;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -212,6 +217,9 @@ always_ff @(posedge clk or posedge reset) begin
         de_br_type <= d_br_type;
         de_funct3 <= funct3;
         de_funct7 <= funct7;
+
+        fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
+        fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;
     end
 end
 

@@ -19,8 +19,8 @@ always_ff @(posedge clk) begin
         bank_b[wr_addr] <= wr_data;
     end
 
-    rd_data_a <= bank_a[rd_addr_a];
-    rd_data_b <= bank_b[rd_addr_b];
+    rd_data_a <= wr_en && wr_addr == rd_addr_a && |wr_addr ? wr_data : bank_a[rd_addr_a];
+    rd_data_b <= wr_en && wr_addr == rd_addr_b && |wr_addr ? wr_data : bank_b[rd_addr_b];
 end
 
 `ifdef verilator

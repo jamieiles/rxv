@@ -1,0 +1,86 @@
+#include <iostream>
+#include <vector>
+
+#include "VerilogTestbench.h"
+#include "VRXVCore.h"
+
+struct RetiredInstruction {
+    uint32_t insn;
+    uint32_t pc;
+    uint32_t next_pc;
+    uint32_t rd_val;
+    bool rd_written;
+    uint8_t rd;
+};
+
+class RXVCoreTestbench
+    : public VerilogTestbench<VRXVCore>
+    , public ::testing::Test
+{
+public:
+    RXVCoreTestbench()
+    {
+        periodic(ClockSetup, [&] {
+            after_n_cycles(0, [&] {
+                this->dut.i_data = this->instr_mem[this->dut.i_addr >> 2];
+            });
+        });
+        periodic(ClockCapture, [&] {
+            if (!this->dut.rvfi_valid)
+                return;
+
+            this->retired_instructions.emplace_back(
+                RetiredInstruction{this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
+                                   this->dut.rvfi_pc_wdata, this->dut.rvfi_rd_wdata,
+                                   this->dut.verif_writeback, this->dut.rvfi_rd_addr});
+        });
+    }
+
+    std::vector<RetiredInstruction> retired_instructions;
+    uint32_t instr_mem[4096];
+};
+
+TEST_F(RXVCoreTestbench, LUI)
+{
+    instr_mem[0] = 0;
+    instr_mem[1] = 0xdeadb537;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(1, instr.rd_written);
+    EXPECT_EQ(10, instr.rd);
+    EXPECT_EQ(0xdeadb000, instr.rd_val);
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, AUIPC)
+{
+    instr_mem[0] = 0;
+    // auipc x10, 0xeef
+    instr_mem[1] = 0x00eef517;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(1, instr.rd_written);
+    EXPECT_EQ(10, instr.rd);
+    EXPECT_EQ(0x00eef004, instr.rd_val);
+    EXPECT_EQ(0x8, instr.next_pc);
+}
+
+TEST_F(RXVCoreTestbench, JAL)
+{
+    instr_mem[0] = 0;
+    // jal x10, 0x100
+    instr_mem[1] = 0x1000056f;
+    instr_mem[2] = 0xdeadbeef;
+    cycle(10);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(1, instr.rd_written);
+    EXPECT_EQ(10, instr.rd);
+    EXPECT_EQ(0x00000008, instr.rd_val);
+    EXPECT_EQ(0x104, instr.next_pc);
+
+    EXPECT_EQ(0x104, retired_instructions[1].pc);
+    EXPECT_NE(0xdeadbeef, retired_instructions[1].insn);
+}

@@ -1,8 +1,6 @@
 #include "VerilogTestbench.h"
 #include "VRegFile.h"
 
-double cur_time_stamp = 0;
-
 class RegFileTestbench
     : public VerilogTestbench<VRegFile>
     , public ::testing::Test

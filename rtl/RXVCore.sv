@@ -1,0 +1,212 @@
+// verilator lint_off UNUSED
+// verilator lint_off UNDRIVEN
+module RXVCore(input logic clk,
+               input logic reset,
+               // Instruction bus
+               output logic [31:0] i_addr,
+               input logic [31:0] i_data,
+`ifdef verilator
+               output logic verif_writeback,
+`endif
+               // RVFI
+               output logic rvfi_valid,
+               output logic [31:0] rvfi_insn,
+               output logic [4:0] rvfi_rd_addr,
+               output logic [31:0] rvfi_rd_wdata,
+               output logic [31:0] rvfi_pc_rdata,
+               output logic [31:0] rvfi_pc_wdata);
+
+wire [31:0] instruction = i_data;
+
+// Instruction field extraction
+wire [6:0] funct7       = instruction[31:25];
+wire [4:0] rs2          = instruction[24:20];
+wire [4:0] rs1          = instruction[19:15];
+wire [2:0] funct3       = instruction[14:12];
+wire [4:0] d_rd         = instruction[11:7];
+wire [6:0] d_opcode     = instruction[6:0];
+
+// Instruction decode
+wire [31:0] i_immed     = {20'b0, instruction[31:20]};
+wire [31:0] i_immed_s   = {{20{i_immed[11]}}, i_immed[11:0]};
+wire [31:0] s_immed     = {{21{instruction[31]}}, instruction[30:25], instruction[11:7]};
+wire [31:0] b_immed     = {{20{instruction[31]}}, instruction[7], instruction[30:25], instruction[11:8], 1'b0};
+wire [31:0] u_immed     = {instruction[31:12], 12'b0};
+wire [31:0] j_immed     = {{12{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0};
+
+localparam OPC_LUI      = 7'b0110111,
+           OPC_AUIPC    = 7'b0010111,
+           OPC_JAL      = 7'b1101111,
+           OPC_JALR     = 7'b1100111,
+           OPC_BRANCH   = 7'b1100011,
+           OPC_LOAD     = 7'b0000011,
+           OPC_STORE    = 7'b0100011,
+           OPC_ARITHI   = 7'b0010011,
+           OPC_ARITH    = 7'b0110011,
+           OPC_FENCE    = 7'b0001111,
+           OPC_ENV      = 7'b1110011;
+
+localparam BR_BEQ       = 3'b000,
+           BR_BNE       = 3'b001,
+           BR_BLT       = 3'b100,
+           BR_BGE       = 3'b101,
+           BR_BLTU      = 3'b110,
+           BR_BGEU      = 3'b111;
+
+localparam INSTR_ECALL  = 32'h00000073,
+           INSTR_EBREAK = 32'h00100073,
+           INSTR_MRET   = 32'h30200073;
+
+localparam BRANCH_NONE  = 2'b00,
+           BRANCH_IMMED = 2'b01,
+           BRANCH_INDIR = 2'b10;
+
+wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
+                          d_opcode == OPC_AUIPC ? u_immed :
+                          d_opcode == OPC_JAL ? j_immed :
+                          d_opcode == OPC_JALR ? i_immed_s :
+                          d_opcode == OPC_LOAD ? i_immed_s :
+                          d_opcode == OPC_ARITHI ? i_immed_s :
+                          d_opcode == OPC_BRANCH ? b_immed :
+                          d_opcode == OPC_STORE ? s_immed :
+                          d_opcode == OPC_ENV ? i_immed : i_immed;
+
+wire d_writeback        = d_opcode == OPC_LUI ||
+                          d_opcode == OPC_AUIPC ||
+                          d_opcode == OPC_JAL ||
+                          d_opcode == OPC_JALR ||
+                          d_opcode == OPC_LOAD ||
+                          d_opcode == OPC_ARITHI ||
+                          d_opcode == OPC_ARITH;
+
+wire d_bad_opc          = !(d_opcode == OPC_LUI ||
+                            d_opcode == OPC_AUIPC ||
+                            d_opcode == OPC_JAL ||
+                            d_opcode == OPC_JALR ||
+                            d_opcode == OPC_BRANCH ||
+                            d_opcode == OPC_LOAD ||
+                            d_opcode == OPC_STORE ||
+                            d_opcode == OPC_ARITHI ||
+                            d_opcode == OPC_ARITH ||
+                            d_opcode == OPC_FENCE ||
+                            d_opcode == OPC_ENV);
+wire d_bad_branch       = d_opcode == OPC_BRANCH &&
+                          (funct3 == 3'd2 || funct3 == 3'd3);
+wire d_bad_load         = d_opcode == OPC_LOAD &&
+                          (funct3 == 3'd3 || funct3 == 3'd6 || funct3 == 3'd7);
+wire d_bad_store        = d_opcode == OPC_STORE &&
+                          !(funct3 == 3'd0 || funct3 == 3'd1 || funct3 == 3'd2);
+wire d_bad_arithi       = d_opcode == OPC_ARITHI &&
+                          ((funct3 == 3'd1 && funct7 != 7'd0) ||
+                           (funct3 == 3'd5 && ~|{funct7[6], funct7[5:0]}));
+wire d_bad_arith        = d_opcode == OPC_ARITH &&
+                          ((funct3 == 3'd0 || funct7 == 7'd5) && ~|{funct7[6], funct7[5:0]});
+wire d_bad_env          = funct3 == 3'd4 || (instruction != INSTR_ECALL &&
+                                             instruction != INSTR_EBREAK &&
+                                             instruction != INSTR_MRET);
+wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
+                          d_bad_arithi | d_bad_arith | d_bad_env;
+wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
+                          d_opcode == OPC_JALR ? BRANCH_INDIR :
+                          d_opcode == OPC_BRANCH ? BRANCH_IMMED : BRANCH_NONE;
+
+// Instruction execution
+wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
+                          de_opcode == OPC_AUIPC ? de_immed + de_pc :
+                          de_opcode == OPC_JAL ? de_pc + 32'd4 :
+                          32'b0;
+wire [31:0] e_indir_tgt = rs1_data + de_immed;
+wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
+                          de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
+                          de_pc + 32'd4;
+
+reg [31:0] pc;
+wire [31:0] next_pc     = pc + 32'd4;
+assign i_addr = pc;
+wire [31:0] rs1_data, rs2_data;
+
+reg fd_fetched;
+
+always_ff @(posedge clk or posedge reset)
+    if (reset)
+        fd_fetched <= 1'b0;
+    else
+        fd_fetched <= 1'b1;
+
+reg [6:0] de_opcode;
+reg [31:0] de_immed;
+reg [31:0] de_pc;
+reg [4:0] de_rd;
+reg de_writeback;
+reg de_illegal_instr;
+reg [31:0] de_instruction;
+reg de_valid;
+reg [1:0] de_br_type;
+
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        de_valid <= 1'b0;
+    end else begin
+        de_opcode <= d_opcode;
+        de_immed <= d_immed;
+        de_writeback <= d_writeback;
+        de_instruction <= instruction;
+        de_rd <= d_rd;
+        de_pc <= pc;
+        de_illegal_instr <= d_illegal_instr;
+        de_valid <= fd_fetched;
+        de_br_type <= d_br_type;
+    end
+end
+
+reg ew_writeback;
+reg [4:0] ew_rd;
+reg [31:0] ew_result;
+reg [31:0] ew_pc, ew_next_pc;
+reg [31:0] ew_instruction;
+reg ew_illegal_instr;
+reg ew_valid;
+
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        ew_valid <= 1'b0;
+    end else begin
+        ew_writeback <= de_writeback;
+        ew_rd <= de_rd;
+        ew_result <= alu_out;
+        ew_pc <= de_pc;
+        ew_instruction <= de_instruction;
+        ew_next_pc <= e_next_pc;
+        ew_illegal_instr <= de_illegal_instr;
+        ew_valid <= de_valid;
+    end
+end
+
+RegFile RegFile(.rd_addr_a(rs1),
+                .rd_data_a(rs1_data),
+                .rd_addr_b(rs2),
+                .rd_data_b(rs2_data),
+                .wr_en(ew_writeback),
+                .wr_addr(ew_rd),
+                .wr_data(ew_result),
+                .*);
+
+always_ff @(posedge clk or posedge reset)
+    if (reset)
+        pc <= 32'b0;
+    else begin
+        pc <= next_pc;
+    end
+
+always_ff @(posedge clk) begin
+    rvfi_valid <= ew_valid;
+    rvfi_pc_rdata <= ew_pc;
+    rvfi_pc_wdata <= ew_next_pc;
+    rvfi_insn <= ew_instruction;
+    rvfi_rd_addr <= ew_rd;
+    rvfi_rd_wdata <= ew_rd == 5'd0 ? 32'b0 : ew_result;
+
+    verif_writeback <= ew_writeback;
+end
+
+endmodule

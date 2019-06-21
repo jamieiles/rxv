@@ -6,12 +6,17 @@ add_library(verilator SHARED ${VERILATOR_LIB_SOURCES})
 
 verilate(TOPLEVEL RegFile
          VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RegFile.sv)
+verilate(TOPLEVEL RXVCore
+         VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RegFile.sv)
 
 add_executable(rtl-unittest
                TestRegisterFile.cpp
+               TestRXVCore.cpp
                main.cpp)
 target_link_libraries(rtl-unittest
                       gtest
                       verilator
+                      VRXVCore
                       VRegFile)
 add_test(rtl-unittest rtl-unittest)

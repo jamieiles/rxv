@@ -133,10 +133,10 @@ wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
 wire e_write_pc         = de_br_type == BRANCH_IMMED || de_br_type == BRANCH_INDIR;
 wire e_br_taken         = de_funct3 == 3'd0 ? rs1_fwd == rs2_fwd :
                           de_funct3 == 3'd1 ? rs1_fwd != rs2_fwd :
-                          de_funct3 == 3'd4 ? $signed(rs1_fwd) < $signed(rs2_fwd) :
-                          de_funct3 == 3'd5 ? $signed(rs1_fwd) >= $signed(rs2_fwd) :
-                          de_funct3 == 3'd6 ? rs1_fwd < rs2_fwd :
-                          de_funct3 == 3'd7 ? rs1_fwd >= rs2_fwd : 1'b0;
+                          de_funct3 == 3'd4 ? e_sub[31] :
+                          de_funct3 == 3'd5 ? ~e_sub[31] :
+                          de_funct3 == 3'd6 ? e_sub_b :
+                          de_funct3 == 3'd7 ? ~e_sub_b: 1'b0;
 wire [31:0] e_arith_op2 = de_opcode == OPC_ARITHI ? de_immed : rs2_fwd;
 wire [4:0] e_shift_cnt  = de_opcode == OPC_ARITHI ? de_immed[4:0] : rs2_fwd[4:0];
 wire [31:0] e_sll       = rs1_fwd << e_shift_cnt;

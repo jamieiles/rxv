@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -e
+tar --exclude=scripts/archive \
+    --exclude=scripts/run-dev-unittest \
+    --exclude=.git* \
+    --exclude=.exrc \
+    --exclude=.ycm_extra_conf.py \
+    --exclude=_build \
+    --exclude=*.tar.xz \
+    --exclude=*.pyc \
+    --exclude=*.pyo \
+    --exclude=__pycache__ \
+    --exclude=.*.swp \
+    --exclude=.*.swo \
+    --transform="s|^rxv|rxv-$(date +%Y%m%d)|g" -C .. rxv -cJf ../rxv-$(date +%Y%m%d).tar.xz
+mv ../rxv-$(date +%Y%m%d).tar.xz .

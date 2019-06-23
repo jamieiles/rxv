@@ -9,7 +9,6 @@ struct RetiredInstruction {
     uint32_t pc;
     uint32_t next_pc;
     uint32_t rd_val;
-    bool rd_written;
     uint8_t rd;
 };
 
@@ -39,7 +38,7 @@ public:
             this->retired_instructions.emplace_back(RetiredInstruction{
                 this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
                 this->dut.rvfi_pc_wdata, this->dut.rvfi_rd_wdata,
-                this->dut.verif_writeback, this->dut.rvfi_rd_addr});
+                this->dut.rvfi_rd_addr});
         });
     }
 
@@ -63,7 +62,6 @@ TEST_F(RXVCoreTestbench, LUI)
     cycle(10);
 
     auto instr = retired_instructions[0];
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(10, instr.rd);
     EXPECT_EQ(0xdeadb000, instr.rd_val);
     EXPECT_EQ(0x8, instr.next_pc);
@@ -77,7 +75,6 @@ TEST_F(RXVCoreTestbench, AUIPC)
     cycle(10);
 
     auto instr = retired_instructions[0];
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(10, instr.rd);
     EXPECT_EQ(0x00eef004, instr.rd_val);
     EXPECT_EQ(0x8, instr.next_pc);
@@ -93,7 +90,6 @@ TEST_F(RXVCoreTestbench, JAL)
     cycle(10);
 
     auto instr = retired_instructions[0];
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(10, instr.rd);
     EXPECT_EQ(0x00000008, instr.rd_val);
     EXPECT_EQ(0x104, instr.next_pc);
@@ -103,7 +99,6 @@ TEST_F(RXVCoreTestbench, JAL)
     EXPECT_NE(0xdeadbeef, instr.insn);
     EXPECT_EQ(0x0100056f, instr.insn);
     EXPECT_EQ(0x114, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(10, instr.rd);
     EXPECT_EQ(0x00000108, instr.rd_val);
 }
@@ -118,7 +113,6 @@ TEST_F(RXVCoreTestbench, JALR)
     cycle(10);
 
     auto instr = retired_instructions[0];
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(10, instr.rd);
     EXPECT_EQ(0x00000008, instr.rd_val);
     EXPECT_EQ(256 + 0x200, instr.next_pc);
@@ -319,7 +313,6 @@ TEST_F(RXVCoreTestbench, ADD)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(5, instr.rd_val);
 }
@@ -335,7 +328,6 @@ TEST_F(RXVCoreTestbench, SUB)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xffffffff, instr.rd_val);
 }
@@ -351,7 +343,6 @@ TEST_F(RXVCoreTestbench, SLL)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(2 << 3, instr.rd_val);
 }
@@ -367,7 +358,6 @@ TEST_F(RXVCoreTestbench, SLTLess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(1, instr.rd_val);
 }
@@ -383,7 +373,6 @@ TEST_F(RXVCoreTestbench, SLTNotLess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0, instr.rd_val);
 }
@@ -399,7 +388,6 @@ TEST_F(RXVCoreTestbench, SLTULess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(1, instr.rd_val);
 }
@@ -415,7 +403,6 @@ TEST_F(RXVCoreTestbench, SLTUNotLess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0, instr.rd_val);
 }
@@ -431,7 +418,6 @@ TEST_F(RXVCoreTestbench, XOR)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xe, instr.rd_val);
 }
@@ -447,7 +433,6 @@ TEST_F(RXVCoreTestbench, SRL)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(2, instr.rd_val);
 }
@@ -463,7 +448,6 @@ TEST_F(RXVCoreTestbench, SRA)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xffff0000, instr.rd_val);
 }
@@ -479,7 +463,6 @@ TEST_F(RXVCoreTestbench, OR)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xf, instr.rd_val);
 }
@@ -495,7 +478,6 @@ TEST_F(RXVCoreTestbench, AND)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0x1, instr.rd_val);
 }
@@ -513,7 +495,6 @@ TEST_F(RXVCoreTestbench, ADDI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(5, instr.rd_val);
 }
@@ -529,7 +510,6 @@ TEST_F(RXVCoreTestbench, SLLI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(2 << 3, instr.rd_val);
 }
@@ -545,7 +525,6 @@ TEST_F(RXVCoreTestbench, SLTILess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(1, instr.rd_val);
 }
@@ -561,7 +540,6 @@ TEST_F(RXVCoreTestbench, SLTINotLess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0, instr.rd_val);
 }
@@ -577,7 +555,6 @@ TEST_F(RXVCoreTestbench, SLTIULess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(1, instr.rd_val);
 }
@@ -593,7 +570,6 @@ TEST_F(RXVCoreTestbench, SLTIUNotLess)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0, instr.rd_val);
 }
@@ -609,7 +585,6 @@ TEST_F(RXVCoreTestbench, XORI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xe, instr.rd_val);
 }
@@ -625,7 +600,6 @@ TEST_F(RXVCoreTestbench, SRLI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(2, instr.rd_val);
 }
@@ -641,7 +615,6 @@ TEST_F(RXVCoreTestbench, SRAI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xffff0000, instr.rd_val);
 }
@@ -657,7 +630,6 @@ TEST_F(RXVCoreTestbench, ORI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0xf, instr.rd_val);
 }
@@ -673,7 +645,6 @@ TEST_F(RXVCoreTestbench, ANDI)
 
     auto instr = retired_instructions[0];
     EXPECT_EQ(0x8, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0x1, instr.rd_val);
 }
@@ -690,7 +661,6 @@ TEST_F(RXVCoreTestbench, ExecForwarding)
 
     auto instr = retired_instructions[2];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0x3, instr.rd_val);
 }
@@ -709,7 +679,6 @@ TEST_F(RXVCoreTestbench, ExecForwarding2)
 
     auto instr = retired_instructions[2];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(1, instr.rd_written);
     EXPECT_EQ(1, instr.rd);
     EXPECT_EQ(0x2, instr.rd_val);
 }

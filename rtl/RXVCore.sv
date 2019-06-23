@@ -5,9 +5,6 @@ module RXVCore(input logic clk,
                // Instruction bus
                output logic [31:0] i_addr,
                input logic [31:0] i_data,
-`ifdef verilator
-               output logic verif_writeback,
-`endif
                // RVFI
                output logic rvfi_valid,
                output logic [31:0] rvfi_insn,
@@ -269,10 +266,8 @@ always_ff @(posedge clk) begin
     rvfi_pc_rdata <= ew_pc;
     rvfi_pc_wdata <= ew_next_pc;
     rvfi_insn <= ew_instruction;
-    rvfi_rd_addr <= ew_rd;
+    rvfi_rd_addr <= ew_valid ? ew_rd : 5'b0;
     rvfi_rd_wdata <= ew_rd == 5'd0 ? 32'b0 : ew_result;
-
-    verif_writeback <= ew_writeback;
 end
 
 endmodule

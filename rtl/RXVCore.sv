@@ -160,12 +160,12 @@ wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_fun
                           32'b0;
 
 reg [31:0] pc;
-wire [31:0] next_pc     = ef_write_pc ? ew_next_pc : pc + 32'd4;
+wire [31:0] next_pc     = ef_write_pc ? em_next_pc : pc + 32'd4;
 assign i_addr = pc;
 wire [31:0] rs1_data, rs2_data;
 
-wire [31:0] rs1_fwd = fwd_rs1_e ? ew_result : rs1_data;
-wire [31:0] rs2_fwd = fwd_rs2_e ? ew_result : rs2_data;
+wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? mw_result : rs1_data;
+wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? mw_result : rs2_data;
 
 reg fd_fetched;
 reg insert_bubble;
@@ -198,6 +198,8 @@ reg [2:0] de_funct3;
 reg [6:0] de_funct7;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
+// Forward from end of mem stage back to start of exec?
+reg fwd_rs1_m, fwd_rs2_m;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -220,28 +222,54 @@ always_ff @(posedge clk or posedge reset) begin
     end
 end
 
-reg ew_writeback;
-reg [4:0] ew_rd;
-reg [31:0] ew_result;
-reg [31:0] ew_pc, ew_next_pc;
-reg [31:0] ew_instruction;
-reg ew_illegal_instr;
-reg ew_valid;
+reg em_writeback;
+reg [4:0] em_rd;
+reg [31:0] em_result;
+reg [31:0] em_pc, em_next_pc;
+reg [31:0] em_instruction;
+reg em_illegal_instr;
+reg em_valid;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
-        ew_valid <= 1'b0;
+        em_valid <= 1'b0;
     end else begin
-        ew_writeback <= de_valid && de_writeback;
-        ew_rd <= de_rd;
-        ew_result <= alu_out;
-        ew_pc <= de_pc;
-        ew_instruction <= de_instruction;
-        ew_next_pc <= e_next_pc;
-        ew_illegal_instr <= de_illegal_instr;
-        ew_valid <= de_valid;
+        em_writeback <= de_valid && de_writeback;
+        em_rd <= de_rd;
+        em_result <= alu_out;
+        em_pc <= de_pc;
+        em_instruction <= de_instruction;
+        em_next_pc <= e_next_pc;
+        em_illegal_instr <= de_illegal_instr;
+        em_valid <= de_valid;
+
+        fwd_rs1_m <= em_valid && em_writeback && em_rd == rs1;
+        fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;
 
         ef_write_pc <= de_valid && e_write_pc;
+    end
+end
+
+reg mw_writeback;
+reg [4:0] mw_rd;
+reg [31:0] mw_result;
+reg [31:0] mw_pc, mw_next_pc;
+reg [31:0] mw_instruction;
+reg mw_illegal_instr;
+reg mw_valid;
+
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        mw_valid <= 1'b0;
+    end else begin
+        mw_writeback <= em_writeback;
+        mw_rd <= em_rd;
+        mw_result <= em_result;
+        mw_pc <= em_pc;
+        mw_instruction <= em_instruction;
+        mw_next_pc <= em_next_pc;
+        mw_illegal_instr <= em_illegal_instr;
+        mw_valid <= em_valid;
     end
 end
 
@@ -249,9 +277,9 @@ RegFile RegFile(.rd_addr_a(rs1),
                 .rd_data_a(rs1_data),
                 .rd_addr_b(rs2),
                 .rd_data_b(rs2_data),
-                .wr_en(ew_writeback),
-                .wr_addr(ew_rd),
-                .wr_data(ew_result),
+                .wr_en(mw_writeback),
+                .wr_addr(mw_rd),
+                .wr_data(mw_result),
                 .*);
 
 always_ff @(posedge clk or posedge reset)
@@ -262,12 +290,12 @@ always_ff @(posedge clk or posedge reset)
     end
 
 always_ff @(posedge clk) begin
-    rvfi_valid <= ew_valid;
-    rvfi_pc_rdata <= ew_pc;
-    rvfi_pc_wdata <= ew_next_pc;
-    rvfi_insn <= ew_instruction;
-    rvfi_rd_addr <= ew_valid ? ew_rd : 5'b0;
-    rvfi_rd_wdata <= ew_rd == 5'd0 ? 32'b0 : ew_result;
+    rvfi_valid <= mw_valid;
+    rvfi_pc_rdata <= mw_pc;
+    rvfi_pc_wdata <= mw_next_pc;
+    rvfi_insn <= mw_instruction;
+    rvfi_rd_addr <= mw_valid ? mw_rd : 5'b0;
+    rvfi_rd_wdata <= mw_rd == 5'd0 ? 32'b0 : mw_result;
 end
 
 endmodule

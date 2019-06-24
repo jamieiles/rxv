@@ -37,17 +37,22 @@ public:
                 return;
             if (this->dut.d_addr & 0x3)
                 throw std::runtime_error("error: unaligned data access");
+
+            uint32_t mask = ((this->dut.d_bytesel & 1) ? 0x000000ff : 0) |
+                            ((this->dut.d_bytesel & 2) ? 0x0000ff00 : 0) |
+                            ((this->dut.d_bytesel & 4) ? 0x00ff0000 : 0) |
+                            ((this->dut.d_bytesel & 8) ? 0xff000000 : 0);
+            uint32_t addr = this->dut.d_addr;
+
             if (this->dut.d_wren) {
-                uint32_t mask = ((this->dut.d_bytesel & 1) ? 0x000000ff : 0) |
-                                ((this->dut.d_bytesel & 2) ? 0x0000ff00 : 0) |
-                                ((this->dut.d_bytesel & 4) ? 0x00ff0000 : 0) |
-                                ((this->dut.d_bytesel & 8) ? 0xff000000 : 0);
-                uint32_t addr = this->dut.d_addr;
                 uint32_t wdata = this->dut.d_wdata;
                 after_n_cycles(0, [&, addr, wdata, mask] {
-                    this->dut.d_rdata = this->mem[addr >> 2] & mask;
                     this->mem[addr >> 2] &= ~mask;
                     this->mem[addr >> 2] |= wdata & mask;
+                });
+            } else {
+                after_n_cycles(0, [&, addr, mask] {
+                    this->dut.d_rdata = this->mem[addr >> 2] & mask;
                 });
             }
         });
@@ -779,4 +784,89 @@ TEST_F(RXVCoreTestbench, SBAligned1)
     auto instr = retired_instructions[2];
     EXPECT_EQ(0x10, instr.next_pc);
     EXPECT_EQ(0xffffa534, mem[0x110 / sizeof(uint32_t)]);
+}
+
+TEST_F(RXVCoreTestbench, LW)
+{
+    write_reg(1, 0x100);
+    write_reg(2, 0);
+    mem[0] = 0;
+    // lw      x2,16(x1)
+    mem[1] = 0x0100a103;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x12345678, instr.rd_val);
+}
+
+TEST_F(RXVCoreTestbench, LHUAligned)
+{
+    write_reg(1, 0x100);
+    write_reg(2, 0);
+    mem[0] = 0;
+    // lhu      x2,16(x1)
+    mem[1] = 0x0100d103;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x00005678, instr.rd_val);
+}
+
+TEST_F(RXVCoreTestbench, LHUUnaligned)
+{
+    write_reg(1, 0x102);
+    write_reg(2, 0);
+    mem[0] = 0;
+    // lhu      x2,16(x1)
+    mem[1] = 0x0100d103;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x00001234, instr.rd_val);
+}
+
+TEST_F(RXVCoreTestbench, LBU0)
+{
+    write_reg(1, 0x100);
+    write_reg(2, 0);
+    mem[0] = 0;
+    // lbu      x2,16(x1)
+    mem[1] = 0x0100c103;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x00000078, instr.rd_val);
+}
+
+TEST_F(RXVCoreTestbench, LBU3)
+{
+    write_reg(1, 0x103);
+    write_reg(2, 0);
+    mem[0] = 0;
+    // lbu      x2,16(x1)
+    mem[1] = 0x0100c103;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[0];
+    EXPECT_EQ(0x8, instr.next_pc);
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x00000012, instr.rd_val);
 }

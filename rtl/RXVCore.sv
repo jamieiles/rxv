@@ -135,6 +135,7 @@ wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_JALR ? de_pc + 32'd4 :
                           de_opcode == OPC_ARITHI || de_opcode == OPC_ARITH ? e_arith_res :
                           de_opcode == OPC_STORE ? rs1_fwd + de_immed :
+                          de_opcode == OPC_LOAD ? rs1_fwd + de_immed :
                           32'b0;
 wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
@@ -191,6 +192,14 @@ wire [31:0] d_wdata8    = ls_addr[1:0] == 2'b11 ? {em_store_data[7:0], 24'b0} :
                           ls_addr[1:0] == 2'b10 ? {8'b0, em_store_data[7:0], 16'b0} :
                           ls_addr[1:0] == 2'b01 ? {16'b0, em_store_data[7:0], 8'b0} :
                           em_store_data;
+wire [31:0] mw_addr     = mw_result;
+wire [31:0] d_rdata_rot = mw_addr[1:0] == 2'b11 ? {24'b0, d_rdata[31:24]} :
+                          mw_addr[1:0] == 2'b10 ? {16'b0, d_rdata[31:16]} :
+                          mw_addr[1:0] == 2'b01 ? {24'b0, d_rdata[15:8]} :
+                          d_rdata;
+wire [31:0] d_rdata_msk = mw_ls_width == LS_WIDTH_32 ? d_rdata_rot :
+                          mw_ls_width == LS_WIDTH_16 ? {16'b0, d_rdata_rot[15:0]} :
+                          mw_ls_width == LS_WIDTH_8 ? {24'b0, d_rdata_rot[7:0]} : 32'b0;
 assign d_wdata          = em_ls_width == LS_WIDTH_32 ? d_wdata32 :
                           em_ls_width == LS_WIDTH_16 ? d_wdata16 : d_wdata8;
 assign d_addr           = {em_result[31:2], 2'b00};
@@ -311,6 +320,9 @@ reg [31:0] mw_pc, mw_next_pc;
 reg [31:0] mw_instruction;
 reg mw_illegal_instr;
 reg mw_valid;
+reg [1:0] mw_ls_width;
+reg mw_load;
+wire [31:0] w_data = mw_load ? d_rdata_msk : mw_result;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -324,6 +336,8 @@ always_ff @(posedge clk or posedge reset) begin
         mw_next_pc <= em_next_pc;
         mw_illegal_instr <= em_illegal_instr;
         mw_valid <= em_valid;
+        mw_ls_width <= em_ls_width;
+        mw_load <= em_load;
     end
 end
 
@@ -333,7 +347,7 @@ RegFile RegFile(.rd_addr_a(rs1),
                 .rd_data_b(rs2_data),
                 .wr_en(mw_writeback),
                 .wr_addr(mw_rd),
-                .wr_data(mw_result),
+                .wr_data(w_data),
                 .*);
 
 always_ff @(posedge clk or posedge reset)
@@ -349,7 +363,7 @@ always_ff @(posedge clk) begin
     rvfi_pc_wdata <= mw_next_pc;
     rvfi_insn <= mw_instruction;
     rvfi_rd_addr <= mw_valid ? mw_rd : 5'b0;
-    rvfi_rd_wdata <= mw_rd == 5'd0 ? 32'b0 : mw_result;
+    rvfi_rd_wdata <= mw_rd == 5'd0 ? 32'b0 : w_data;
 end
 
 endmodule

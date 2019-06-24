@@ -5,6 +5,13 @@ module RXVCore(input logic clk,
                // Instruction bus
                output logic [31:0] i_addr,
                input logic [31:0] i_data,
+               // Data bus
+               output logic d_access,
+               output logic d_wren,
+               output logic [31:0] d_addr,
+               output logic [3:0] d_bytesel,
+               output logic [31:0] d_wdata,
+               input logic [31:0] d_rdata,
                // RVFI
                output logic rvfi_valid,
                output logic [31:0] rvfi_insn,
@@ -59,6 +66,10 @@ localparam BRANCH_NONE  = 2'b00,
            BRANCH_INDIR = 2'b10,
            BRANCH_COND  = 2'b11;
 
+localparam LS_WIDTH_8   = 2'b00,
+           LS_WIDTH_16  = 2'b01,
+           LS_WIDTH_32  = 2'b10;
+
 wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
                           d_opcode == OPC_AUIPC ? u_immed :
                           d_opcode == OPC_JAL ? j_immed :
@@ -112,6 +123,8 @@ wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
 wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
                           d_opcode == OPC_JALR ? BRANCH_INDIR :
                           d_opcode == OPC_BRANCH ? BRANCH_COND : BRANCH_NONE;
+wire [1:0] d_ls_width   = funct3[1:0];
+wire d_load_sext        = funct3[2];
 
 // Instruction execution
 wire e_sub_b;
@@ -121,6 +134,7 @@ wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_JAL ? de_pc + 32'd4 :
                           de_opcode == OPC_JALR ? de_pc + 32'd4 :
                           de_opcode == OPC_ARITHI || de_opcode == OPC_ARITH ? e_arith_res :
+                          de_opcode == OPC_STORE ? rs1_fwd + de_immed :
                           32'b0;
 wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
@@ -159,6 +173,28 @@ wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_fun
                           de_funct3 == 3'd7 ? e_and :
                           32'b0;
 
+// Memory cycles
+assign d_access         = em_valid & (em_load | em_store);
+assign d_wren           = em_valid & em_store;
+wire [31:0] ls_addr     = em_result;
+wire [3:0] d_bytesel_16 = ls_addr[1] ? 4'b1100 : 4'b0011;
+wire [3:0] d_bytesel_8  = ls_addr[1:0] == 2'b00 ? 4'b0001 :
+                          ls_addr[1:0] == 2'b01 ? 4'b0010 :
+                          ls_addr[1:0] == 2'b10 ? 4'b0100 :
+                          4'b1000;
+assign d_bytesel        = em_valid && em_ls_width == LS_WIDTH_32 ? 4'b1111 :
+                          em_valid && em_ls_width == LS_WIDTH_16 ? d_bytesel_16 :
+                          em_valid && em_ls_width == LS_WIDTH_8 ? d_bytesel_8 : 4'b1111;
+wire [31:0] d_wdata32   = em_store_data;
+wire [31:0] d_wdata16   = ls_addr[1] ? {em_store_data[15:0], 16'b0} : em_store_data;
+wire [31:0] d_wdata8    = ls_addr[1:0] == 2'b11 ? {em_store_data[7:0], 24'b0} :
+                          ls_addr[1:0] == 2'b10 ? {8'b0, em_store_data[7:0], 16'b0} :
+                          ls_addr[1:0] == 2'b01 ? {16'b0, em_store_data[7:0], 8'b0} :
+                          em_store_data;
+assign d_wdata          = em_ls_width == LS_WIDTH_32 ? d_wdata32 :
+                          em_ls_width == LS_WIDTH_16 ? d_wdata16 : d_wdata8;
+assign d_addr           = {em_result[31:2], 2'b00};
+
 reg [31:0] pc;
 wire [31:0] next_pc     = ef_write_pc ? em_next_pc : pc + 32'd4;
 assign i_addr = pc;
@@ -196,6 +232,10 @@ reg de_valid;
 reg [1:0] de_br_type;
 reg [2:0] de_funct3;
 reg [6:0] de_funct7;
+reg de_load;
+reg de_store;
+reg [1:0] de_ls_width;
+reg de_load_sext;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -216,6 +256,10 @@ always_ff @(posedge clk or posedge reset) begin
         de_br_type <= d_br_type;
         de_funct3 <= funct3;
         de_funct7 <= funct7;
+        de_load <= d_opcode == OPC_LOAD;
+        de_store <= d_opcode == OPC_STORE;
+        de_ls_width <= d_ls_width;
+        de_load_sext <= d_load_sext;
 
         fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;
@@ -227,8 +271,13 @@ reg [4:0] em_rd;
 reg [31:0] em_result;
 reg [31:0] em_pc, em_next_pc;
 reg [31:0] em_instruction;
+reg [31:0] em_store_data;
 reg em_illegal_instr;
 reg em_valid;
+reg em_load;
+reg em_store;
+reg [1:0] em_ls_width;
+reg em_load_sext;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -242,6 +291,11 @@ always_ff @(posedge clk or posedge reset) begin
         em_next_pc <= e_next_pc;
         em_illegal_instr <= de_illegal_instr;
         em_valid <= de_valid;
+        em_store_data <= rs2_fwd;
+        em_load <= de_load;
+        em_store <= de_store;
+        em_ls_width <= de_ls_width;
+        em_load_sext <= de_load_sext;
 
         fwd_rs1_m <= em_valid && em_writeback && em_rd == rs1;
         fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;

@@ -1,10 +1,47 @@
 #include <iostream>
 #include <vector>
+#include <map>
+
+#include <gmock/gmock.h>
 
 #include "VerilogTestbench.h"
 #include "VRXVCore.h"
 
 static const uint32_t NOP = 0x00000013;
+
+// clang-format off
+enum CSRID {
+    MVENDORID   = 0x0F11,
+    MARCHID     = 0x0F12,
+    MIMPID      = 0x0F13,
+    MHARTID     = 0x0F14,
+    MSTATUS     = 0x0300,
+    MISA        = 0x0301,
+    MIE         = 0x0304,
+    MTVEC       = 0x0305,
+    MCOUNTEREN  = 0x0306,
+    MSCRATCH    = 0x0340,
+    MEPC        = 0x0341,
+    MCAUSE      = 0x0342,
+    MTVAL       = 0x0343,
+    MIP         = 0x0344,
+};
+// clang-format on
+
+struct CSRAccess {
+    uint32_t wmask;
+    uint32_t wdata;
+    uint32_t rmask;
+    uint32_t rdata;
+};
+
+bool operator==(const CSRAccess &lhs, const CSRAccess &rhs)
+{
+    return lhs.wmask == rhs.wmask && lhs.wdata == rhs.wdata &&
+           lhs.rmask == rhs.rmask && lhs.rdata == rhs.rdata;
+}
+
+using CSRMap = std::map<uint16_t, CSRAccess>;
 
 struct RetiredInstruction {
     uint32_t insn;
@@ -12,6 +49,8 @@ struct RetiredInstruction {
     uint32_t next_pc;
     uint32_t rd_val;
     uint8_t rd;
+
+    CSRMap csrs;
 };
 
 class RXVCoreTestbench
@@ -62,10 +101,22 @@ public:
             if (!this->dut.rvfi_valid)
                 return;
 
-            this->retired_instructions.emplace_back(RetiredInstruction{
-                this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
-                this->dut.rvfi_pc_wdata, this->dut.rvfi_rd_wdata,
-                this->dut.rvfi_rd_addr});
+            RetiredInstruction ri{this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
+                                  this->dut.rvfi_pc_wdata,
+                                  this->dut.rvfi_rd_wdata,
+                                  this->dut.rvfi_rd_addr};
+#define CSR_ACCESS(id, name)                                            \
+    ({                                                                  \
+        if (this->dut.rvfi_csr_##name##_rmask ||                        \
+            this->dut.rvfi_csr_##name##_wmask)                          \
+            ri.csrs[id] = CSRAccess{this->dut.rvfi_csr_##name##_wmask,  \
+                                    this->dut.rvfi_csr_##name##_wdata,  \
+                                    this->dut.rvfi_csr_##name##_rmask,  \
+                                    this->dut.rvfi_csr_##name##_rdata}; \
+    })
+            CSR_ACCESS(MARCHID, marchid);
+            CSR_ACCESS(MSCRATCH, mscratch);
+            retired_instructions.push_back(ri);
         });
     }
 
@@ -927,4 +978,48 @@ TEST_F(RXVCoreTestbench, LWForward)
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x12345678, instr.rd_val);
+}
+
+TEST_F(RXVCoreTestbench, ReadMarchidCSRRW)
+{
+    write_reg(2, 0x12345678);
+    write_reg(2, 0xdeadbeef);
+    mem[0] = NOP;
+    // csrrw   x2,marchid,x0
+    mem[1] = 0xf1201173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x72787600, instr.rd_val);
+    CSRMap expected;
+    expected[MARCHID] = {0x00000000, 0x00000000, 0xffffffff, 0x72787600};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}
+
+TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRW)
+{
+    write_reg(1, 0x12345678);
+    mem[0] = NOP;
+    // csrrw   x2,mscratch,x1
+    mem[1] = 0x34009173;
+    // csrrw   x2,mscratch,x3
+    mem[2] = 0x34019173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0, instr.rd_val);
+    CSRMap expected;
+    expected[MSCRATCH] = {0xffffffff, 0x12345678, 0xffffffff, 0};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x12345678, instr.rd_val);
+    expected.clear();
+    expected[MSCRATCH] = {0xffffffff, 0x00000000, 0xffffffff, 0x12345678};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
 }

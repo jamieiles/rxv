@@ -16,7 +16,19 @@ module RXVCore(input logic clk,
                output logic [4:0] rvfi_rd_addr,
                output logic [31:0] rvfi_rd_wdata,
                output logic [31:0] rvfi_pc_rdata,
-               output logic [31:0] rvfi_pc_wdata);
+               output logic [31:0] rvfi_pc_wdata,
+               // verilator lint_off UNUSED
+               // verilator lint_off UNDRIVEN
+               output logic [31:0] rvfi_csr_marchid_wmask,
+               output logic [31:0] rvfi_csr_marchid_rdata,
+               output logic [31:0] rvfi_csr_marchid_rmask,
+               output logic [31:0] rvfi_csr_marchid_wdata,
+               output logic [31:0] rvfi_csr_mscratch_wmask,
+               output logic [31:0] rvfi_csr_mscratch_rdata,
+               output logic [31:0] rvfi_csr_mscratch_rmask,
+               output logic [31:0] rvfi_csr_mscratch_wdata);
+               // verilator lint_on UNDRIVEN
+               // verilator lint_on UNUSED
 
 // Instruction fetch
 reg [31:0] pc;
@@ -74,6 +86,39 @@ localparam LS_WIDTH_8   = 2'b00,
            LS_WIDTH_16  = 2'b01,
            LS_WIDTH_32  = 2'b10;
 
+localparam CSRRW            = 3'b001,
+           CSRRS            = 3'b010,
+           CSRRC            = 3'b011,
+           CSRRWI           = 3'b101,
+           CSRRSI           = 3'b110,
+           CSRRCI           = 3'b111;
+
+localparam CSR_MVENDORID    = 16'h0f11,
+           CSR_MARCHID      = 16'h0f12,
+           CSR_MIMPID       = 16'h0f13,
+           CSR_MHARTID      = 16'h0f14,
+           CSR_MSTATUS      = 16'h0300,
+           CSR_MISA         = 16'h0301,
+           CSR_MIE          = 16'h0304,
+           CSR_MTVEC        = 16'h0305,
+           CSR_MCOUNTEREN   = 16'h0306,
+           CSR_MSCRATCH     = 16'h0340,
+           CSR_MEPC         = 16'h0341,
+           CSR_MCAUSE       = 16'h0342,
+           CSR_MTVAL        = 16'h0343,
+           CSR_MIP          = 16'h0344;
+
+wire d_read_csr         = d_opcode == OPC_ENV &&
+                          ((funct3 == CSRRW && |d_rd) ||
+                           (funct3 == CSRRS || funct3 == CSRRC) ||
+                           (funct3 == CSRRWI && |d_rd) ||
+                           (funct3 == CSRRSI || funct3 == CSRRCI));
+
+wire d_write_csr        = d_opcode == OPC_ENV &&
+                          ((funct3 == CSRRW || funct3 == CSRRWI) ||
+                           ((funct3 == CSRRS || funct3 == CSRRC) && |d_rd) ||
+                           ((funct3 == CSRRSI || funct3 == CSRRCI) && |u_immed[4:0]));
+
 wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
                           d_opcode == OPC_AUIPC ? u_immed :
                           d_opcode == OPC_JAL ? j_immed :
@@ -90,7 +135,8 @@ wire d_writeback        = d_opcode == OPC_LUI ||
                           d_opcode == OPC_JALR ||
                           d_opcode == OPC_LOAD ||
                           d_opcode == OPC_ARITHI ||
-                          d_opcode == OPC_ARITH;
+                          d_opcode == OPC_ARITH ||
+                          d_read_csr;
 
 wire d_bad_opc          = !(d_opcode == OPC_LUI ||
                             d_opcode == OPC_AUIPC ||
@@ -140,6 +186,7 @@ wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_ARITHI || de_opcode == OPC_ARITH ? e_arith_res :
                           de_opcode == OPC_STORE ? rs1_fwd + de_immed :
                           de_opcode == OPC_LOAD ? rs1_fwd + de_immed :
+                          de_opcode == OPC_ENV && de_read_csr ? e_csr_val :
                           32'b0;
 // verilator lint_off UNUSED
 wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
@@ -163,7 +210,6 @@ wire [31:0] e_sll       = rs1_fwd << e_shift_cnt;
 wire [31:0] e_srl       = rs1_fwd >> e_shift_cnt;
 wire [31:0] e_sra       = $signed(rs1_fwd) >>> e_shift_cnt;
 wire [31:0] e_add       = rs1_fwd + e_arith_op2;
-assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 wire [31:0] e_xor       = rs1_fwd ^ e_arith_op2;
 wire [31:0] e_or        = rs1_fwd | e_arith_op2;
 wire [31:0] e_and       = rs1_fwd & e_arith_op2;
@@ -181,6 +227,11 @@ wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_fun
                           de_funct3 == 3'd6 ? e_or :
                           de_funct3 == 3'd7 ? e_and :
                           32'b0;
+wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
+                          de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
+                          32'h00000000;
+wire [31:0] e_csr_wdata = rs1_fwd;
+assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 reg ef_write_pc;
 
 // Memory cycles
@@ -217,16 +268,19 @@ assign d_wdata          = em_ls_width == LS_WIDTH_32 ? d_wdata32 :
 assign d_addr           = {em_result[31:2], 2'b00};
 
 wire [31:0] rs1_data, rs2_data;
-
 wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? w_data : rs1_data;
 wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? w_data : rs2_data;
 
 always_ff @(posedge clk) begin
-    if (ef_write_pc || de_load)
+    if (ef_write_pc || de_load || mw_write_csr)
         insert_bubble <= 1'b0;
-    else if (d_is_branch || d_opcode == OPC_LOAD)
+    else if (d_is_branch || d_opcode == OPC_LOAD || d_write_csr)
         insert_bubble <= 1'b1;
 end
+
+// CSRs
+//verilator lint_off UNDRIVEN
+reg [31:0] mscratch_reg;
 
 reg [6:0] de_opcode;
 reg [31:0] de_immed;
@@ -243,6 +297,8 @@ reg de_load;
 reg de_store;
 reg [1:0] de_ls_width;
 reg de_load_sext;
+reg de_read_csr;
+reg de_write_csr;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -267,6 +323,8 @@ always_ff @(posedge clk or posedge reset) begin
         de_store <= d_opcode == OPC_STORE;
         de_ls_width <= d_ls_width;
         de_load_sext <= d_load_sext;
+        de_read_csr <= d_read_csr;
+        de_write_csr <= d_write_csr;
 
         fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;
@@ -284,7 +342,10 @@ reg em_valid;
 reg em_load;
 reg em_store;
 reg [1:0] em_ls_width;
+reg [15:0] em_csr_rd;
 reg em_load_sext;
+reg em_write_csr;
+reg [31:0] em_csr_wdata;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -303,6 +364,9 @@ always_ff @(posedge clk or posedge reset) begin
         em_store <= de_store;
         em_ls_width <= de_ls_width;
         em_load_sext <= de_load_sext;
+        em_write_csr <= de_write_csr;
+        em_csr_rd <= de_immed[15:0];
+        em_csr_wdata <= e_csr_wdata;
 
         fwd_rs1_m <= em_valid && em_writeback && em_rd == rs1;
         fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;
@@ -323,6 +387,9 @@ reg mw_valid;
 reg [1:0] mw_ls_width;
 reg mw_load;
 reg mw_load_sext;
+reg mw_write_csr;
+reg [15:0] mw_csr_rd;
+reg [31:0] mw_csr_wdata;
 wire [31:0] w_data = mw_load ? (mw_load_sext ? d_rdata_s : d_rdata_msk) : mw_result;
 
 always_ff @(posedge clk or posedge reset) begin
@@ -340,8 +407,17 @@ always_ff @(posedge clk or posedge reset) begin
         mw_ls_width <= em_ls_width;
         mw_load <= em_load;
         mw_load_sext <= em_load_sext;
+        mw_write_csr <= em_write_csr;
+        mw_csr_rd <= em_csr_rd;
+        mw_csr_wdata <= em_csr_wdata;
     end
 end
+
+always_ff @(posedge clk or posedge reset)
+    if (reset)
+        mscratch_reg <= 32'b0;
+    else if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MSCRATCH)
+        mscratch_reg <= mw_csr_wdata;
 
 RegFile RegFile(.rd_addr_a(rs1),
                 .rd_data_a(rs1_data),
@@ -359,6 +435,16 @@ always_ff @(posedge clk or posedge reset)
         pc <= next_pc;
     end
 
+reg [31:0] rvfi_em_csr_marchid_rmask;
+reg [31:0] rvfi_em_csr_marchid_rdata;
+reg [31:0] rvfi_mw_csr_marchid_rmask;
+reg [31:0] rvfi_mw_csr_marchid_rdata;
+
+reg [31:0] rvfi_em_csr_mscratch_rmask;
+reg [31:0] rvfi_em_csr_mscratch_rdata;
+reg [31:0] rvfi_mw_csr_mscratch_rmask;
+reg [31:0] rvfi_mw_csr_mscratch_rdata;
+
 always_ff @(posedge clk) begin
     rvfi_valid <= mw_valid;
     rvfi_pc_rdata <= mw_pc;
@@ -366,6 +452,22 @@ always_ff @(posedge clk) begin
     rvfi_insn <= mw_instruction;
     rvfi_rd_addr <= mw_valid ? mw_rd : 5'b0;
     rvfi_rd_wdata <= mw_rd == 5'd0 ? 32'b0 : w_data;
+
+    rvfi_em_csr_marchid_rmask <= de_valid && de_read_csr && de_immed[15:0] == CSR_MARCHID ? 32'hffffffff : 32'h00000000;
+    rvfi_em_csr_marchid_rdata <= e_csr_val;
+    rvfi_mw_csr_marchid_rmask <= rvfi_em_csr_marchid_rmask;
+    rvfi_mw_csr_marchid_rdata <= rvfi_em_csr_marchid_rdata;
+    rvfi_csr_marchid_rmask <= rvfi_mw_csr_marchid_rmask;
+    rvfi_csr_marchid_rdata <= rvfi_mw_csr_marchid_rdata;
+
+    rvfi_em_csr_mscratch_rmask <= de_valid && de_read_csr && de_immed[15:0] == CSR_MSCRATCH ? 32'hffffffff : 32'h00000000;
+    rvfi_em_csr_mscratch_rdata <= e_csr_val;
+    rvfi_mw_csr_mscratch_rmask <= rvfi_em_csr_mscratch_rmask;
+    rvfi_mw_csr_mscratch_rdata <= rvfi_em_csr_mscratch_rdata;
+    rvfi_csr_mscratch_rmask <= rvfi_mw_csr_mscratch_rmask;
+    rvfi_csr_mscratch_rdata <= rvfi_mw_csr_mscratch_rdata;
+    rvfi_csr_mscratch_wmask <= mw_valid && mw_write_csr && mw_csr_rd == CSR_MSCRATCH ? 32'hffffffff : 32'h0;
+    rvfi_csr_mscratch_wdata <= mw_csr_wdata;
 end
 
 endmodule

@@ -18,7 +18,13 @@ module RXVCore(input logic clk,
                output logic [31:0] rvfi_pc_rdata,
                output logic [31:0] rvfi_pc_wdata);
 
+// Instruction fetch
+reg [31:0] pc;
 wire [31:0] instruction = i_data;
+wire [31:0] next_pc     = ef_write_pc ? em_next_pc :
+                          insert_bubble ? pc : pc + 32'd4;
+assign i_addr           = pc;
+reg insert_bubble;
 
 // Instruction field extraction
 wire [6:0] funct7       = instruction[31:25];
@@ -142,7 +148,9 @@ wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
                           de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
                           de_br_type == BRANCH_COND && e_br_taken ? de_pc + de_immed :
                           de_pc + 32'd4;
-wire e_write_pc         = de_br_type == BRANCH_IMMED || de_br_type == BRANCH_INDIR;
+wire e_write_pc         = de_br_type == BRANCH_IMMED ||
+                          de_br_type == BRANCH_INDIR ||
+                          (de_br_type == BRANCH_COND && e_br_taken);
 wire e_br_taken         = de_funct3 == 3'd0 ? rs1_fwd == rs2_fwd :
                           de_funct3 == 3'd1 ? rs1_fwd != rs2_fwd :
                           de_funct3 == 3'd4 ? e_sub[31] :
@@ -173,6 +181,7 @@ wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_fun
                           de_funct3 == 3'd6 ? e_or :
                           de_funct3 == 3'd7 ? e_and :
                           32'b0;
+reg ef_write_pc;
 
 // Memory cycles
 assign d_access         = em_valid & (em_load | em_store);
@@ -207,23 +216,17 @@ assign d_wdata          = em_ls_width == LS_WIDTH_32 ? d_wdata32 :
                           em_ls_width == LS_WIDTH_16 ? d_wdata16 : d_wdata8;
 assign d_addr           = {em_result[31:2], 2'b00};
 
-reg [31:0] pc;
-wire [31:0] next_pc     = ef_write_pc ? em_next_pc :
-                          de_load ? pc : pc + 32'd4;
-assign i_addr = pc;
 wire [31:0] rs1_data, rs2_data;
 
 wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? w_data : rs1_data;
 wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? w_data : rs2_data;
 
-reg insert_bubble;
-reg ef_write_pc;
-
-always_ff @(posedge clk)
-    if (d_is_branch || d_opcode == OPC_LOAD)
-        insert_bubble <= 1'b1;
-    else if (ef_write_pc || de_load)
+always_ff @(posedge clk) begin
+    if (ef_write_pc || de_load)
         insert_bubble <= 1'b0;
+    else if (d_is_branch || d_opcode == OPC_LOAD)
+        insert_bubble <= 1'b1;
+end
 
 reg [6:0] de_opcode;
 reg [31:0] de_immed;

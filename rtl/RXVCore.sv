@@ -1,3 +1,7 @@
+`ifdef verilator
+`define RXV_RVFI
+`endif
+
 module RXVCore(input logic clk,
                input logic reset,
                // Instruction bus
@@ -9,7 +13,9 @@ module RXVCore(input logic clk,
                output logic [31:0] d_addr,
                output logic [3:0] d_bytesel,
                output logic [31:0] d_wdata,
-               input logic [31:0] d_rdata,
+               input logic [31:0] d_rdata
+`ifdef RXV_RVFI
+               ,
                // RVFI
                output logic rvfi_valid,
                output logic [31:0] rvfi_insn,
@@ -40,7 +46,9 @@ module RXVCore(input logic clk,
                output logic [31:0] rvfi_csr_mscratch_wmask,
                output logic [31:0] rvfi_csr_mscratch_rdata,
                output logic [31:0] rvfi_csr_mscratch_rmask,
-               output logic [31:0] rvfi_csr_mscratch_wdata);
+               output logic [31:0] rvfi_csr_mscratch_wdata
+`endif // RXV_RVFI
+               );
 
 // Instruction fetch
 reg [31:0] pc;
@@ -449,7 +457,10 @@ end
 reg mw_writeback;
 reg [4:0] mw_rd;
 reg [31:0] mw_result;
-reg [31:0] mw_pc, mw_next_pc;
+// verilator lint_off UNUSED
+reg [31:0] mw_pc;
+// verilator lint_on UNUSED
+reg [31:0] mw_next_pc;
 reg [31:0] mw_instruction;
 reg mw_illegal_instr;
 reg mw_valid;
@@ -542,13 +553,6 @@ always_ff @(posedge clk or posedge reset)
         pc <= next_pc;
     end
 
-reg [127:0] rvfi_csr_marchid_pipe;
-reg [127:0] rvfi_csr_mscratch_pipe;
-reg [127:0] rvfi_csr_mcause_pipe;
-reg [127:0] rvfi_csr_mtvec_pipe;
-reg [127:0] rvfi_csr_mtval_pipe;
-reg [127:0] rvfi_csr_mepc_pipe;
-
 wire w_exception         = mw_align_check | mw_illegal_instr;
 wire w_mcause_i          = 1'b0;
 wire [3:0] w_mcause_code = mw_align_check && mw_load ? EX_LOAD_ALIGN:
@@ -558,6 +562,14 @@ wire [3:0] w_mcause_code = mw_align_check && mw_load ? EX_LOAD_ALIGN:
 wire [31:0] w_mtval      = mw_align_check ? mw_result :
                            mw_illegal_instr ? mw_instruction : 32'b0;
 wire [31:0] w_next_pc    = w_exception ? {mtvec_reg_base, 2'b0} : mw_next_pc;
+
+`ifdef RXV_RVFI
+reg [127:0] rvfi_csr_marchid_pipe;
+reg [127:0] rvfi_csr_mscratch_pipe;
+reg [127:0] rvfi_csr_mcause_pipe;
+reg [127:0] rvfi_csr_mtvec_pipe;
+reg [127:0] rvfi_csr_mtval_pipe;
+reg [127:0] rvfi_csr_mepc_pipe;
 
 assign rvfi_csr_marchid_wmask = 32'h0;
 assign rvfi_csr_marchid_wdata = 32'd0;
@@ -605,7 +617,6 @@ always_ff @(posedge clk) begin
     rvfi_csr_mepc_wdata <= w_exception ? mw_pc : mw_csr_wdata;
 end
 
-`ifdef verilator
 export "DPI-C" function write_csr;
 
 function void write_csr;
@@ -617,6 +628,6 @@ function void write_csr;
     default: $display("unsupported CSR %x", csr);
     endcase
 endfunction
-`endif // verilator
+`endif // RXV_RVFI
 
 endmodule

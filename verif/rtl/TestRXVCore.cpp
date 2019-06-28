@@ -1077,3 +1077,80 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
     expected[MSCRATCH] = {0xffffffff, 0x80010000, 0xffffffff, 0x80018001};
     EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
 }
+
+TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRWI)
+{
+    mem[0] = NOP;
+    // csrrwi   x2,mscratch,0x1c
+    mem[1] = 0x340e5173;
+    // csrrw   x2,mscratch,x3
+    mem[2] = 0x34019173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0, instr.rd_val);
+    CSRMap expected;
+    expected[MSCRATCH] = {0xffffffff, 0x0000001c, 0xffffffff, 0};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x0000001c, instr.rd_val);
+    expected.clear();
+    expected[MSCRATCH] = {0xffffffff, 0x00000000, 0xffffffff, 0x0000001c};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}
+
+TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRSI)
+{
+    write_reg(1, 0x80018001);
+    mem[0] = NOP;
+    // csrrw   x2,mscratch,x1
+    mem[1] = 0x34009173;
+    // csrrsi  x2,mscratch,0x1c
+    mem[2] = 0x340e6173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0, instr.rd_val);
+    CSRMap expected;
+    expected[MSCRATCH] = {0xffffffff, 0x80018001, 0xffffffff, 0};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x80018001, instr.rd_val);
+    expected.clear();
+    expected[MSCRATCH] = {0xffffffff, 0x8001801d, 0xffffffff, 0x80018001};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}
+
+TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRCI)
+{
+    write_reg(1, 0x800180ff);
+    mem[0] = NOP;
+    // csrrw   x2,mscratch,x1
+    mem[1] = 0x34009173;
+    // csrrci  x2,mscratch,0x1c
+    mem[2] = 0x340e7173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0, instr.rd_val);
+    CSRMap expected;
+    expected[MSCRATCH] = {0xffffffff, 0x800180ff, 0xffffffff, 0};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x800180ff, instr.rd_val);
+    expected.clear();
+    expected[MSCRATCH] = {0xffffffff, 0x800180e3, 0xffffffff, 0x800180ff};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}

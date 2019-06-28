@@ -117,7 +117,7 @@ wire d_read_csr         = d_opcode == OPC_ENV &&
 wire d_write_csr        = d_opcode == OPC_ENV &&
                           ((funct3 == CSRRW || funct3 == CSRRWI) ||
                            ((funct3 == CSRRS || funct3 == CSRRC) && |d_rd) ||
-                           ((funct3 == CSRRSI || funct3 == CSRRCI) && |u_immed[4:0]));
+                           ((funct3 == CSRRSI || funct3 == CSRRCI) && |rs1));
 
 wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
                           d_opcode == OPC_AUIPC ? u_immed :
@@ -233,7 +233,10 @@ wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
 wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
                           de_funct3 == CSRRS ? e_csr_val | rs1_fwd :
                           de_funct3 == CSRRC ? e_csr_val & ~rs1_fwd :
-                          32'd0;
+                          de_funct3 == CSRRWI ? {27'b0, de_csr_immed} :
+                          de_funct3 == CSRRSI ? e_csr_val | {27'b0, de_csr_immed} :
+                          de_funct3 == CSRRCI ? e_csr_val & ~{27'b0, de_csr_immed} :
+                          rs1_fwd;
 assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 reg ef_write_pc;
 
@@ -302,6 +305,7 @@ reg [1:0] de_ls_width;
 reg de_load_sext;
 reg de_read_csr;
 reg de_write_csr;
+reg [4:0] de_csr_immed;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -328,6 +332,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_load_sext <= d_load_sext;
         de_read_csr <= d_read_csr;
         de_write_csr <= d_write_csr;
+        de_csr_immed <= rs1;
 
         fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;

@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cstring>
 
 #include <gmock/gmock.h>
 
@@ -25,6 +26,24 @@ enum CSRID {
     MCAUSE      = 0x0342,
     MTVAL       = 0x0343,
     MIP         = 0x0344,
+};
+
+
+enum ExCause {
+    EX_INSTR_ALIGN   = 0,
+    EX_INSTR_ACCESS  = 1,
+    EX_ILLEGAL_INSTR = 2,
+    EX_BREAKPOINT    = 3,
+    EX_LOAD_ALIGN    = 4,
+    EX_LOAD_ACCESS   = 5,
+    EX_STORE_ALIGN   = 6,
+    EX_STORE_ACCESS  = 7,
+    EX_ECALL_U       = 8,
+    EX_ECALL_S       = 9,
+    EX_ECALL_M       = 11,
+    EX_INSTR_PF      = 12,
+    EX_LOAD_PF       = 13,
+    EX_STORE_PF      = 15
 };
 // clang-format on
 
@@ -58,17 +77,19 @@ class RXVCoreTestbench
     , public ::testing::Test
 {
 public:
-    static constexpr int num_instructions = 4096;
+    static constexpr int num_instructions = 512 * 1024 * 4;
 
     RXVCoreTestbench()
     {
         reg_file_scope = svGetScopeFromName("TOP.RXVCore.RegFile");
+        csr_scope = svGetScopeFromName("TOP.RXVCore");
 
-        for (auto i = 0; i < num_instructions; ++i)
-            mem[i] = 0;
+        memset(mem, 0, sizeof(mem));
 
         periodic(ClockSetup, [&] {
             after_n_cycles(0, [&] {
+                if ((this->dut.i_addr >> 2) >= num_instructions)
+                    FAIL() << "out of bounds instruction access" << std::endl;
                 this->dut.i_data = this->mem[this->dut.i_addr >> 2];
             });
         });
@@ -84,6 +105,9 @@ public:
                             ((this->dut.d_bytesel & 4) ? 0x00ff0000 : 0) |
                             ((this->dut.d_bytesel & 8) ? 0xff000000 : 0);
             uint32_t addr = this->dut.d_addr;
+
+            if ((addr >> 2) >= num_instructions)
+                FAIL() << "out of bounds data access" << std::endl;
 
             if (this->dut.d_wren) {
                 uint32_t wdata = this->dut.d_wdata;
@@ -105,17 +129,25 @@ public:
                                   this->dut.rvfi_pc_wdata,
                                   this->dut.rvfi_rd_wdata,
                                   this->dut.rvfi_rd_addr};
-#define CSR_ACCESS(id, name)                                            \
-    ({                                                                  \
-        if (this->dut.rvfi_csr_##name##_rmask ||                        \
-            this->dut.rvfi_csr_##name##_wmask)                          \
-            ri.csrs[id] = CSRAccess{this->dut.rvfi_csr_##name##_wmask,  \
-                                    this->dut.rvfi_csr_##name##_wdata,  \
-                                    this->dut.rvfi_csr_##name##_rmask,  \
-                                    this->dut.rvfi_csr_##name##_rdata}; \
+#define CSR_ACCESS(id, name)                                                \
+    ({                                                                      \
+        if (this->dut.rvfi_csr_##name##_rmask ||                            \
+            this->dut.rvfi_csr_##name##_wmask)                              \
+            ri.csrs[id] = CSRAccess{this->dut.rvfi_csr_##name##_wmask,      \
+                                    this->dut.rvfi_csr_##name##_wmask       \
+                                        ? this->dut.rvfi_csr_##name##_wdata \
+                                        : 0,                                \
+                                    this->dut.rvfi_csr_##name##_rmask,      \
+                                    this->dut.rvfi_csr_##name##_rmask       \
+                                        ? this->dut.rvfi_csr_##name##_rdata \
+                                        : 0};                               \
     })
             CSR_ACCESS(MARCHID, marchid);
             CSR_ACCESS(MSCRATCH, mscratch);
+            CSR_ACCESS(MCAUSE, mcause);
+            CSR_ACCESS(MTVAL, mtval);
+            CSR_ACCESS(MTVEC, mtvec);
+            CSR_ACCESS(MEPC, mepc);
             retired_instructions.push_back(ri);
         });
     }
@@ -126,11 +158,18 @@ public:
         this->dut.write_reg(r, v);
     }
 
+    void write_csr(enum CSRID csr, uint32_t v)
+    {
+        svSetScope(csr_scope);
+        this->dut.write_csr(csr, v);
+    }
+
     std::vector<RetiredInstruction> retired_instructions;
     uint32_t mem[num_instructions];
 
 private:
     svScope reg_file_scope;
+    svScope csr_scope;
 };
 
 TEST_F(RXVCoreTestbench, LUI)
@@ -1153,4 +1192,65 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRCI)
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x800180e3, 0xffffffff, 0x800180ff};
     EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}
+
+TEST_F(RXVCoreTestbench, LWUnaligned)
+{
+    write_reg(1, 0x101);
+    write_reg(2, 0);
+    write_csr(MTVEC, 0x8000);
+
+    mem[0] = NOP;
+    // lw      x2,16(x1)
+    mem[1] = 0x0100a103;
+    // addi	x10,x10,1
+    mem[2] = 0x00150513;
+    mem[0x8000] = NOP;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0x8000, instr.next_pc);
+    EXPECT_EQ(0, instr.rd);
+    CSRMap expected;
+    expected[MCAUSE] = {0xffffffff, EX_LOAD_ALIGN, 0, 0};
+    expected[MEPC] = {0xffffffff, 0x4, 0, 0};
+    expected[MTVAL] = {0xffffffff, 0x111, 0, 0};
+    expected[MTVEC] = {0x00000000, 0x00000000, 0xffffffff, 0x00008000};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(0, instr.rd);
+}
+
+TEST_F(RXVCoreTestbench, SWUnaligned)
+{
+    write_reg(1, 0x101);
+    write_reg(2, 0);
+    write_csr(MTVEC, 0x8000);
+
+    mem[0] = NOP;
+    // sw      x2,16(x1)
+    mem[1] = 0x0020a823;
+    // addi	x10,x10,1
+    mem[2] = 0x00150513;
+    mem[0x8000] = NOP;
+
+    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0x8000, instr.next_pc);
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0, mem[0x100 / 4]);
+    CSRMap expected;
+    expected[MCAUSE] = {0xffffffff, EX_STORE_ALIGN, 0, 0};
+    expected[MEPC] = {0xffffffff, 0x4, 0, 0};
+    expected[MTVAL] = {0xffffffff, 0x111, 0, 0};
+    expected[MTVEC] = {0x00000000, 0x00000000, 0xffffffff, 0x00008000};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(0, instr.rd);
 }

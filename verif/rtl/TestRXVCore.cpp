@@ -1023,3 +1023,57 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRW)
     expected[MSCRATCH] = {0xffffffff, 0x00000000, 0xffffffff, 0x12345678};
     EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
 }
+
+TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRS)
+{
+    write_reg(1, 0x80018001);
+    write_reg(3, 0x0000ffff);
+    mem[0] = NOP;
+    // csrrw   x2,mscratch,x1
+    mem[1] = 0x34009173;
+    // csrrs   x2,mscratch,x3
+    mem[2] = 0x3401a173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0, instr.rd_val);
+    CSRMap expected;
+    expected[MSCRATCH] = {0xffffffff, 0x80018001, 0xffffffff, 0};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x80018001, instr.rd_val);
+    expected.clear();
+    expected[MSCRATCH] = {0xffffffff, 0x8001ffff, 0xffffffff, 0x80018001};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}
+
+TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
+{
+    write_reg(1, 0x80018001);
+    write_reg(3, 0x0000ffff);
+    mem[0] = NOP;
+    // csrrw   x2,mscratch,x1
+    mem[1] = 0x34009173;
+    // csrrc   x2,mscratch,x3
+    mem[2] = 0x3401b173;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0, instr.rd_val);
+    CSRMap expected;
+    expected[MSCRATCH] = {0xffffffff, 0x80018001, 0xffffffff, 0};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(2, instr.rd);
+    EXPECT_EQ(0x80018001, instr.rd_val);
+    expected.clear();
+    expected[MSCRATCH] = {0xffffffff, 0x80010000, 0xffffffff, 0x80018001};
+    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+}

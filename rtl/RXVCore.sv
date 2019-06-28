@@ -230,7 +230,10 @@ wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_fun
 wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
                           32'h00000000;
-wire [31:0] e_csr_wdata = rs1_fwd;
+wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
+                          de_funct3 == CSRRS ? e_csr_val | rs1_fwd :
+                          de_funct3 == CSRRC ? e_csr_val & ~rs1_fwd :
+                          32'd0;
 assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 reg ef_write_pc;
 

@@ -164,12 +164,37 @@ public:
         this->dut.write_csr(csr, v);
     }
 
+    void set_mtvec(uint32_t addr)
+    {
+        mtvec_addr = addr;
+
+        write_csr(MTVEC, addr);
+    }
+
+    void expect_exception(int instr_idx, uint32_t pc, uint32_t val, ExCause cause)
+    {
+        csr_accesses[instr_idx][MCAUSE] = {0xffffffff, cause, 0, 0};
+        csr_accesses[instr_idx][MEPC] = {0xffffffff, pc, 0, 0};
+        csr_accesses[instr_idx][MTVAL] = {0xffffffff, val, 0, 0};
+        csr_accesses[instr_idx][MTVEC] = {0x00000000, 0x00000000, 0xffffffff,
+                                          mtvec_addr};
+    }
+
+    void check_exceptions()
+    {
+        for (auto m = 0; m < retired_instructions.size(); ++m)
+            EXPECT_THAT(retired_instructions[m].csrs,
+                        ::testing::ContainerEq(csr_accesses[m]));
+    }
+
     std::vector<RetiredInstruction> retired_instructions;
     uint32_t mem[num_instructions];
+    std::map<int, CSRMap> csr_accesses;
 
 private:
     svScope reg_file_scope;
     svScope csr_scope;
+    uint32_t mtvec_addr;
 };
 
 TEST_F(RXVCoreTestbench, LUI)
@@ -1198,7 +1223,7 @@ TEST_F(RXVCoreTestbench, LWUnaligned)
 {
     write_reg(1, 0x101);
     write_reg(2, 0);
-    write_csr(MTVEC, 0x8000);
+    set_mtvec(0x8000);
 
     mem[0] = NOP;
     // lw      x2,16(x1)
@@ -1206,6 +1231,7 @@ TEST_F(RXVCoreTestbench, LWUnaligned)
     // addi	x10,x10,1
     mem[2] = 0x00150513;
     mem[0x8000] = NOP;
+    expect_exception(1, 0x4, 0x111, EX_LOAD_ALIGN);
 
     mem[0x110 / sizeof(uint32_t)] = 0x12345678;
     cycle(20);
@@ -1213,22 +1239,18 @@ TEST_F(RXVCoreTestbench, LWUnaligned)
     auto instr = retired_instructions[1];
     EXPECT_EQ(0x8000, instr.next_pc);
     EXPECT_EQ(0, instr.rd);
-    CSRMap expected;
-    expected[MCAUSE] = {0xffffffff, EX_LOAD_ALIGN, 0, 0};
-    expected[MEPC] = {0xffffffff, 0x4, 0, 0};
-    expected[MTVAL] = {0xffffffff, 0x111, 0, 0};
-    expected[MTVEC] = {0x00000000, 0x00000000, 0xffffffff, 0x00008000};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(0, instr.rd);
+
+    check_exceptions();
 }
 
 TEST_F(RXVCoreTestbench, SWUnaligned)
 {
     write_reg(1, 0x101);
     write_reg(2, 0);
-    write_csr(MTVEC, 0x8000);
+    set_mtvec(0x8000);
 
     mem[0] = NOP;
     // sw      x2,16(x1)
@@ -1236,6 +1258,7 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
     // addi	x10,x10,1
     mem[2] = 0x00150513;
     mem[0x8000] = NOP;
+    expect_exception(1, 0x4, 0x111, EX_STORE_ALIGN);
 
     mem[0x110 / sizeof(uint32_t)] = 0x12345678;
     cycle(20);
@@ -1244,13 +1267,9 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
     EXPECT_EQ(0x8000, instr.next_pc);
     EXPECT_EQ(0, instr.rd);
     EXPECT_EQ(0, mem[0x100 / 4]);
-    CSRMap expected;
-    expected[MCAUSE] = {0xffffffff, EX_STORE_ALIGN, 0, 0};
-    expected[MEPC] = {0xffffffff, 0x4, 0, 0};
-    expected[MTVAL] = {0xffffffff, 0x111, 0, 0};
-    expected[MTVEC] = {0x00000000, 0x00000000, 0xffffffff, 0x00008000};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(0, instr.rd);
+
+    check_exceptions();
 }

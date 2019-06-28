@@ -175,7 +175,10 @@ public:
         write_csr(MTVEC, addr);
     }
 
-    void expect_exception(int instr_idx, uint32_t pc, uint32_t val, ExCause cause)
+    void expect_exception(int instr_idx,
+                          uint32_t pc,
+                          uint32_t val,
+                          ExCause cause)
     {
         csr_accesses[instr_idx][MCAUSE] = {0xffffffff, cause, 0, 0};
         csr_accesses[instr_idx][MEPC] = {0xffffffff, pc, 0, 0};
@@ -1164,7 +1167,6 @@ TEST_F(RXVCoreTestbench, LWUnaligned)
 {
     write_reg(1, 0x101);
     write_reg(2, 0);
-    set_mtvec(0x8000);
 
     // lw      x2,16(x1)
     mem[1] = 0x0100a103;
@@ -1189,7 +1191,6 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
 {
     write_reg(1, 0x101);
     write_reg(2, 0);
-    set_mtvec(0x8000);
 
     // sw      x2,16(x1)
     mem[1] = 0x0020a823;
@@ -1204,6 +1205,26 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
     EXPECT_EQ(0x8000, instr.next_pc);
     EXPECT_EQ(0, instr.rd);
     EXPECT_EQ(NOP, mem[0x100 / 4]);
+
+    instr = retired_instructions[2];
+    EXPECT_EQ(0, instr.rd);
+
+    check_exceptions();
+}
+
+TEST_F(RXVCoreTestbench, IllegalInstr)
+{
+    // Illegal instruction
+    mem[1] = 0xffffffff;
+    // addi	x10,x10,1
+    mem[2] = 0x00150513;
+    expect_exception(1, 0x4, 0xffffffff, EX_ILLEGAL_INSTR);
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0x8000, instr.next_pc);
+    EXPECT_EQ(0, instr.rd);
 
     instr = retired_instructions[2];
     EXPECT_EQ(0, instr.rd);

@@ -55,6 +55,16 @@ wire [31:0] next_pc     = w_exception ? w_next_pc :
 assign i_addr           = pc;
 reg insert_bubble;
 
+wire f_clear_bubble     = ef_write_pc |
+                          de_load |
+                          mw_write_csr |
+                          w_exception;
+wire f_insert_bubble    = d_is_branch |
+                          d_opcode == OPC_LOAD |
+                          d_write_csr |
+                          d_abort |
+                          d_illegal_instr;
+
 // Instruction field extraction
 wire [6:0] funct7       = instruction[31:25];
 wire [4:0] rs2          = instruction[24:20];
@@ -321,9 +331,9 @@ wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? w_data : rs1_data;
 wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? w_data : rs2_data;
 
 always_ff @(posedge clk) begin
-    if (ef_write_pc || de_load || mw_write_csr || w_exception)
+    if (f_clear_bubble)
         insert_bubble <= 1'b0;
-    else if (d_is_branch || d_opcode == OPC_LOAD || d_write_csr || d_abort)
+    else if (f_insert_bubble)
         insert_bubble <= 1'b1;
 end
 
@@ -445,9 +455,7 @@ reg [4:0] mw_rd;
 reg [31:0] mw_result;
 reg [31:0] mw_pc, mw_next_pc;
 reg [31:0] mw_instruction;
-// verilator lint_off UNUSED
 reg mw_illegal_instr;
-// verilator lint_on UNUSED
 reg mw_valid;
 reg [1:0] mw_ls_width;
 reg mw_load;
@@ -568,12 +576,14 @@ reg [31:0] rvfi_em_csr_mepc_rdata;
 reg [31:0] rvfi_mw_csr_mepc_rmask;
 reg [31:0] rvfi_mw_csr_mepc_rdata;
 
-wire w_exception = mw_align_check;
-wire w_mcause_i = 1'b0;
+wire w_exception         = mw_align_check | mw_illegal_instr;
+wire w_mcause_i          = 1'b0;
 wire [3:0] w_mcause_code = mw_align_check && mw_load ? EX_LOAD_ALIGN:
                            mw_align_check && !mw_load ? EX_STORE_ALIGN :
+                           mw_illegal_instr ? EX_ILLEGAL_INSTR :
                            4'd0;
-wire [31:0] w_mtval      = mw_align_check ? mw_result : 32'b0;
+wire [31:0] w_mtval      = mw_align_check ? mw_result :
+                           mw_illegal_instr ? mw_instruction : 32'b0;
 wire [31:0] w_next_pc    = w_exception ? {mtvec_reg_base, 2'b0} : mw_next_pc;
 
 always_ff @(posedge clk) begin

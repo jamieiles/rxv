@@ -187,7 +187,7 @@ wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
                           de_opcode == OPC_STORE ? rs1_fwd + de_immed :
                           de_opcode == OPC_LOAD ? rs1_fwd + de_immed :
                           de_opcode == OPC_ENV && de_read_csr ? e_csr_val :
-                          32'b0;
+                          de_immed;
 // verilator lint_off UNUSED
 wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
 // verilator lint_on UNUSED
@@ -226,7 +226,7 @@ wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_fun
                           de_funct3 == 3'd5 &&  de_funct7_sel ? e_sra :
                           de_funct3 == 3'd6 ? e_or :
                           de_funct3 == 3'd7 ? e_and :
-                          32'b0;
+                          e_add;
 wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
                           32'h00000000;

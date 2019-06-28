@@ -68,8 +68,6 @@ struct RetiredInstruction {
     uint32_t next_pc;
     uint32_t rd_val;
     uint8_t rd;
-
-    CSRMap csrs;
 };
 
 class RXVCoreTestbench
@@ -84,7 +82,10 @@ public:
         reg_file_scope = svGetScopeFromName("TOP.RXVCore.RegFile");
         csr_scope = svGetScopeFromName("TOP.RXVCore");
 
-        memset(mem, 0, sizeof(mem));
+        set_mtvec(0x8000);
+
+        for (auto m = 0; m < num_instructions; ++m)
+            mem[m] = NOP;
 
         periodic(ClockSetup, [&] {
             after_n_cycles(0, [&] {
@@ -125,22 +126,26 @@ public:
             if (!this->dut.rvfi_valid)
                 return;
 
+            auto instr_idx = retired_instructions.size();
             RetiredInstruction ri{this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
                                   this->dut.rvfi_pc_wdata,
                                   this->dut.rvfi_rd_wdata,
                                   this->dut.rvfi_rd_addr};
-#define CSR_ACCESS(id, name)                                                \
-    ({                                                                      \
-        if (this->dut.rvfi_csr_##name##_rmask ||                            \
-            this->dut.rvfi_csr_##name##_wmask)                              \
-            ri.csrs[id] = CSRAccess{this->dut.rvfi_csr_##name##_wmask,      \
-                                    this->dut.rvfi_csr_##name##_wmask       \
-                                        ? this->dut.rvfi_csr_##name##_wdata \
-                                        : 0,                                \
-                                    this->dut.rvfi_csr_##name##_rmask,      \
-                                    this->dut.rvfi_csr_##name##_rmask       \
-                                        ? this->dut.rvfi_csr_##name##_rdata \
-                                        : 0};                               \
+            retired_instructions.push_back(ri);
+
+#define CSR_ACCESS(id, name)                                      \
+    ({                                                            \
+        if (this->dut.rvfi_csr_##name##_rmask ||                  \
+            this->dut.rvfi_csr_##name##_wmask)                    \
+            retired_csrs[instr_idx][id] =                         \
+                CSRAccess{this->dut.rvfi_csr_##name##_wmask,      \
+                          this->dut.rvfi_csr_##name##_wmask       \
+                              ? this->dut.rvfi_csr_##name##_wdata \
+                              : 0,                                \
+                          this->dut.rvfi_csr_##name##_rmask,      \
+                          this->dut.rvfi_csr_##name##_rmask       \
+                              ? this->dut.rvfi_csr_##name##_rdata \
+                              : 0};                               \
     })
             CSR_ACCESS(MARCHID, marchid);
             CSR_ACCESS(MSCRATCH, mscratch);
@@ -148,7 +153,6 @@ public:
             CSR_ACCESS(MTVAL, mtval);
             CSR_ACCESS(MTVEC, mtvec);
             CSR_ACCESS(MEPC, mepc);
-            retired_instructions.push_back(ri);
         });
     }
 
@@ -182,14 +186,13 @@ public:
 
     void check_exceptions()
     {
-        for (auto m = 0; m < retired_instructions.size(); ++m)
-            EXPECT_THAT(retired_instructions[m].csrs,
-                        ::testing::ContainerEq(csr_accesses[m]));
+            EXPECT_THAT(retired_csrs,
+                        ::testing::ContainerEq(csr_accesses));
     }
 
     std::vector<RetiredInstruction> retired_instructions;
     uint32_t mem[num_instructions];
-    std::map<int, CSRMap> csr_accesses;
+    std::map<int, CSRMap> csr_accesses, retired_csrs;
 
 private:
     svScope reg_file_scope;
@@ -1059,7 +1062,7 @@ TEST_F(RXVCoreTestbench, ReadMarchidCSRRW)
     EXPECT_EQ(0x72787600, instr.rd_val);
     CSRMap expected;
     expected[MARCHID] = {0x00000000, 0x00000000, 0xffffffff, 0x72787600};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRW)
@@ -1078,14 +1081,14 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRW)
     EXPECT_EQ(0, instr.rd_val);
     CSRMap expected;
     expected[MSCRATCH] = {0xffffffff, 0x12345678, 0xffffffff, 0};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x12345678, instr.rd_val);
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x00000000, 0xffffffff, 0x12345678};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[2], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRS)
@@ -1105,14 +1108,14 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRS)
     EXPECT_EQ(0, instr.rd_val);
     CSRMap expected;
     expected[MSCRATCH] = {0xffffffff, 0x80018001, 0xffffffff, 0};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x80018001, instr.rd_val);
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x8001ffff, 0xffffffff, 0x80018001};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[2], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
@@ -1132,14 +1135,14 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
     EXPECT_EQ(0, instr.rd_val);
     CSRMap expected;
     expected[MSCRATCH] = {0xffffffff, 0x80018001, 0xffffffff, 0};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x80018001, instr.rd_val);
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x80010000, 0xffffffff, 0x80018001};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[2], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRWI)
@@ -1157,14 +1160,14 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRWI)
     EXPECT_EQ(0, instr.rd_val);
     CSRMap expected;
     expected[MSCRATCH] = {0xffffffff, 0x0000001c, 0xffffffff, 0};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x0000001c, instr.rd_val);
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x00000000, 0xffffffff, 0x0000001c};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[2], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRSI)
@@ -1183,14 +1186,14 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRSI)
     EXPECT_EQ(0, instr.rd_val);
     CSRMap expected;
     expected[MSCRATCH] = {0xffffffff, 0x80018001, 0xffffffff, 0};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x80018001, instr.rd_val);
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x8001801d, 0xffffffff, 0x80018001};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[2], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRCI)
@@ -1209,14 +1212,14 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRCI)
     EXPECT_EQ(0, instr.rd_val);
     CSRMap expected;
     expected[MSCRATCH] = {0xffffffff, 0x800180ff, 0xffffffff, 0};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 
     instr = retired_instructions[2];
     EXPECT_EQ(2, instr.rd);
     EXPECT_EQ(0x800180ff, instr.rd_val);
     expected.clear();
     expected[MSCRATCH] = {0xffffffff, 0x800180e3, 0xffffffff, 0x800180ff};
-    EXPECT_THAT(instr.csrs, ::testing::ContainerEq(expected));
+    EXPECT_THAT(retired_csrs[2], ::testing::ContainerEq(expected));
 }
 
 TEST_F(RXVCoreTestbench, LWUnaligned)

@@ -202,7 +202,6 @@ private:
 
 TEST_F(RXVCoreTestbench, LUI)
 {
-    mem[0] = NOP;
     mem[1] = 0xdeadb537;
     cycle(10);
 
@@ -214,7 +213,6 @@ TEST_F(RXVCoreTestbench, LUI)
 
 TEST_F(RXVCoreTestbench, AUIPC)
 {
-    mem[0] = NOP;
     // auipc x10, 0xeef
     mem[1] = 0x00eef517;
     cycle(10);
@@ -227,7 +225,6 @@ TEST_F(RXVCoreTestbench, AUIPC)
 
 TEST_F(RXVCoreTestbench, JAL)
 {
-    mem[0] = NOP;
     // jal x10, 0x100
     mem[1] = 0x1000056f;
     mem[2] = 0xdeadbeef;
@@ -251,7 +248,6 @@ TEST_F(RXVCoreTestbench, JAL)
 TEST_F(RXVCoreTestbench, JALR)
 {
     write_reg(2, 0x200);
-    mem[0] = NOP;
     // jalr    x10,256(x2)
     mem[1] = 0x10010567;
     mem[2] = 0xdeadbeef;
@@ -267,7 +263,6 @@ TEST_F(RXVCoreTestbench, BEQTaken)
 {
     write_reg(2, 0x200);
     write_reg(3, 0x200);
-    mem[0] = NOP;
     // beq     x2,x3,c
     mem[1] = 0x00310463;
     mem[2] = 0xdeadbeef;
@@ -281,7 +276,6 @@ TEST_F(RXVCoreTestbench, BEQNotTaken)
 {
     write_reg(2, 0x200);
     write_reg(3, 0x201);
-    mem[0] = NOP;
     // beq     x2,x3,c
     mem[1] = 0x00310463;
     mem[2] = 0xdeadbeef;
@@ -295,7 +289,6 @@ TEST_F(RXVCoreTestbench, BNETaken)
 {
     write_reg(2, 0x200);
     write_reg(3, 0x201);
-    mem[0] = NOP;
     // bne     x2,x3,c
     mem[1] = 0x00311463;
     mem[2] = 0xdeadbeef;
@@ -309,7 +302,6 @@ TEST_F(RXVCoreTestbench, BNENotTaken)
 {
     write_reg(2, 0x200);
     write_reg(3, 0x200);
-    mem[0] = NOP;
     // bne     x2,x3,c
     mem[1] = 0x00311463;
     mem[2] = 0xdeadbeef;
@@ -323,7 +315,6 @@ TEST_F(RXVCoreTestbench, BLTTaken)
 {
     write_reg(2, -2);
     write_reg(3, -1);
-    mem[0] = NOP;
     // blt     x2,x3,c
     mem[1] = 0x00314463;
     mem[2] = 0xdeadbeef;
@@ -337,7 +328,6 @@ TEST_F(RXVCoreTestbench, BLTNotTaken)
 {
     write_reg(2, 1);
     write_reg(3, -1);
-    mem[0] = NOP;
     // blt     x2,x3,c
     mem[1] = 0x00314463;
     mem[2] = 0xdeadbeef;
@@ -351,7 +341,6 @@ TEST_F(RXVCoreTestbench, BGETakenGreater)
 {
     write_reg(2, 2);
     write_reg(3, 1);
-    mem[0] = NOP;
     // bge     x2,x3,c
     mem[1] = 0x00315463;
     mem[2] = 0xdeadbeef;
@@ -365,7 +354,6 @@ TEST_F(RXVCoreTestbench, BGETakenEqual)
 {
     write_reg(2, 2);
     write_reg(3, 2);
-    mem[0] = NOP;
     // bge     x2,x3,c
     mem[1] = 0x00315463;
     mem[2] = 0xdeadbeef;
@@ -379,7 +367,6 @@ TEST_F(RXVCoreTestbench, BGENotTaken)
 {
     write_reg(2, -2);
     write_reg(3, -1);
-    mem[0] = NOP;
     // bge     x2,x3,c
     mem[1] = 0x00315463;
     mem[2] = 0xdeadbeef;
@@ -393,7 +380,6 @@ TEST_F(RXVCoreTestbench, BLTUTaken)
 {
     write_reg(2, 2);
     write_reg(3, 3);
-    mem[0] = NOP;
     // bltu     x2,x3,c
     mem[1] = 0x00316463;
     mem[2] = 0xdeadbeef;
@@ -407,7 +393,6 @@ TEST_F(RXVCoreTestbench, BLTUNotTaken)
 {
     write_reg(2, -2);
     write_reg(3, 2);
-    mem[0] = NOP;
     // bltu     x2,x3,c
     mem[1] = 0x00316463;
     mem[2] = 0xdeadbeef;
@@ -421,7 +406,6 @@ TEST_F(RXVCoreTestbench, BGEUTakenGreater)
 {
     write_reg(2, -1);
     write_reg(3, -2);
-    mem[0] = NOP;
     // bgeu     x2,x3,c
     mem[1] = 0x00317463;
     mem[2] = 0xdeadbeef;
@@ -435,7 +419,6 @@ TEST_F(RXVCoreTestbench, BGEUTakenEqual)
 {
     write_reg(2, 2);
     write_reg(3, 2);
-    mem[0] = NOP;
     // bgeu     x2,x3,c
     mem[1] = 0x00317463;
     mem[2] = 0xdeadbeef;
@@ -451,7 +434,6 @@ TEST_F(RXVCoreTestbench, ADD)
 {
     write_reg(2, 2);
     write_reg(3, 3);
-    mem[0] = NOP;
     // add     x1,x2,x3
     mem[1] = 0x003100b3;
     cycle(10);
@@ -466,7 +448,6 @@ TEST_F(RXVCoreTestbench, SUB)
 {
     write_reg(2, 2);
     write_reg(3, 3);
-    mem[0] = NOP;
     // sub     x1,x2,x3
     mem[1] = 0x403100b3;
     cycle(10);
@@ -481,7 +462,6 @@ TEST_F(RXVCoreTestbench, SLL)
 {
     write_reg(2, 2);
     write_reg(3, 3);
-    mem[0] = NOP;
     // sll     x1,x2,x3
     mem[1] = 0x003110b3;
     cycle(10);
@@ -496,7 +476,6 @@ TEST_F(RXVCoreTestbench, SLTLess)
 {
     write_reg(2, -2);
     write_reg(3, -1);
-    mem[0] = NOP;
     // slt     x1,x2,x3
     mem[1] = 0x003120b3;
     cycle(10);
@@ -511,7 +490,6 @@ TEST_F(RXVCoreTestbench, SLTNotLess)
 {
     write_reg(2, 4);
     write_reg(3, 3);
-    mem[0] = NOP;
     // slt     x1,x2,x3
     mem[1] = 0x003120b3;
     cycle(10);
@@ -526,7 +504,6 @@ TEST_F(RXVCoreTestbench, SLTULess)
 {
     write_reg(2, 0xfffffffe);
     write_reg(3, 0xffffffff);
-    mem[0] = NOP;
     // sltu     x1,x2,x3
     mem[1] = 0x003130b3;
     cycle(10);
@@ -541,7 +518,6 @@ TEST_F(RXVCoreTestbench, SLTUNotLess)
 {
     write_reg(2, 0xffffffff);
     write_reg(3, 0xfffffffe);
-    mem[0] = NOP;
     // sltu     x1,x2,x3
     mem[1] = 0x003130b3;
     cycle(10);
@@ -556,7 +532,6 @@ TEST_F(RXVCoreTestbench, XOR)
 {
     write_reg(2, 0x7);
     write_reg(3, 0x9);
-    mem[0] = NOP;
     // xor     x1,x2,x3
     mem[1] = 0x003140b3;
     cycle(10);
@@ -571,7 +546,6 @@ TEST_F(RXVCoreTestbench, SRL)
 {
     write_reg(2, 0x5);
     write_reg(3, 0x1);
-    mem[0] = NOP;
     // srl     x1,x2,x3
     mem[1] = 0x003150b3;
     cycle(10);
@@ -586,7 +560,6 @@ TEST_F(RXVCoreTestbench, SRA)
 {
     write_reg(2, 0x80000000);
     write_reg(3, 15);
-    mem[0] = NOP;
     // sra     x1,x2,x3
     mem[1] = 0x403150b3;
     cycle(10);
@@ -601,7 +574,6 @@ TEST_F(RXVCoreTestbench, OR)
 {
     write_reg(2, 0x9);
     write_reg(3, 0x7);
-    mem[0] = NOP;
     // or     x1,x2,x3
     mem[1] = 0x003160b3;
     cycle(10);
@@ -616,7 +588,6 @@ TEST_F(RXVCoreTestbench, AND)
 {
     write_reg(2, 0x9);
     write_reg(3, 0x7);
-    mem[0] = NOP;
     // and     x1,x2,x3
     mem[1] = 0x003170b3;
     cycle(10);
@@ -633,7 +604,6 @@ TEST_F(RXVCoreTestbench, ADDI)
 {
     write_reg(2, 2);
     write_reg(3, 3);
-    mem[0] = NOP;
     // addi     x1,x2,3
     mem[1] = 0x00310093;
     cycle(10);
@@ -648,7 +618,6 @@ TEST_F(RXVCoreTestbench, SLLI)
 {
     write_reg(2, 2);
     write_reg(3, 3);
-    mem[0] = NOP;
     // slli     x1,x2,3
     mem[1] = 0x00311093;
     cycle(10);
@@ -663,7 +632,6 @@ TEST_F(RXVCoreTestbench, SLTILess)
 {
     write_reg(2, -2);
     write_reg(3, -1);
-    mem[0] = NOP;
     // slti     x1,x2,-1
     mem[1] = 0xfff12093;
     cycle(10);
@@ -678,7 +646,6 @@ TEST_F(RXVCoreTestbench, SLTINotLess)
 {
     write_reg(2, 4);
     write_reg(3, 3);
-    mem[0] = NOP;
     // slti     x1,x2,3
     mem[1] = 0x00312093;
     cycle(10);
@@ -693,7 +660,6 @@ TEST_F(RXVCoreTestbench, SLTIULess)
 {
     write_reg(2, 0xfffffffe);
     write_reg(3, 0xffffffff);
-    mem[0] = NOP;
     // sltiu     x1,x2,-1
     mem[1] = 0xfff13093;
     cycle(10);
@@ -708,7 +674,6 @@ TEST_F(RXVCoreTestbench, SLTIUNotLess)
 {
     write_reg(2, 0xffffffff);
     write_reg(3, 0xfffffffe);
-    mem[0] = NOP;
     // sltiu     x1,x2,-2
     mem[1] = 0xffe13093;
     cycle(10);
@@ -723,7 +688,6 @@ TEST_F(RXVCoreTestbench, XORI)
 {
     write_reg(2, 0x7);
     write_reg(3, 0x9);
-    mem[0] = NOP;
     // xori     x1,x2,9
     mem[1] = 0x00914093;
     cycle(10);
@@ -738,7 +702,6 @@ TEST_F(RXVCoreTestbench, SRLI)
 {
     write_reg(2, 0x5);
     write_reg(3, 0x1);
-    mem[0] = NOP;
     // srli     x1,x2,1
     mem[1] = 0x00115093;
     cycle(10);
@@ -753,7 +716,6 @@ TEST_F(RXVCoreTestbench, SRAI)
 {
     write_reg(2, 0x80000000);
     write_reg(3, 15);
-    mem[0] = NOP;
     // srai     x1,x2,15
     mem[1] = 0x40f15093;
     cycle(10);
@@ -768,7 +730,6 @@ TEST_F(RXVCoreTestbench, ORI)
 {
     write_reg(2, 0x9);
     write_reg(3, 0x7);
-    mem[0] = NOP;
     // ori     x1,x2,7
     mem[1] = 0x00716093;
     cycle(10);
@@ -783,7 +744,6 @@ TEST_F(RXVCoreTestbench, ANDI)
 {
     write_reg(2, 0x9);
     write_reg(3, 0x7);
-    mem[0] = NOP;
     // andi     x1,x2,x3
     mem[1] = 0x00717093;
     cycle(10);
@@ -797,7 +757,6 @@ TEST_F(RXVCoreTestbench, ANDI)
 TEST_F(RXVCoreTestbench, ExecForwarding)
 {
     write_reg(1, 0);
-    mem[0] = NOP;
     // addi    x1,x1,1
     mem[1] = 0x00108093;
     mem[2] = 0x00108093;
@@ -813,7 +772,6 @@ TEST_F(RXVCoreTestbench, ExecForwarding)
 TEST_F(RXVCoreTestbench, ExecForwarding2)
 {
     write_reg(1, 0);
-    mem[0] = NOP;
     // addi    x1,x1,1
     mem[1] = 0x00108093;
     // addi    x2,x2,1
@@ -832,7 +790,6 @@ TEST_F(RXVCoreTestbench, SW)
 {
     write_reg(1, 0x100);
     write_reg(2, 0xa5a55a5a);
-    mem[0] = NOP;
     // sw      x2,16(x1)
     mem[1] = 0x0020a823;
     cycle(20);
@@ -846,7 +803,6 @@ TEST_F(RXVCoreTestbench, SH)
 {
     write_reg(1, 0x100);
     write_reg(2, 0xa5a55a5a);
-    mem[0] = NOP;
     // sh      x2,16(x1)
     mem[1] = 0x00209823;
 
@@ -862,7 +818,6 @@ TEST_F(RXVCoreTestbench, SHUpper)
 {
     write_reg(1, 0x102);
     write_reg(2, 0xffffa5a5);
-    mem[0] = NOP;
     // sh      x2,16(x1)
     mem[1] = 0x00209823;
 
@@ -878,7 +833,6 @@ TEST_F(RXVCoreTestbench, SBAligned0)
 {
     write_reg(1, 0x100);
     write_reg(2, 0xffffa5a5);
-    mem[0] = NOP;
     // sb      x2,16(x1)
     mem[1] = 0x00208823;
 
@@ -894,7 +848,6 @@ TEST_F(RXVCoreTestbench, SBAligned1)
 {
     write_reg(1, 0x101);
     write_reg(2, 0xffffa5a5);
-    mem[0] = NOP;
     // sb      x2,16(x1)
     mem[1] = 0x00208823;
 
@@ -910,7 +863,6 @@ TEST_F(RXVCoreTestbench, LW)
 {
     write_reg(1, 0x100);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lw      x2,16(x1)
     mem[1] = 0x0100a103;
 
@@ -927,7 +879,6 @@ TEST_F(RXVCoreTestbench, LHUAligned)
 {
     write_reg(1, 0x100);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lhu      x2,16(x1)
     mem[1] = 0x0100d103;
 
@@ -944,7 +895,6 @@ TEST_F(RXVCoreTestbench, LHUUnaligned)
 {
     write_reg(1, 0x102);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lhu      x2,16(x1)
     mem[1] = 0x0100d103;
 
@@ -961,7 +911,6 @@ TEST_F(RXVCoreTestbench, LBU0)
 {
     write_reg(1, 0x100);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lbu      x2,16(x1)
     mem[1] = 0x0100c103;
 
@@ -978,7 +927,6 @@ TEST_F(RXVCoreTestbench, LBU3)
 {
     write_reg(1, 0x103);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lbu      x2,16(x1)
     mem[1] = 0x0100c103;
 
@@ -995,7 +943,6 @@ TEST_F(RXVCoreTestbench, LB)
 {
     write_reg(1, 0x100);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lb      x2,16(x1)
     mem[1] = 0x01008103;
 
@@ -1012,7 +959,6 @@ TEST_F(RXVCoreTestbench, LH)
 {
     write_reg(1, 0x100);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lh      x2,16(x1)
     mem[1] = 0x01009103;
 
@@ -1029,7 +975,6 @@ TEST_F(RXVCoreTestbench, LWForward)
 {
     write_reg(1, 0x100);
     write_reg(2, 0);
-    mem[0] = NOP;
     // lw      x2,16(x1)
     mem[1] = 0x0100a103;
     // addi    x2,x2,0x678
@@ -1051,7 +996,6 @@ TEST_F(RXVCoreTestbench, ReadMarchidCSRRW)
 {
     write_reg(2, 0x12345678);
     write_reg(2, 0xdeadbeef);
-    mem[0] = NOP;
     // csrrw   x2,marchid,x0
     mem[1] = 0xf1201173;
 
@@ -1068,7 +1012,6 @@ TEST_F(RXVCoreTestbench, ReadMarchidCSRRW)
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRW)
 {
     write_reg(1, 0x12345678);
-    mem[0] = NOP;
     // csrrw   x2,mscratch,x1
     mem[1] = 0x34009173;
     // csrrw   x2,mscratch,x3
@@ -1095,7 +1038,6 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRS)
 {
     write_reg(1, 0x80018001);
     write_reg(3, 0x0000ffff);
-    mem[0] = NOP;
     // csrrw   x2,mscratch,x1
     mem[1] = 0x34009173;
     // csrrs   x2,mscratch,x3
@@ -1122,7 +1064,6 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
 {
     write_reg(1, 0x80018001);
     write_reg(3, 0x0000ffff);
-    mem[0] = NOP;
     // csrrw   x2,mscratch,x1
     mem[1] = 0x34009173;
     // csrrc   x2,mscratch,x3
@@ -1147,7 +1088,6 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
 
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRWI)
 {
-    mem[0] = NOP;
     // csrrwi   x2,mscratch,0x1c
     mem[1] = 0x340e5173;
     // csrrw   x2,mscratch,x3
@@ -1173,7 +1113,6 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRWI)
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRSI)
 {
     write_reg(1, 0x80018001);
-    mem[0] = NOP;
     // csrrw   x2,mscratch,x1
     mem[1] = 0x34009173;
     // csrrsi  x2,mscratch,0x1c
@@ -1199,7 +1138,6 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRSI)
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRCI)
 {
     write_reg(1, 0x800180ff);
-    mem[0] = NOP;
     // csrrw   x2,mscratch,x1
     mem[1] = 0x34009173;
     // csrrci  x2,mscratch,0x1c
@@ -1228,12 +1166,10 @@ TEST_F(RXVCoreTestbench, LWUnaligned)
     write_reg(2, 0);
     set_mtvec(0x8000);
 
-    mem[0] = NOP;
     // lw      x2,16(x1)
     mem[1] = 0x0100a103;
     // addi	x10,x10,1
     mem[2] = 0x00150513;
-    mem[0x8000] = NOP;
     expect_exception(1, 0x4, 0x111, EX_LOAD_ALIGN);
 
     mem[0x110 / sizeof(uint32_t)] = 0x12345678;
@@ -1255,12 +1191,10 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
     write_reg(2, 0);
     set_mtvec(0x8000);
 
-    mem[0] = NOP;
     // sw      x2,16(x1)
     mem[1] = 0x0020a823;
     // addi	x10,x10,1
     mem[2] = 0x00150513;
-    mem[0x8000] = NOP;
     expect_exception(1, 0x4, 0x111, EX_STORE_ALIGN);
 
     mem[0x110 / sizeof(uint32_t)] = 0x12345678;
@@ -1269,7 +1203,7 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
     auto instr = retired_instructions[1];
     EXPECT_EQ(0x8000, instr.next_pc);
     EXPECT_EQ(0, instr.rd);
-    EXPECT_EQ(0, mem[0x100 / 4]);
+    EXPECT_EQ(NOP, mem[0x100 / 4]);
 
     instr = retired_instructions[2];
     EXPECT_EQ(0, instr.rd);

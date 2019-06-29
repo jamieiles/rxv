@@ -1263,3 +1263,19 @@ TEST_F(RXVCoreTestbench, MRET)
     expected[MEPC] = {0, 0, 0xffffffff, 0x0001000};
     EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 }
+
+TEST_F(RXVCoreTestbench, ECALL)
+{
+    write_reg(1, 0x800180ff);
+    // ecall
+    mem[1] = 0x00000073;
+    expect_exception(1, 0x4, 0, EX_ECALL_M);
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0x8000, instr.next_pc);
+
+    check_exceptions();
+}

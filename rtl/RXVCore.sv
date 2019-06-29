@@ -382,6 +382,7 @@ reg de_read_csr;
 reg de_write_csr;
 reg [4:0] de_csr_immed;
 reg de_do_mret;
+reg de_do_ecall;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -410,6 +411,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_write_csr <= d_write_csr;
         de_csr_immed <= rs1;
         de_do_mret <= d_read_mepc;
+        de_do_ecall <= instruction == INSTR_ECALL;
 
         fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;
@@ -432,6 +434,7 @@ reg em_load_sext;
 reg em_write_csr;
 reg [31:0] em_csr_wdata;
 reg em_instr_align_check;
+reg em_do_ecall;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -454,6 +457,7 @@ always_ff @(posedge clk or posedge reset) begin
         em_csr_rd <= de_immed[15:0];
         em_csr_wdata <= e_csr_wdata;
         em_instr_align_check <= |e_next_pc[1:0];
+        em_do_ecall <= de_do_ecall;
 
         fwd_rs1_m <= em_valid && em_writeback && em_rd == rs1;
         fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;
@@ -480,6 +484,7 @@ reg [15:0] mw_csr_rd;
 reg [31:0] mw_csr_wdata;
 reg mw_data_align_check;
 reg mw_instr_align_check;
+reg mw_do_ecall;
 wire [31:0] w_data = mw_load ? (mw_load_sext ? d_rdata_s : d_rdata_msk) : mw_result;
 
 always_ff @(posedge clk or posedge reset) begin
@@ -501,6 +506,7 @@ always_ff @(posedge clk or posedge reset) begin
         mw_csr_rd <= em_csr_rd;
         mw_csr_wdata <= em_csr_wdata;
         mw_data_align_check <= m_raise_ac;
+        mw_do_ecall <= em_do_ecall;
         mw_instr_align_check <= em_instr_align_check;
     end
 end
@@ -565,12 +571,14 @@ always_ff @(posedge clk or posedge reset)
 
 wire w_exception         = mw_data_align_check |
                            mw_illegal_instr |
-                           mw_instr_align_check;
+                           mw_instr_align_check |
+                           mw_do_ecall;
 wire w_mcause_i          = 1'b0;
 wire [3:0] w_mcause_code = mw_data_align_check && mw_load ? EX_LOAD_ALIGN:
                            mw_data_align_check && !mw_load ? EX_STORE_ALIGN :
                            mw_illegal_instr ? EX_ILLEGAL_INSTR :
                            mw_instr_align_check ? EX_INSTR_ALIGN :
+                           mw_do_ecall ? EX_ECALL_M :
                            4'd0;
 wire [31:0] w_mtval      = mw_data_align_check ? mw_result :
                            mw_illegal_instr ? mw_instruction :

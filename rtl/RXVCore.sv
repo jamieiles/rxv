@@ -223,6 +223,7 @@ wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
 wire [1:0] d_ls_width   = funct3[1:0];
 wire d_load_sext        = ~funct3[2];
 wire d_abort            = e_abort;
+wire d_read_mepc        = instruction == INSTR_MRET;
 
 // Instruction execution
 wire e_sub_b;
@@ -242,10 +243,12 @@ wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
 wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
                           de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
                           de_br_type == BRANCH_COND && e_br_taken ? de_pc + de_immed :
+                          de_do_mret ? mepc_reg :
                           de_pc + 32'd4;
 wire e_write_pc         = de_br_type == BRANCH_IMMED ||
                           de_br_type == BRANCH_INDIR ||
-                          (de_br_type == BRANCH_COND && e_br_taken);
+                          (de_br_type == BRANCH_COND && e_br_taken) ||
+                          de_do_mret;
 wire e_br_taken         = de_funct3 == 3'd0 ? rs1_fwd == rs2_fwd :
                           de_funct3 == 3'd1 ? rs1_fwd != rs2_fwd :
                           de_funct3 == 3'd4 ? e_sub[31] :
@@ -280,7 +283,7 @@ wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MCAUSE ? mcause_reg :
                           de_immed[15:0] == CSR_MTVAL ? mtval_reg :
                           de_immed[15:0] == CSR_MTVEC ? mtvec_reg :
-                          de_immed[15:0] == CSR_MEPC ? mepc_reg :
+                          de_immed[15:0] == CSR_MEPC || de_do_mret ? mepc_reg :
                           32'h00000000;
 wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
                           de_funct3 == CSRRS ? e_csr_val | rs1_fwd :
@@ -378,6 +381,7 @@ reg de_load_sext;
 reg de_read_csr;
 reg de_write_csr;
 reg [4:0] de_csr_immed;
+reg de_do_mret;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -405,6 +409,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_read_csr <= d_read_csr;
         de_write_csr <= d_write_csr;
         de_csr_immed <= rs1;
+        de_do_mret <= d_read_mepc;
 
         fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;
@@ -620,7 +625,7 @@ always_ff @(posedge clk) begin
     rvfi_csr_mtval_wdata <= w_exception ? w_mtval : mw_csr_wdata;
 
     // MEPC
-    rvfi_csr_mepc_pipe <= {rvfi_csr_mepc_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MEPC ? 32'hffffffff : 32'h00000000, e_csr_val};
+    rvfi_csr_mepc_pipe <= {rvfi_csr_mepc_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MEPC || de_do_mret ? 32'hffffffff : 32'h00000000, e_csr_val};
     {rvfi_csr_mepc_rmask, rvfi_csr_mepc_rdata} <= rvfi_csr_mepc_pipe[127:64];
     rvfi_csr_mepc_wmask <= (mw_valid && mw_write_csr && mw_csr_rd == CSR_MEPC) || w_exception ? 32'hffffffff : 32'h0;
     rvfi_csr_mepc_wdata <= w_exception ? mw_pc : mw_csr_wdata;
@@ -634,6 +639,7 @@ function void write_csr;
 
     case (csr[15:0])
     CSR_MTVEC: {mtvec_reg_base, mtvec_reg_mode} = {val[31:2], val[0]};
+    CSR_MEPC: mepc_reg_msb = val[31:2];
     default: $display("unsupported CSR %x", csr);
     endcase
 endfunction

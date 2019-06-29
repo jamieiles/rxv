@@ -1246,3 +1246,20 @@ TEST_F(RXVCoreTestbench, JALRMisalign)
     EXPECT_EQ(0, instr.rd);
     EXPECT_EQ(0x8000, instr.next_pc);
 }
+
+TEST_F(RXVCoreTestbench, MRET)
+{
+    write_csr(MEPC, 0x1000);
+    write_reg(1, 0x800180ff);
+    // mret
+    mem[1] = 0x30200073;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0x1000, instr.next_pc);
+    CSRMap expected;
+    expected[MEPC] = {0, 0, 0xffffffff, 0x0001000};
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
+}

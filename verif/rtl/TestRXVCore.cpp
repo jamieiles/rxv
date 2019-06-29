@@ -1280,6 +1280,22 @@ TEST_F(RXVCoreTestbench, ECALL)
     check_exceptions();
 }
 
+TEST_F(RXVCoreTestbench, EBREAK)
+{
+    write_reg(1, 0x800180ff);
+    // ebreak
+    mem[1] = 0x00100073;
+    expect_exception(1, 0x4, 0, EX_BREAKPOINT);
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0x8000, instr.next_pc);
+
+    check_exceptions();
+}
+
 TEST_F(RXVCoreTestbench, FENCE)
 {
     // fence iorw,iorw

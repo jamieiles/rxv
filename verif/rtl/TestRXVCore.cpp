@@ -1279,3 +1279,17 @@ TEST_F(RXVCoreTestbench, ECALL)
 
     check_exceptions();
 }
+
+TEST_F(RXVCoreTestbench, FENCE)
+{
+    // fence iorw,iorw
+    mem[1] = 0x0ff0000f;
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0x8, instr.next_pc);
+
+    check_exceptions();
+}

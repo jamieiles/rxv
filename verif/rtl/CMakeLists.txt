@@ -1,15 +1,14 @@
 include(Verilator)
 include_directories(../../vendor/googletest/googletest/include)
 include_directories(../../vendor/googletest/googlemock/include)
+include_directories(../../simulator)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../simulator)
 set_source_files_properties(${VERILATED_DPI_CPP} PROPERTIES COMPILE_FLAGS "-Wno-unused-parameter -Wno-error")
 set_source_files_properties(${VERILATED_CPP} PROPERTIES COMPILE_FLAGS "-Wno-unused-parameter -Wno-error")
 add_library(verilator SHARED ${VERILATOR_LIB_SOURCES})
 
 verilate(TOPLEVEL RegFile
          VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RegFile.sv)
-verilate(TOPLEVEL RXVCore
-         VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RegFile.sv)
 
 add_executable(rtl-unittest
                TestRegisterFile.cpp

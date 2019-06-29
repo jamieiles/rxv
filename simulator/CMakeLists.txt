@@ -1,5 +1,10 @@
 find_package(Boost COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
+include(Verilator)
+
+verilate(TOPLEVEL RXVCore
+         VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVCore.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RegFile.sv)
 
 add_executable(rxv-simulator
                Simulator.cpp
@@ -9,6 +14,8 @@ add_executable(rxv-simulator
                RiscVELF.cpp
                RiscVELF.h)
 target_link_libraries(rxv-simulator
+		      verilator
+		      VRXVCore
                       ${Boost_LIBRARIES})
 
 ExternalProject_Add(riscv-compliance

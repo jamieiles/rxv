@@ -444,7 +444,6 @@ void RXVSim::step()
         default: illegal_instruction = true; break;
         }
         break;
-    case 0x0b: break; // Sim hook
     default: illegal_instruction = true; break;
     }
 

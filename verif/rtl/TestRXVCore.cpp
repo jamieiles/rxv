@@ -1231,3 +1231,18 @@ TEST_F(RXVCoreTestbench, IllegalInstr)
 
     check_exceptions();
 }
+
+TEST_F(RXVCoreTestbench, JALRMisalign)
+{
+    write_reg(2, 0x203);
+    // jalr    x10,256(x2)
+    mem[1] = 0x10010567;
+    mem[2] = 0xdeadbeef;
+
+    expect_exception(1, 0x4, 0x203 + 256, EX_INSTR_ALIGN);
+    cycle(10);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0x8000, instr.next_pc);
+}

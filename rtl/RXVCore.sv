@@ -292,6 +292,7 @@ wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
 assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 reg ef_write_pc;
 wire e_abort            = m_abort;
+wire e_instr_ac         = |e_next_pc[1:0];
 
 // Memory cycles
 assign d_access         = em_valid & (em_load | em_store) & !m_align_check;
@@ -425,12 +426,13 @@ reg [15:0] em_csr_rd;
 reg em_load_sext;
 reg em_write_csr;
 reg [31:0] em_csr_wdata;
+reg em_instr_align_check;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
         em_valid <= 1'b0;
     end else begin
-        em_writeback <= de_valid && de_writeback;
+        em_writeback <= de_valid && de_writeback && !e_instr_ac;
         em_rd <= de_rd;
         em_result <= alu_out;
         em_pc <= de_pc;
@@ -446,6 +448,7 @@ always_ff @(posedge clk or posedge reset) begin
         em_write_csr <= de_write_csr;
         em_csr_rd <= de_immed[15:0];
         em_csr_wdata <= e_csr_wdata;
+        em_instr_align_check <= |e_next_pc[1:0];
 
         fwd_rs1_m <= em_valid && em_writeback && em_rd == rs1;
         fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;
@@ -470,7 +473,8 @@ reg mw_load_sext;
 reg mw_write_csr;
 reg [15:0] mw_csr_rd;
 reg [31:0] mw_csr_wdata;
-reg mw_align_check;
+reg mw_data_align_check;
+reg mw_instr_align_check;
 wire [31:0] w_data = mw_load ? (mw_load_sext ? d_rdata_s : d_rdata_msk) : mw_result;
 
 always_ff @(posedge clk or posedge reset) begin
@@ -491,7 +495,8 @@ always_ff @(posedge clk or posedge reset) begin
         mw_write_csr <= em_write_csr;
         mw_csr_rd <= em_csr_rd;
         mw_csr_wdata <= em_csr_wdata;
-        mw_align_check <= m_raise_ac;
+        mw_data_align_check <= m_raise_ac;
+        mw_instr_align_check <= em_instr_align_check;
     end
 end
 
@@ -531,7 +536,7 @@ always_ff @(posedge clk or posedge reset)
     if (reset)
         mtval_reg <= 32'b0;
     else begin
-        if (w_exception && mw_align_check)
+        if (w_exception && mw_data_align_check)
             mtval_reg <= w_mtval;
         if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MTVAL)
             mtval_reg <= mw_csr_wdata;
@@ -553,14 +558,18 @@ always_ff @(posedge clk or posedge reset)
         pc <= next_pc;
     end
 
-wire w_exception         = mw_align_check | mw_illegal_instr;
+wire w_exception         = mw_data_align_check |
+                           mw_illegal_instr |
+                           mw_instr_align_check;
 wire w_mcause_i          = 1'b0;
-wire [3:0] w_mcause_code = mw_align_check && mw_load ? EX_LOAD_ALIGN:
-                           mw_align_check && !mw_load ? EX_STORE_ALIGN :
+wire [3:0] w_mcause_code = mw_data_align_check && mw_load ? EX_LOAD_ALIGN:
+                           mw_data_align_check && !mw_load ? EX_STORE_ALIGN :
                            mw_illegal_instr ? EX_ILLEGAL_INSTR :
+                           mw_instr_align_check ? EX_INSTR_ALIGN :
                            4'd0;
-wire [31:0] w_mtval      = mw_align_check ? mw_result :
-                           mw_illegal_instr ? mw_instruction : 32'b0;
+wire [31:0] w_mtval      = mw_data_align_check ? mw_result :
+                           mw_illegal_instr ? mw_instruction :
+                           mw_instr_align_check ? mw_next_pc : 32'b0;
 wire [31:0] w_next_pc    = w_exception ? {mtvec_reg_base, 2'b0} : mw_next_pc;
 
 `ifdef RXV_RVFI

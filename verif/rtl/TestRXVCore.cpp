@@ -41,12 +41,12 @@ class RXVCoreTestbench
 public:
     static constexpr int num_instructions = 512 * 1024 * 4;
 
-    RXVCoreTestbench() : RXVCPU()
+    RXVCoreTestbench() : RXVCPU(num_instructions * 4, 0)
     {
         set_mtvec(0x8000);
 
         for (auto m = 0; m < num_instructions; ++m)
-            mem[m] = NOP;
+            write_mem<uint32_t>(m * 4, NOP);
 
         periodic(ClockCapture, [&] {
             if (!this->dut.rvfi_valid)
@@ -82,16 +82,6 @@ public:
         });
     }
 
-    virtual void instr_fetch_oob(uint32_t addr)
-    {
-        FAIL() << "out of bounds instruction access" << std::endl;
-    }
-
-    virtual void data_access_oob(uint32_t addr)
-    {
-        FAIL() << "out of bounds data access" << std::endl;
-    }
-
     void set_mtvec(uint32_t addr)
     {
         mtvec_addr = addr;
@@ -125,7 +115,7 @@ private:
 
 TEST_F(RXVCoreTestbench, LUI)
 {
-    mem[1] = 0xdeadb537;
+    write_mem<uint32_t>(4, 0xdeadb537);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -137,7 +127,7 @@ TEST_F(RXVCoreTestbench, LUI)
 TEST_F(RXVCoreTestbench, AUIPC)
 {
     // auipc x10, 0xeef
-    mem[1] = 0x00eef517;
+    write_mem<uint32_t>(4, 0x00eef517);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -149,9 +139,9 @@ TEST_F(RXVCoreTestbench, AUIPC)
 TEST_F(RXVCoreTestbench, JAL)
 {
     // jal x10, 0x100
-    mem[1] = 0x1000056f;
-    mem[2] = 0xdeadbeef;
-    mem[0x104 / 4] = 0x0100056f;
+    write_mem<uint32_t>(4, 0x1000056f);
+    write_mem<uint32_t>(8, 0xdeadbeef);
+    write_mem<uint32_t>(0x104, 0x0100056f);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -172,8 +162,8 @@ TEST_F(RXVCoreTestbench, JALR)
 {
     write_reg(2, 0x200);
     // jalr    x10,256(x2)
-    mem[1] = 0x10010567;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x10010567);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -187,8 +177,8 @@ TEST_F(RXVCoreTestbench, BEQTaken)
     write_reg(2, 0x200);
     write_reg(3, 0x200);
     // beq     x2,x3,c
-    mem[1] = 0x00310463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00310463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -200,8 +190,8 @@ TEST_F(RXVCoreTestbench, BEQNotTaken)
     write_reg(2, 0x200);
     write_reg(3, 0x201);
     // beq     x2,x3,c
-    mem[1] = 0x00310463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00310463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -213,8 +203,8 @@ TEST_F(RXVCoreTestbench, BNETaken)
     write_reg(2, 0x200);
     write_reg(3, 0x201);
     // bne     x2,x3,c
-    mem[1] = 0x00311463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00311463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -226,8 +216,8 @@ TEST_F(RXVCoreTestbench, BNENotTaken)
     write_reg(2, 0x200);
     write_reg(3, 0x200);
     // bne     x2,x3,c
-    mem[1] = 0x00311463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00311463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -239,8 +229,8 @@ TEST_F(RXVCoreTestbench, BLTTaken)
     write_reg(2, -2);
     write_reg(3, -1);
     // blt     x2,x3,c
-    mem[1] = 0x00314463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00314463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -252,8 +242,8 @@ TEST_F(RXVCoreTestbench, BLTNotTaken)
     write_reg(2, 1);
     write_reg(3, -1);
     // blt     x2,x3,c
-    mem[1] = 0x00314463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00314463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -265,8 +255,8 @@ TEST_F(RXVCoreTestbench, BGETakenGreater)
     write_reg(2, 2);
     write_reg(3, 1);
     // bge     x2,x3,c
-    mem[1] = 0x00315463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00315463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -278,8 +268,8 @@ TEST_F(RXVCoreTestbench, BGETakenEqual)
     write_reg(2, 2);
     write_reg(3, 2);
     // bge     x2,x3,c
-    mem[1] = 0x00315463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00315463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -291,8 +281,8 @@ TEST_F(RXVCoreTestbench, BGENotTaken)
     write_reg(2, -2);
     write_reg(3, -1);
     // bge     x2,x3,c
-    mem[1] = 0x00315463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00315463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -304,8 +294,8 @@ TEST_F(RXVCoreTestbench, BLTUTaken)
     write_reg(2, 2);
     write_reg(3, 3);
     // bltu     x2,x3,c
-    mem[1] = 0x00316463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00316463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -317,8 +307,8 @@ TEST_F(RXVCoreTestbench, BLTUNotTaken)
     write_reg(2, -2);
     write_reg(3, 2);
     // bltu     x2,x3,c
-    mem[1] = 0x00316463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00316463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -330,8 +320,8 @@ TEST_F(RXVCoreTestbench, BGEUTakenGreater)
     write_reg(2, -1);
     write_reg(3, -2);
     // bgeu     x2,x3,c
-    mem[1] = 0x00317463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00317463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -343,8 +333,8 @@ TEST_F(RXVCoreTestbench, BGEUTakenEqual)
     write_reg(2, 2);
     write_reg(3, 2);
     // bgeu     x2,x3,c
-    mem[1] = 0x00317463;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x00317463);
+    write_mem<uint32_t>(8, 0xdeadbeef);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -358,7 +348,7 @@ TEST_F(RXVCoreTestbench, ADD)
     write_reg(2, 2);
     write_reg(3, 3);
     // add     x1,x2,x3
-    mem[1] = 0x003100b3;
+    write_mem<uint32_t>(4, 0x003100b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -372,7 +362,7 @@ TEST_F(RXVCoreTestbench, SUB)
     write_reg(2, 2);
     write_reg(3, 3);
     // sub     x1,x2,x3
-    mem[1] = 0x403100b3;
+    write_mem<uint32_t>(4, 0x403100b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -386,7 +376,7 @@ TEST_F(RXVCoreTestbench, SLL)
     write_reg(2, 2);
     write_reg(3, 3);
     // sll     x1,x2,x3
-    mem[1] = 0x003110b3;
+    write_mem<uint32_t>(4, 0x003110b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -400,7 +390,7 @@ TEST_F(RXVCoreTestbench, SLTLess)
     write_reg(2, -2);
     write_reg(3, -1);
     // slt     x1,x2,x3
-    mem[1] = 0x003120b3;
+    write_mem<uint32_t>(4, 0x003120b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -414,7 +404,7 @@ TEST_F(RXVCoreTestbench, SLTNotLess)
     write_reg(2, 4);
     write_reg(3, 3);
     // slt     x1,x2,x3
-    mem[1] = 0x003120b3;
+    write_mem<uint32_t>(4, 0x003120b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -428,7 +418,7 @@ TEST_F(RXVCoreTestbench, SLTULess)
     write_reg(2, 0xfffffffe);
     write_reg(3, 0xffffffff);
     // sltu     x1,x2,x3
-    mem[1] = 0x003130b3;
+    write_mem<uint32_t>(4, 0x003130b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -442,7 +432,7 @@ TEST_F(RXVCoreTestbench, SLTUNotLess)
     write_reg(2, 0xffffffff);
     write_reg(3, 0xfffffffe);
     // sltu     x1,x2,x3
-    mem[1] = 0x003130b3;
+    write_mem<uint32_t>(4, 0x003130b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -456,7 +446,7 @@ TEST_F(RXVCoreTestbench, XOR)
     write_reg(2, 0x7);
     write_reg(3, 0x9);
     // xor     x1,x2,x3
-    mem[1] = 0x003140b3;
+    write_mem<uint32_t>(4, 0x003140b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -470,7 +460,7 @@ TEST_F(RXVCoreTestbench, SRL)
     write_reg(2, 0x5);
     write_reg(3, 0x1);
     // srl     x1,x2,x3
-    mem[1] = 0x003150b3;
+    write_mem<uint32_t>(4, 0x003150b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -484,7 +474,7 @@ TEST_F(RXVCoreTestbench, SRA)
     write_reg(2, 0x80000000);
     write_reg(3, 15);
     // sra     x1,x2,x3
-    mem[1] = 0x403150b3;
+    write_mem<uint32_t>(4, 0x403150b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -498,7 +488,7 @@ TEST_F(RXVCoreTestbench, OR)
     write_reg(2, 0x9);
     write_reg(3, 0x7);
     // or     x1,x2,x3
-    mem[1] = 0x003160b3;
+    write_mem<uint32_t>(4, 0x003160b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -512,7 +502,7 @@ TEST_F(RXVCoreTestbench, AND)
     write_reg(2, 0x9);
     write_reg(3, 0x7);
     // and     x1,x2,x3
-    mem[1] = 0x003170b3;
+    write_mem<uint32_t>(4, 0x003170b3);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -528,7 +518,7 @@ TEST_F(RXVCoreTestbench, ADDI)
     write_reg(2, 2);
     write_reg(3, 3);
     // addi     x1,x2,3
-    mem[1] = 0x00310093;
+    write_mem<uint32_t>(4, 0x00310093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -542,7 +532,7 @@ TEST_F(RXVCoreTestbench, SLLI)
     write_reg(2, 2);
     write_reg(3, 3);
     // slli     x1,x2,3
-    mem[1] = 0x00311093;
+    write_mem<uint32_t>(4, 0x00311093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -556,7 +546,7 @@ TEST_F(RXVCoreTestbench, SLTILess)
     write_reg(2, -2);
     write_reg(3, -1);
     // slti     x1,x2,-1
-    mem[1] = 0xfff12093;
+    write_mem<uint32_t>(4, 0xfff12093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -570,7 +560,7 @@ TEST_F(RXVCoreTestbench, SLTINotLess)
     write_reg(2, 4);
     write_reg(3, 3);
     // slti     x1,x2,3
-    mem[1] = 0x00312093;
+    write_mem<uint32_t>(4, 0x00312093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -584,7 +574,7 @@ TEST_F(RXVCoreTestbench, SLTIULess)
     write_reg(2, 0xfffffffe);
     write_reg(3, 0xffffffff);
     // sltiu     x1,x2,-1
-    mem[1] = 0xfff13093;
+    write_mem<uint32_t>(4, 0xfff13093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -598,7 +588,7 @@ TEST_F(RXVCoreTestbench, SLTIUNotLess)
     write_reg(2, 0xffffffff);
     write_reg(3, 0xfffffffe);
     // sltiu     x1,x2,-2
-    mem[1] = 0xffe13093;
+    write_mem<uint32_t>(4, 0xffe13093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -612,7 +602,7 @@ TEST_F(RXVCoreTestbench, XORI)
     write_reg(2, 0x7);
     write_reg(3, 0x9);
     // xori     x1,x2,9
-    mem[1] = 0x00914093;
+    write_mem<uint32_t>(4, 0x00914093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -626,7 +616,7 @@ TEST_F(RXVCoreTestbench, SRLI)
     write_reg(2, 0x5);
     write_reg(3, 0x1);
     // srli     x1,x2,1
-    mem[1] = 0x00115093;
+    write_mem<uint32_t>(4, 0x00115093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -640,7 +630,7 @@ TEST_F(RXVCoreTestbench, SRAI)
     write_reg(2, 0x80000000);
     write_reg(3, 15);
     // srai     x1,x2,15
-    mem[1] = 0x40f15093;
+    write_mem<uint32_t>(4, 0x40f15093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -654,7 +644,7 @@ TEST_F(RXVCoreTestbench, ORI)
     write_reg(2, 0x9);
     write_reg(3, 0x7);
     // ori     x1,x2,7
-    mem[1] = 0x00716093;
+    write_mem<uint32_t>(4, 0x00716093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -668,7 +658,7 @@ TEST_F(RXVCoreTestbench, ANDI)
     write_reg(2, 0x9);
     write_reg(3, 0x7);
     // andi     x1,x2,x3
-    mem[1] = 0x00717093;
+    write_mem<uint32_t>(4, 0x00717093);
     cycle(10);
 
     auto instr = retired_instructions[1];
@@ -681,9 +671,9 @@ TEST_F(RXVCoreTestbench, ExecForwarding)
 {
     write_reg(1, 0);
     // addi    x1,x1,1
-    mem[1] = 0x00108093;
-    mem[2] = 0x00108093;
-    mem[3] = 0x00108093;
+    write_mem<uint32_t>(4, 0x00108093);
+    write_mem<uint32_t>(8, 0x00108093);
+    write_mem<uint32_t>(0xc, 0x00108093);
     cycle(20);
 
     auto instr = retired_instructions[3];
@@ -696,11 +686,11 @@ TEST_F(RXVCoreTestbench, ExecForwarding2)
 {
     write_reg(1, 0);
     // addi    x1,x1,1
-    mem[1] = 0x00108093;
+    write_mem<uint32_t>(4, 0x00108093);
     // addi    x2,x2,1
-    mem[2] = 0x00110113;
+    write_mem<uint32_t>(8, 0x00110113);
     // addi    x1,x1,1
-    mem[3] = 0x00108093;
+    write_mem<uint32_t>(0xc, 0x00108093);
     cycle(20);
 
     auto instr = retired_instructions[3];
@@ -714,12 +704,12 @@ TEST_F(RXVCoreTestbench, SW)
     write_reg(1, 0x100);
     write_reg(2, 0xa5a55a5a);
     // sw      x2,16(x1)
-    mem[1] = 0x0020a823;
+    write_mem<uint32_t>(4, 0x0020a823);
     cycle(20);
 
     auto instr = retired_instructions[3];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(0xa5a55a5aLU, mem[0x110 / sizeof(uint32_t)]);
+    EXPECT_EQ(0xa5a55a5aLU, read_mem<uint32_t>(0x110));
 }
 
 TEST_F(RXVCoreTestbench, SH)
@@ -727,14 +717,14 @@ TEST_F(RXVCoreTestbench, SH)
     write_reg(1, 0x100);
     write_reg(2, 0xa5a55a5a);
     // sh      x2,16(x1)
-    mem[1] = 0x00209823;
+    write_mem<uint32_t>(4, 0x00209823);
 
-    mem[0x110 / sizeof(uint32_t)] = 0xffff1234;
+    write_mem<uint32_t>(0x110, 0xffff1234);
     cycle(20);
 
     auto instr = retired_instructions[3];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(0xffff5a5aLU, mem[0x110 / sizeof(uint32_t)]);
+    EXPECT_EQ(0xffff5a5aLU, read_mem<uint32_t>(0x110));
 }
 
 TEST_F(RXVCoreTestbench, SHUpper)
@@ -742,14 +732,14 @@ TEST_F(RXVCoreTestbench, SHUpper)
     write_reg(1, 0x102);
     write_reg(2, 0xffffa5a5);
     // sh      x2,16(x1)
-    mem[1] = 0x00209823;
+    write_mem<uint32_t>(4, 0x00209823);
 
-    mem[0x110 / sizeof(uint32_t)] = 0xffff1234;
+    write_mem<uint32_t>(0x110, 0xffff1234);
     cycle(20);
 
     auto instr = retired_instructions[3];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(0xa5a51234, mem[0x110 / sizeof(uint32_t)]);
+    EXPECT_EQ(0xa5a51234, read_mem<uint32_t>(0x110));
 }
 
 TEST_F(RXVCoreTestbench, SBAligned0)
@@ -757,14 +747,14 @@ TEST_F(RXVCoreTestbench, SBAligned0)
     write_reg(1, 0x100);
     write_reg(2, 0xffffa5a5);
     // sb      x2,16(x1)
-    mem[1] = 0x00208823;
+    write_mem<uint32_t>(4, 0x00208823);
 
-    mem[0x110 / sizeof(uint32_t)] = 0xffff1234;
+    write_mem<uint32_t>(0x110, 0xffff1234);
     cycle(20);
 
     auto instr = retired_instructions[3];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(0xffff12a5, mem[0x110 / sizeof(uint32_t)]);
+    EXPECT_EQ(0xffff12a5, read_mem<uint32_t>(0x110));
 }
 
 TEST_F(RXVCoreTestbench, SBAligned1)
@@ -772,14 +762,14 @@ TEST_F(RXVCoreTestbench, SBAligned1)
     write_reg(1, 0x101);
     write_reg(2, 0xffffa5a5);
     // sb      x2,16(x1)
-    mem[1] = 0x00208823;
+    write_mem<uint32_t>(4, 0x00208823);
 
-    mem[0x110 / sizeof(uint32_t)] = 0xffff1234;
+    write_mem<uint32_t>(0x110, 0xffff1234);
     cycle(20);
 
     auto instr = retired_instructions[3];
     EXPECT_EQ(0x10, instr.next_pc);
-    EXPECT_EQ(0xffffa534, mem[0x110 / sizeof(uint32_t)]);
+    EXPECT_EQ(0xffffa534, read_mem<uint32_t>(0x110));
 }
 
 TEST_F(RXVCoreTestbench, LW)
@@ -787,9 +777,9 @@ TEST_F(RXVCoreTestbench, LW)
     write_reg(1, 0x100);
     write_reg(2, 0);
     // lw      x2,16(x1)
-    mem[1] = 0x0100a103;
+    write_mem<uint32_t>(4, 0x0100a103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -803,9 +793,9 @@ TEST_F(RXVCoreTestbench, LHUAligned)
     write_reg(1, 0x100);
     write_reg(2, 0);
     // lhu      x2,16(x1)
-    mem[1] = 0x0100d103;
+    write_mem<uint32_t>(4, 0x0100d103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -819,9 +809,9 @@ TEST_F(RXVCoreTestbench, LHUUnaligned)
     write_reg(1, 0x102);
     write_reg(2, 0);
     // lhu      x2,16(x1)
-    mem[1] = 0x0100d103;
+    write_mem<uint32_t>(4, 0x0100d103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -835,9 +825,9 @@ TEST_F(RXVCoreTestbench, LBU0)
     write_reg(1, 0x100);
     write_reg(2, 0);
     // lbu      x2,16(x1)
-    mem[1] = 0x0100c103;
+    write_mem<uint32_t>(4, 0x0100c103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -851,9 +841,9 @@ TEST_F(RXVCoreTestbench, LBU3)
     write_reg(1, 0x103);
     write_reg(2, 0);
     // lbu      x2,16(x1)
-    mem[1] = 0x0100c103;
+    write_mem<uint32_t>(4, 0x0100c103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -867,9 +857,9 @@ TEST_F(RXVCoreTestbench, LB)
     write_reg(1, 0x100);
     write_reg(2, 0);
     // lb      x2,16(x1)
-    mem[1] = 0x01008103;
+    write_mem<uint32_t>(4, 0x01008103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x00000081;
+    write_mem<uint32_t>(0x110, 0x00000081);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -883,9 +873,9 @@ TEST_F(RXVCoreTestbench, LH)
     write_reg(1, 0x100);
     write_reg(2, 0);
     // lh      x2,16(x1)
-    mem[1] = 0x01009103;
+    write_mem<uint32_t>(4, 0x01009103);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x00008081;
+    write_mem<uint32_t>(0x110, 0x00008081);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -899,11 +889,11 @@ TEST_F(RXVCoreTestbench, LWForward)
     write_reg(1, 0x100);
     write_reg(2, 0);
     // lw      x2,16(x1)
-    mem[1] = 0x0100a103;
+    write_mem<uint32_t>(4, 0x0100a103);
     // addi    x2,x2,0x678
-    mem[2] = 0x67810113;
+    write_mem<uint32_t>(8, 0x67810113);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345000;
+    write_mem<uint32_t>(0x110, 0x12345000);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -920,7 +910,7 @@ TEST_F(RXVCoreTestbench, ReadMarchidCSRRW)
     write_reg(2, 0x12345678);
     write_reg(2, 0xdeadbeef);
     // csrrw   x2,marchid,x0
-    mem[1] = 0xf1201173;
+    write_mem<uint32_t>(4, 0xf1201173);
 
     cycle(20);
 
@@ -936,9 +926,9 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRW)
 {
     write_reg(1, 0x12345678);
     // csrrw   x2,mscratch,x1
-    mem[1] = 0x34009173;
+    write_mem<uint32_t>(4, 0x34009173);
     // csrrw   x2,mscratch,x3
-    mem[2] = 0x34019173;
+    write_mem<uint32_t>(8, 0x34019173);
 
     cycle(20);
 
@@ -962,9 +952,9 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRS)
     write_reg(1, 0x80018001);
     write_reg(3, 0x0000ffff);
     // csrrw   x2,mscratch,x1
-    mem[1] = 0x34009173;
+    write_mem<uint32_t>(4, 0x34009173);
     // csrrs   x2,mscratch,x3
-    mem[2] = 0x3401a173;
+    write_mem<uint32_t>(8, 0x3401a173);
 
     cycle(20);
 
@@ -988,9 +978,9 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
     write_reg(1, 0x80018001);
     write_reg(3, 0x0000ffff);
     // csrrw   x2,mscratch,x1
-    mem[1] = 0x34009173;
+    write_mem<uint32_t>(4, 0x34009173);
     // csrrc   x2,mscratch,x3
-    mem[2] = 0x3401b173;
+    write_mem<uint32_t>(8, 0x3401b173);
 
     cycle(20);
 
@@ -1012,9 +1002,9 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRC)
 TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRWI)
 {
     // csrrwi   x2,mscratch,0x1c
-    mem[1] = 0x340e5173;
+    write_mem<uint32_t>(4, 0x340e5173);
     // csrrw   x2,mscratch,x3
-    mem[2] = 0x34019173;
+    write_mem<uint32_t>(8, 0x34019173);
 
     cycle(20);
 
@@ -1037,9 +1027,9 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRSI)
 {
     write_reg(1, 0x80018001);
     // csrrw   x2,mscratch,x1
-    mem[1] = 0x34009173;
+    write_mem<uint32_t>(4, 0x34009173);
     // csrrsi  x2,mscratch,0x1c
-    mem[2] = 0x340e6173;
+    write_mem<uint32_t>(8, 0x340e6173);
 
     cycle(20);
 
@@ -1062,9 +1052,9 @@ TEST_F(RXVCoreTestbench, ReadWriteMscratchCSRRCI)
 {
     write_reg(1, 0x800180ff);
     // csrrw   x2,mscratch,x1
-    mem[1] = 0x34009173;
+    write_mem<uint32_t>(4, 0x34009173);
     // csrrci  x2,mscratch,0x1c
-    mem[2] = 0x340e7173;
+    write_mem<uint32_t>(8, 0x340e7173);
 
     cycle(20);
 
@@ -1089,12 +1079,12 @@ TEST_F(RXVCoreTestbench, LWUnaligned)
     write_reg(2, 0);
 
     // lw      x2,16(x1)
-    mem[1] = 0x0100a103;
+    write_mem<uint32_t>(4, 0x0100a103);
     // addi	x10,x10,1
-    mem[2] = 0x00150513;
+    write_mem<uint32_t>(8, 0x00150513);
     expect_exception(1, 0x4, 0x111, EX_LOAD_ALIGN);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
@@ -1113,18 +1103,18 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
     write_reg(2, 0);
 
     // sw      x2,16(x1)
-    mem[1] = 0x0020a823;
+    write_mem<uint32_t>(4, 0x0020a823);
     // addi	x10,x10,1
-    mem[2] = 0x00150513;
+    write_mem<uint32_t>(8, 0x00150513);
     expect_exception(1, 0x4, 0x111, EX_STORE_ALIGN);
 
-    mem[0x110 / sizeof(uint32_t)] = 0x12345678;
+    write_mem<uint32_t>(0x110, 0x12345678);
     cycle(20);
 
     auto instr = retired_instructions[1];
     EXPECT_EQ(0x8000, instr.next_pc);
     EXPECT_EQ(0, instr.rd);
-    EXPECT_EQ(NOP, mem[0x100 / 4]);
+    EXPECT_EQ(NOP, read_mem<uint32_t>(0x100));
 
     instr = retired_instructions[2];
     EXPECT_EQ(0, instr.rd);
@@ -1135,9 +1125,9 @@ TEST_F(RXVCoreTestbench, SWUnaligned)
 TEST_F(RXVCoreTestbench, IllegalInstr)
 {
     // Illegal instruction
-    mem[1] = 0xffffffff;
+    write_mem<uint32_t>(4, 0xffffffff);
     // addi	x10,x10,1
-    mem[2] = 0x00150513;
+    write_mem<uint32_t>(8, 0x00150513);
     expect_exception(1, 0x4, 0xffffffff, EX_ILLEGAL_INSTR);
 
     cycle(20);
@@ -1156,8 +1146,8 @@ TEST_F(RXVCoreTestbench, JALRMisalign)
 {
     write_reg(2, 0x203);
     // jalr    x10,256(x2)
-    mem[1] = 0x10010567;
-    mem[2] = 0xdeadbeef;
+    write_mem<uint32_t>(4, 0x10010567);
+    write_mem<uint32_t>(8, 0xdeadbeef);
 
     expect_exception(1, 0x4, 0x203 + 256, EX_INSTR_ALIGN);
     cycle(10);
@@ -1172,7 +1162,7 @@ TEST_F(RXVCoreTestbench, MRET)
     write_csr(MEPC, 0x1000);
     write_reg(1, 0x800180ff);
     // mret
-    mem[1] = 0x30200073;
+    write_mem<uint32_t>(4, 0x30200073);
 
     cycle(20);
 
@@ -1188,7 +1178,7 @@ TEST_F(RXVCoreTestbench, ECALL)
 {
     write_reg(1, 0x800180ff);
     // ecall
-    mem[1] = 0x00000073;
+    write_mem<uint32_t>(4, 0x00000073);
     expect_exception(1, 0x4, 0, EX_ECALL_M);
 
     cycle(20);
@@ -1204,7 +1194,7 @@ TEST_F(RXVCoreTestbench, EBREAK)
 {
     write_reg(1, 0x800180ff);
     // ebreak
-    mem[1] = 0x00100073;
+    write_mem<uint32_t>(4, 0x00100073);
     expect_exception(1, 0x4, 0, EX_BREAKPOINT);
 
     cycle(20);
@@ -1219,7 +1209,7 @@ TEST_F(RXVCoreTestbench, EBREAK)
 TEST_F(RXVCoreTestbench, FENCE)
 {
     // fence iorw,iorw
-    mem[1] = 0x0ff0000f;
+    write_mem<uint32_t>(4, 0x0ff0000f);
 
     cycle(20);
 

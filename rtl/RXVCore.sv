@@ -51,7 +51,9 @@ module RXVCore(input logic clk,
                );
 
 // Instruction fetch
+// verilator lint_off BLKANDNBLK
 reg [31:0] pc;
+// verilator lint_on BLKANDNBLK
 wire [31:0] instruction = i_data;
 wire [31:0] next_pc     = w_exception ? w_next_pc :
                           ef_write_pc ? em_next_pc :
@@ -648,6 +650,7 @@ always_ff @(posedge clk) begin
 end
 
 export "DPI-C" function write_csr;
+export "DPI-C" function write_pc;
 
 function void write_csr;
     input int csr;
@@ -658,6 +661,12 @@ function void write_csr;
     CSR_MEPC: mepc_reg_msb = val[31:2];
     default: $display("unsupported CSR %x", csr);
     endcase
+endfunction
+
+function void write_pc;
+    input int val;
+
+    pc = val;
 endfunction
 `endif // RXV_RVFI
 

@@ -18,7 +18,7 @@ public:
                   uint32_t mem_base = default_mem_base)
         : mem_size(mem_size), mem_base(mem_base)
     {
-        mem = std::make_unique<uint8_t[]>(mem_size);
+        mem = std::make_unique<uint32_t[]>(mem_size / 4);
     }
 
     void load_elf(const RiscVELF &elf);
@@ -31,7 +31,7 @@ public:
             throw MemFault("Out of bounds memory access");
 
         T val;
-        memcpy(&val, mem.get() + addr, sizeof(val));
+        memcpy(&val, reinterpret_cast<uint8_t *>(mem.get()) + addr, sizeof(val));
         return val;
     }
 
@@ -42,7 +42,7 @@ public:
         if (addr + sizeof(T) > mem_size)
             throw MemFault("Out of bounds memory access");
 
-        memcpy(mem.get() + addr, &val, sizeof(val));
+        memcpy(reinterpret_cast<uint8_t *>(mem.get()) + addr, &val, sizeof(val));
     }
 
     template <typename T>
@@ -64,7 +64,7 @@ public:
     virtual void step() = 0;
 
 private:
-    std::unique_ptr<uint8_t[]> mem;
+    std::unique_ptr<uint32_t[]> mem;
     size_t mem_size;
     uint32_t mem_base;
 };

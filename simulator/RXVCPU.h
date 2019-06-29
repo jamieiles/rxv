@@ -5,6 +5,7 @@
 
 #include "VerilogTestbench.h"
 #include "VRXVCore.h"
+#include "SimulatorBase.h"
 
 // clang-format off
 enum CSRID {
@@ -43,29 +44,39 @@ enum ExCause {
 };
 // clang-format on
 
-class RXVCPU : public VerilogTestbench<VRXVCore>
+class RXVCPU
+    : public SimulatorBase
+    , public VerilogTestbench<VRXVCore>
 {
 public:
-    static constexpr int num_instructions = 512 * 1024 * 4;
-
-    RXVCPU()
+    RXVCPU(size_t mem_size = default_mem_size,
+           uint32_t mem_base = default_mem_base)
+        : SimulatorBase(mem_size, mem_base),
+        insn_completed(false)
     {
         reg_file_scope = svGetScopeFromName("TOP.RXVCore.RegFile");
-        csr_scope = svGetScopeFromName("TOP.RXVCore");
+        core_scope = svGetScopeFromName("TOP.RXVCore");
 
         periodic(ClockSetup, [&] {
             after_n_cycles(0, [&] {
-                if ((this->dut.i_addr >> 2) >= num_instructions)
-                    instr_fetch_oob(this->dut.i_addr);
-                this->dut.i_data = this->mem[this->dut.i_addr >> 2];
+                this->dut.i_data = this->read_mem<uint32_t>(this->dut.i_addr);
             });
+        });
+
+        periodic(ClockCapture, [&] {
+            if (!this->dut.rvfi_valid)
+                return;
+
+            this->insn_completed = true;
+            if (this->dut.rvfi_rd_addr)
+                this->reg_cache[this->dut.rvfi_rd_addr] =
+                    this->dut.rvfi_rd_wdata;
+            this->pc = this->dut.rvfi_pc_wdata;
         });
 
         periodic(ClockSetup, [&] {
             if (!this->dut.d_access)
                 return;
-            if (this->dut.d_addr & 0x3)
-                throw std::runtime_error("error: unaligned data access");
 
             uint32_t mask = ((this->dut.d_bytesel & 1) ? 0x000000ff : 0) |
                             ((this->dut.d_bytesel & 2) ? 0x0000ff00 : 0) |
@@ -73,45 +84,62 @@ public:
                             ((this->dut.d_bytesel & 8) ? 0xff000000 : 0);
             uint32_t addr = this->dut.d_addr;
 
-            if ((addr >> 2) >= num_instructions)
-                data_access_oob(this->dut.d_addr);
             if (this->dut.d_wren) {
                 uint32_t wdata = this->dut.d_wdata;
                 after_n_cycles(0, [&, addr, wdata, mask] {
-                    this->mem[addr >> 2] &= ~mask;
-                    this->mem[addr >> 2] |= wdata & mask;
+                    auto tmp = this->read_mem<uint32_t>(addr);
+                    tmp &= ~mask;
+                    tmp |= wdata & mask;
+                    this->write_mem<uint32_t>(addr, tmp);
                 });
             } else {
                 after_n_cycles(0, [&, addr, mask] {
-                    this->dut.d_rdata = this->mem[addr >> 2] & mask;
+                    this->dut.d_rdata = this->read_mem<uint32_t>(addr) & mask;
                 });
             }
         });
     }
 
-    virtual void instr_fetch_oob(uint32_t addr)
-    {
-    }
-
-    virtual void data_access_oob(uint32_t addr)
-    {
-    }
-
-    void write_reg(int r, int v)
+    void write_reg(int r, uint32_t v)
     {
         svSetScope(reg_file_scope);
         this->dut.write_reg(r, v);
     }
 
+    uint32_t read_reg(int r)
+    {
+        assert(r < 32);
+        return reg_cache[r];
+    }
+
     void write_csr(enum CSRID csr, uint32_t v)
     {
-        svSetScope(csr_scope);
+        svSetScope(core_scope);
         this->dut.write_csr(csr, v);
     }
 
-    uint32_t mem[num_instructions];
+    uint32_t get_pc() const
+    {
+        return pc;
+    }
+
+    void write_pc(uint32_t v)
+    {
+        svSetScope(core_scope);
+        this->dut.write_pc(v);
+    }
+
+    void step()
+    {
+        insn_completed = false;
+        while (!insn_completed)
+            cycle();
+    }
 
 private:
     svScope reg_file_scope;
-    svScope csr_scope;
+    svScope core_scope;
+    uint32_t reg_cache[32];
+    uint32_t pc;
+    bool insn_completed;
 };

@@ -10,7 +10,9 @@ add_executable(rxv-simulator
                Simulator.cpp
                ComplianceTest.h
                RXVSim.cpp
-               RXVSim.h
+	       RXVSim.h
+	       SimulatorBase.cpp
+	       SimulatorBase.h
                RiscVELF.cpp
                RiscVELF.h)
 target_link_libraries(rxv-simulator

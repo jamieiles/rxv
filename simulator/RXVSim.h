@@ -8,8 +8,7 @@
 #include <stdexcept>
 
 #include "RiscVELF.h"
-
-using MemFault = std::runtime_error;
+#include "SimulatorBase.h"
 
 struct CSRDef {
     const char *name;
@@ -21,54 +20,20 @@ struct CSRDef {
 constexpr uint32_t misa_xlen32 = 1 << 30;
 constexpr uint32_t misa_ext_i = 1 << 8;
 
-class RXVSim
+class RXVSim : public SimulatorBase
 {
 public:
-    static constexpr size_t default_mem_size = 1024 * 1024;
-    static constexpr uint32_t default_mem_base = 0x0;
-
     RXVSim(size_t mem_size = default_mem_size,
            uint32_t mem_base = default_mem_base);
-
-    void load_elf(const RiscVELF &elf);
-
-    template <typename T>
-    T read_mem(uint32_t addr) const
-    {
-        addr -= mem_base;
-        if (addr + sizeof(T) > mem_size)
-            throw MemFault("Out of bounds memory access");
-
-        T val;
-        memcpy(&val, mem.get() + addr, sizeof(val));
-        return val;
-    }
-
-    template <typename T>
-    void write_mem(uint32_t addr, T val)
-    {
-        addr -= mem_base;
-        if (addr + sizeof(T) > mem_size)
-            throw MemFault("Out of bounds memory access");
-
-        memcpy(mem.get() + addr, &val, sizeof(val));
-    }
-
-    template <typename T>
-    std::vector<T> read_mem(uint32_t addr, size_t count) const
-    {
-        std::vector<T> data;
-        for (auto m = 0; m < count; ++m, addr += sizeof(T))
-            data.push_back(read_mem<T>(addr));
-
-        return data;
-    }
-
-    std::string read_string(uint32_t addr) const;
 
     uint32_t get_pc() const
     {
         return pc;
+    }
+
+    void write_pc(uint32_t v)
+    {
+        pc = v;
     }
 
     void write_reg(int r, uint32_t v)
@@ -108,11 +73,8 @@ private:
     void dump_regs() const;
     void do_exception(enum mcause_type t, uint32_t val = 0);
 
-    std::unique_ptr<uint8_t[]> mem;
     std::map<uint16_t, CSR> csrs;
     uint32_t regs[32];
     uint32_t pc;
     uint32_t new_pc;
-    size_t mem_size;
-    uint32_t mem_base;
 };

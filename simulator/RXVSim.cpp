@@ -49,37 +49,15 @@ static const struct CSRDef csr_defs[] = {
 // clang-format on
 
 RXVSim::RXVSim(size_t mem_size, uint32_t mem_base)
-    : pc(0), new_pc(0), mem_size(mem_size), mem_base(mem_base)
+    : SimulatorBase(mem_size, mem_base)
+    , pc(0)
+    , new_pc(0)
 {
-    mem = std::make_unique<uint8_t[]>(mem_size);
     for (int i = 0; i < 32; ++i)
         regs[i] = 0;
 
     for (auto *def = csr_defs; def->name; ++def)
         csrs[def->number] = CSR{def, def->default_val};
-}
-
-void RXVSim::load_elf(const RiscVELF &elf)
-{
-    for (auto &seg : elf.load_segments())
-        for (size_t offs = 0; offs < seg.second.size(); ++offs)
-            write_mem<uint8_t>(seg.first + offs, seg.second[offs]);
-
-    pc = elf.entry_point();
-}
-
-std::string RXVSim::read_string(uint32_t addr) const
-{
-    std::string str;
-
-    for (;;) {
-        auto v = read_mem<char>(addr++);
-        if (!v)
-            break;
-        str += v;
-    }
-
-    return str;
 }
 
 static uint32_t i_immediate(uint32_t instr)
@@ -313,7 +291,8 @@ void RXVSim::step()
             if (funct7 == 0) // SLRI
                 write_reg(rd, regs[rs1] >> (i_immed & 0x1f));
             else if (funct7 == 0x20) // SRAI
-                write_reg(rd, static_cast<int32_t>(regs[rs1]) >> (i_immed & 0x1f));
+                write_reg(rd,
+                          static_cast<int32_t>(regs[rs1]) >> (i_immed & 0x1f));
             else
                 illegal_instruction = true;
             break;

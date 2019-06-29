@@ -423,8 +423,8 @@ always_ff @(posedge clk or posedge reset) begin
         de_do_ecall <= instruction == INSTR_ECALL;
         de_do_ebreak <= instruction == INSTR_EBREAK;
 
-        fwd_rs1_e <= de_valid && de_writeback && de_rd == rs1;
-        fwd_rs2_e <= de_valid && de_writeback && de_rd == rs2;
+        fwd_rs1_e <= |rs1 && de_valid && de_writeback && de_rd == rs1;
+        fwd_rs2_e <= |rs2 && de_valid && de_writeback && de_rd == rs2;
     end
 end
 
@@ -471,8 +471,8 @@ always_ff @(posedge clk or posedge reset) begin
         em_do_ecall <= de_do_ecall;
         em_do_ebreak <= de_do_ebreak;
 
-        fwd_rs1_m <= em_valid && em_writeback && em_rd == rs1;
-        fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;
+        fwd_rs1_m <= |rs1 && em_valid && em_writeback && em_rd == rs1;
+        fwd_rs2_m <= |rs2 && em_valid && em_writeback && em_rd == rs2;
 
         ef_write_pc <= de_valid && e_write_pc;
         ef_branch_resolved <= de_valid && (de_br_type != BRANCH_NONE || de_do_mret);

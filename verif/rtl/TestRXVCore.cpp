@@ -682,6 +682,20 @@ TEST_F(RXVCoreTestbench, ExecForwarding)
     EXPECT_EQ(0x3, instr.rd_val);
 }
 
+TEST_F(RXVCoreTestbench, X0NoForward)
+{
+    write_reg(1, 0);
+    // addi    x0,x0,1
+    // addi    x1,x0,1
+    write_mem<uint32_t>(4, 0x00100013);
+    write_mem<uint32_t>(8, 0x00100093);
+    cycle(20);
+
+    auto instr = retired_instructions[2];
+    EXPECT_EQ(1, instr.rd);
+    EXPECT_EQ(0x1, instr.rd_val);
+}
+
 TEST_F(RXVCoreTestbench, ExecForwarding2)
 {
     write_reg(1, 0);

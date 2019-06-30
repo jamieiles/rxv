@@ -42,10 +42,21 @@ ExternalProject_Add(riscv-tests
 		    TEST_COMMAND "")
 
 enable_testing()
-add_test(compliance
-	 make -C ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance RISCV_TARGET=rxv-simulator RISCV_ISA=rv32i RISCV_DEVICE=rv32i -j1)
-set_property(TEST compliance PROPERTY ENVIRONMENT
-	     "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
 
-add_test(isa
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-isa-tests ${CMAKE_CURRENT_BINARY_DIR}/rxv-simulator ${CMAKE_CURRENT_BINARY_DIR}/riscv-tests-prefix/src/riscv-tests-build/isa)
+add_test(software-compliance
+	 make -C ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance RISCV_TARGET="rxv-simulator" RXV_SIMULATOR=software RISCV_ISA=rv32i RISCV_DEVICE=rv32i -j1)
+set_property(TEST software-compliance PROPERTY ENVIRONMENT
+	     "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
+set_tests_properties(software-compliance PROPERTIES RESOURCE_LOCK "compliance")
+
+add_test(software-isa
+	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-isa-tests ${CMAKE_CURRENT_BINARY_DIR}/rxv-simulator software ${CMAKE_CURRENT_BINARY_DIR}/riscv-tests-prefix/src/riscv-tests-build/isa)
+
+add_test(rtl-compliance
+	 make -C ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance RISCV_TARGET="rxv-simulator" RXV_SIMULATOR=rtl RISCV_ISA=rv32i RISCV_DEVICE=rv32i -j1)
+set_property(TEST rtl-compliance PROPERTY ENVIRONMENT
+             "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
+set_tests_properties(rtl-compliance PROPERTIES RESOURCE_LOCK "compliance")
+
+add_test(rtl-isa
+	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-isa-tests ${CMAKE_CURRENT_BINARY_DIR}/rxv-simulator rtl ${CMAKE_CURRENT_BINARY_DIR}/riscv-tests-prefix/src/riscv-tests-build/isa)

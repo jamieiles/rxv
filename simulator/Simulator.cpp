@@ -14,10 +14,12 @@ static boost::program_options::variables_map parse_options(int argc,
     // clang-format off
     options.add_options()
         ("test", boost::program_options::value<std::string>(), "Test")
+        ("sim", boost::program_options::value<std::string>(), "Simulator")
         ("help,h", "Help screen");
     // clang-format on
 
     boost::program_options::positional_options_description positional;
+    positional.add("sim", 1);
     positional.add("test", 1);
 
     boost::program_options::command_line_parser parser{argc, argv};
@@ -32,6 +34,9 @@ static boost::program_options::variables_map parse_options(int argc,
         exit(0);
     } else if (vm.count("test") != 1) {
         std::cout << "error: one test ELF file must be supplied" << std::endl;
+        exit(2);
+    } else if (vm.count("sim") != 1) {
+        std::cout << "error: one test simulator must be supplied" << std::endl;
         exit(2);
     }
 
@@ -49,10 +54,17 @@ int main(int argc, char *argv[])
         exit(3);
     }
 
-    ComplianceTest<RXVSim> test(vm["test"].as<std::string>());
-
     try {
-        return test.run() ? 0 : 1;
+        if (vm["sim"].as<std::string>() == "software") {
+            ComplianceTest<RXVSim> test(vm["test"].as<std::string>());
+            return test.run() ? 0 : 1;
+        } else if (vm["sim"].as<std::string>() == "rtl") {
+            ComplianceTest<RXVCPU> test(vm["test"].as<std::string>());
+            return test.run() ? 0 : 1;
+        } else {
+            std::cerr << "error: invalid simulator " << vm["sim"].as<std::string>() << std::endl;
+            return 3;
+        }
     } catch (std::exception &e) {
         std::cerr << "error: fatal exception " << e.what() << std::endl;
         return -1;

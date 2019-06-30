@@ -252,10 +252,12 @@ wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
                           de_br_type == BRANCH_COND && e_br_taken ? de_pc + de_immed :
                           de_do_mret ? mepc_reg :
                           de_pc + 32'd4;
-wire e_write_pc         = de_br_type == BRANCH_IMMED ||
-                          de_br_type == BRANCH_INDIR ||
-                          (de_br_type == BRANCH_COND && e_br_taken) ||
-                          de_do_mret;
+
+wire e_write_pc         = (de_br_type == BRANCH_IMMED ||
+                           de_br_type == BRANCH_INDIR ||
+                           (de_br_type == BRANCH_COND && e_br_taken) ||
+                           de_do_mret) &&
+                          !e_instr_ac;
 wire e_br_taken         = de_funct3 == BR_BEQ  ? rs1_fwd == rs2_fwd :
                           de_funct3 == BR_BNE  ? rs1_fwd != rs2_fwd :
                           de_funct3 == BR_BLT  ? e_sub[31] :
@@ -302,8 +304,8 @@ wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
 assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 reg ef_write_pc;
 reg ef_branch_resolved;
-wire e_abort            = m_abort;
-wire e_instr_ac         = |e_next_pc[1:0];
+wire e_abort            = m_abort | e_instr_ac;
+wire e_instr_ac         = de_valid && |e_next_pc[1:0] && de_br_type != BRANCH_NONE;
 
 // Memory cycles
 assign d_access         = em_valid & (em_load | em_store) & !m_align_check;
@@ -408,7 +410,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_rd <= d_rd;
         de_pc <= pc;
         de_illegal_instr <= d_illegal_instr;
-        de_valid <= !insert_bubble && !d_abort;
+        de_valid <= !insert_bubble && !e_abort;
         de_br_type <= d_br_type;
         de_funct3 <= funct3;
         de_funct7_sel <= funct7[5];
@@ -458,7 +460,7 @@ always_ff @(posedge clk or posedge reset) begin
         em_instruction <= de_instruction;
         em_next_pc <= e_next_pc;
         em_illegal_instr <= de_illegal_instr;
-        em_valid <= de_valid && !e_abort;
+        em_valid <= de_valid && !m_abort;
         em_store_data <= rs2_fwd;
         em_load <= de_load;
         em_store <= de_store;
@@ -467,15 +469,15 @@ always_ff @(posedge clk or posedge reset) begin
         em_write_csr <= de_write_csr;
         em_csr_rd <= de_immed[15:0];
         em_csr_wdata <= e_csr_wdata;
-        em_instr_align_check <= |e_next_pc[1:0];
+        em_instr_align_check <= e_instr_ac;
         em_do_ecall <= de_do_ecall;
         em_do_ebreak <= de_do_ebreak;
 
         fwd_rs1_m <= |rs1 && em_valid && em_writeback && em_rd == rs1;
         fwd_rs2_m <= |rs2 && em_valid && em_writeback && em_rd == rs2;
 
-        ef_write_pc <= de_valid && e_write_pc;
-        ef_branch_resolved <= de_valid && (de_br_type != BRANCH_NONE || de_do_mret);
+        ef_write_pc <= de_valid && e_write_pc && !e_instr_ac;
+        ef_branch_resolved <= de_valid && (de_br_type != BRANCH_NONE || de_do_mret) && ~e_instr_ac;
     end
 end
 
@@ -562,7 +564,7 @@ always_ff @(posedge clk or posedge reset)
     if (reset)
         mtval_reg <= 32'b0;
     else begin
-        if (w_exception && mw_data_align_check)
+        if (w_exception && (mw_data_align_check || mw_instr_align_check))
             mtval_reg <= w_mtval;
         if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MTVAL)
             mtval_reg <= mw_csr_wdata;

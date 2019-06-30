@@ -156,6 +156,8 @@ TEST_F(RXVCoreTestbench, JAL)
     EXPECT_EQ(0x114, instr.next_pc);
     EXPECT_EQ(10, instr.rd);
     EXPECT_EQ(0x00000108, instr.rd_val);
+
+    check_exceptions();
 }
 
 TEST_F(RXVCoreTestbench, JALR)
@@ -1163,12 +1165,15 @@ TEST_F(RXVCoreTestbench, JALRMisalign)
     write_mem<uint32_t>(4, 0x10010567);
     write_mem<uint32_t>(8, 0xdeadbeef);
 
-    expect_exception(1, 0x4, 0x203 + 256, EX_INSTR_ALIGN);
+    // LSB is cleared+ignored by hardware
+    expect_exception(1, 0x4, 0x202 + 256, EX_INSTR_ALIGN);
     cycle(10);
 
     auto instr = retired_instructions[1];
     EXPECT_EQ(0, instr.rd);
     EXPECT_EQ(0x8000, instr.next_pc);
+
+    check_exceptions();
 }
 
 TEST_F(RXVCoreTestbench, MRET)

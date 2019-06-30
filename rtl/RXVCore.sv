@@ -459,7 +459,7 @@ always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
         em_valid <= 1'b0;
     end else begin
-        em_writeback <= de_valid && de_writeback && !e_instr_ac;
+        em_writeback <= de_valid && de_writeback && !e_instr_ac && !m_abort;
         em_rd <= de_rd;
         em_result <= alu_out;
         em_pc <= de_pc;

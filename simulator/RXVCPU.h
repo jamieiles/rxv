@@ -3,7 +3,7 @@
 #include <map>
 #include <cstring>
 
-#include "VerilogTestbench.h"
+#include "VerilogDriver.h"
 #include "VRXVCore.h"
 #include "SimulatorBase.h"
 
@@ -46,7 +46,7 @@ enum ExCause {
 
 class RXVCPU
     : public SimulatorBase
-    , public VerilogTestbench<VRXVCore>
+    , public VerilogDriver<VRXVCore>
 {
 public:
     RXVCPU(size_t mem_size = default_mem_size,
@@ -54,6 +54,9 @@ public:
         : SimulatorBase(mem_size, mem_base),
         insn_completed(false)
     {
+        for (int i = 0; i < 32; ++i)
+            reg_cache[i] = 0;
+
         reg_file_scope = svGetScopeFromName("TOP.RXVCore.RegFile");
         core_scope = svGetScopeFromName("TOP.RXVCore");
 
@@ -126,6 +129,7 @@ public:
     void write_pc(uint32_t v)
     {
         svSetScope(core_scope);
+        pc = v;
         this->dut.write_pc(v);
     }
 

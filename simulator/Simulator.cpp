@@ -3,6 +3,9 @@
 #include <boost/program_options.hpp>
 
 #include "ComplianceTest.h"
+#include "RXVCPU.h"
+
+double cur_time_stamp = 0;
 
 static boost::program_options::variables_map parse_options(int argc, char *argv[])
 {
@@ -45,7 +48,7 @@ int main(int argc, char *argv[])
         exit(3);
     }
 
-    ComplianceTest test(vm["test"].as<std::string>());
+    ComplianceTest<RXVSim> test(vm["test"].as<std::string>());
 
     return test.run() ? 0 : 1;
 }

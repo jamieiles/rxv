@@ -1,5 +1,6 @@
 find_package(Boost COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
+include_directories(../verif/rtl)
 include(Verilator)
 
 verilate(TOPLEVEL RXVCore

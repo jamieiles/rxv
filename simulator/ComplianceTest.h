@@ -9,6 +9,7 @@
 
 #include "RXVSim.h"
 
+template <typename T>
 class ComplianceTest
 {
 public:
@@ -72,7 +73,7 @@ private:
 
     void check_for_completion()
     {
-        auto to_host = sim.read_mem<uint32_t>(to_host_addr);
+        auto to_host = sim.template read_mem<uint32_t>(to_host_addr);
         if (to_host != 0)
             test_status = to_host == 1 ? PASSED : FAILED;
     }
@@ -110,7 +111,7 @@ private:
             return;
         }
 
-        auto signature = sim.read_mem<uint32_t>(
+        auto signature = sim.template read_mem<uint32_t>(
             begin_signature, (end_signature - begin_signature) / 4);
 
         boost::io::ios_flags_saver ifs(std::cout);
@@ -145,6 +146,6 @@ private:
     std::map<uint32_t, GPRAssertion> gpr_assertions;
 
     RiscVELF elf;
-    RXVSim sim;
+    T sim;
     uint32_t to_host_addr;
 };

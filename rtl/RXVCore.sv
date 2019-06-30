@@ -64,9 +64,11 @@ reg insert_bubble;
 wire f_clear_bubble     = (em_valid & ef_branch_resolved) |
                           (de_valid & de_load) |
                           (mw_valid & mw_write_csr) |
+                          (mw_valid & mw_do_fence) |
                           w_exception;
 wire f_insert_bubble    = d_is_branch |
                           d_opcode == OPC_LOAD |
+                          d_fence |
                           d_write_csr |
                           d_abort |
                           d_read_mepc |
@@ -231,6 +233,7 @@ wire [1:0] d_ls_width   = funct3[1:0];
 wire d_load_sext        = ~funct3[2];
 wire d_abort            = e_abort;
 wire d_read_mepc        = instruction == INSTR_MRET;
+wire d_fence            = d_opcode == OPC_FENCE && funct3[2:1] == 2'b0;
 
 // Instruction execution
 wire e_sub_b;
@@ -394,6 +397,7 @@ reg [4:0] de_csr_immed;
 reg de_do_mret;
 reg de_do_ecall;
 reg de_do_ebreak;
+reg de_do_fence;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -424,6 +428,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_do_mret <= d_read_mepc;
         de_do_ecall <= instruction == INSTR_ECALL;
         de_do_ebreak <= instruction == INSTR_EBREAK;
+        de_do_fence <= d_fence;
 
         fwd_rs1_e <= |rs1 && de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= |rs2 && de_valid && de_writeback && de_rd == rs2;
@@ -448,6 +453,7 @@ reg [31:0] em_csr_wdata;
 reg em_instr_align_check;
 reg em_do_ecall;
 reg em_do_ebreak;
+reg em_do_fence;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
@@ -472,6 +478,7 @@ always_ff @(posedge clk or posedge reset) begin
         em_instr_align_check <= e_instr_ac;
         em_do_ecall <= de_do_ecall;
         em_do_ebreak <= de_do_ebreak;
+        em_do_fence <= de_do_fence;
 
         fwd_rs1_m <= |rs1 && em_valid && em_writeback && em_rd == rs1;
         fwd_rs2_m <= |rs2 && em_valid && em_writeback && em_rd == rs2;
@@ -501,6 +508,7 @@ reg mw_data_align_check;
 reg mw_instr_align_check;
 reg mw_do_ecall;
 reg mw_do_ebreak;
+reg mw_do_fence;
 wire [31:0] w_data = mw_load ? (mw_load_sext ? d_rdata_s : d_rdata_msk) : mw_result;
 
 always_ff @(posedge clk or posedge reset) begin
@@ -524,6 +532,7 @@ always_ff @(posedge clk or posedge reset) begin
         mw_data_align_check <= m_raise_ac;
         mw_do_ecall <= em_do_ecall;
         mw_do_ebreak <= em_do_ebreak;
+        mw_do_fence <= em_do_fence;
         mw_instr_align_check <= em_instr_align_check;
     end
 end

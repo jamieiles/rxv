@@ -54,21 +54,22 @@ module RXVCore(input logic clk,
 // verilator lint_off BLKANDNBLK
 reg [31:0] pc;
 // verilator lint_on BLKANDNBLK
-wire [31:0] instruction = i_data;
+wire [31:0] instruction = insert_bubble && !f_clear_bubble ? 32'h00000013 : i_data;
 wire [31:0] next_pc     = w_exception ? w_next_pc :
                           ef_write_pc ? em_next_pc :
                           insert_bubble ? pc : pc + 32'd4;
 assign i_addr           = pc;
 reg insert_bubble;
 
-wire f_clear_bubble     = ef_write_pc |
-                          de_load |
-                          mw_write_csr |
+wire f_clear_bubble     = (em_valid & ef_branch_resolved) |
+                          (de_valid & de_load) |
+                          (mw_valid & mw_write_csr) |
                           w_exception;
 wire f_insert_bubble    = d_is_branch |
                           d_opcode == OPC_LOAD |
                           d_write_csr |
                           d_abort |
+                          d_read_mepc |
                           d_illegal_instr;
 
 // Instruction field extraction
@@ -211,12 +212,16 @@ wire d_bad_arithi       = d_opcode == OPC_ARITHI &&
                            (funct3 == 3'd5 && |{funct7[6], funct7[4:0]}));
 wire d_bad_arith        = d_opcode == OPC_ARITH &&
                           ((funct3 == 3'd0 || funct7 == 7'd5) && |{funct7[6], funct7[4:0]});
+                           // FIXME: check supported CSRs
+wire d_bad_csr          = i_immed > 32'h1000;
+wire d_is_csr_access    = d_opcode == OPC_ENV && !(funct3 == 3'd0 || funct3 == 3'd4);
 wire d_bad_env          = d_opcode == OPC_ENV &&
                           (funct3 == 3'd4 ||
                            (funct3 == 3'd0 &&
                             !(instruction == INSTR_ECALL ||
                              instruction == INSTR_EBREAK ||
-                             instruction == INSTR_MRET)));
+                             instruction == INSTR_MRET))) ||
+                          d_is_csr_access && d_bad_csr;
 wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
                           d_bad_arithi | d_bad_arith | d_bad_env;
 wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
@@ -296,6 +301,7 @@ wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
                           rs1_fwd;
 assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
 reg ef_write_pc;
+reg ef_branch_resolved;
 wire e_abort            = m_abort;
 wire e_instr_ac         = |e_next_pc[1:0];
 
@@ -469,6 +475,7 @@ always_ff @(posedge clk or posedge reset) begin
         fwd_rs2_m <= em_valid && em_writeback && em_rd == rs2;
 
         ef_write_pc <= de_valid && e_write_pc;
+        ef_branch_resolved <= de_valid && (de_br_type != BRANCH_NONE || de_do_mret);
     end
 end
 

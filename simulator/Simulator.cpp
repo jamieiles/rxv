@@ -7,7 +7,8 @@
 
 double cur_time_stamp = 0;
 
-static boost::program_options::variables_map parse_options(int argc, char *argv[])
+static boost::program_options::variables_map parse_options(int argc,
+                                                           char *argv[])
 {
     boost::program_options::options_description options{"Options"};
     // clang-format off
@@ -50,5 +51,12 @@ int main(int argc, char *argv[])
 
     ComplianceTest<RXVSim> test(vm["test"].as<std::string>());
 
-    return test.run() ? 0 : 1;
+    try {
+        return test.run() ? 0 : 1;
+    } catch (std::exception &e) {
+        std::cerr << "error: fatal exception " << e.what() << std::endl;
+        return -1;
+    }
+
+    return 0;
 }

@@ -263,8 +263,8 @@ wire e_write_pc         = (de_br_type == BRANCH_IMMED ||
                           !e_instr_ac;
 wire e_br_taken         = de_funct3 == BR_BEQ  ? rs1_fwd == rs2_fwd :
                           de_funct3 == BR_BNE  ? rs1_fwd != rs2_fwd :
-                          de_funct3 == BR_BLT  ? e_sub[31] :
-                          de_funct3 == BR_BGE  ? ~e_sub[31] :
+                          de_funct3 == BR_BLT  ? e_lt[0] :
+                          de_funct3 == BR_BGE  ? ~e_lt[0] :
                           de_funct3 == BR_BLTU ? e_sub_b :
                           de_funct3 == BR_BGEU ? ~e_sub_b: 1'b0;
 wire [31:0] e_arith_op2 = de_opcode == OPC_ARITHI ? de_immed : rs2_fwd;
@@ -276,7 +276,7 @@ wire [31:0] e_add       = rs1_fwd + e_arith_op2;
 wire [31:0] e_xor       = rs1_fwd ^ e_arith_op2;
 wire [31:0] e_or        = rs1_fwd | e_arith_op2;
 wire [31:0] e_and       = rs1_fwd & e_arith_op2;
-wire [31:0] e_lt        = {31'b0, e_sub[31]};
+wire [31:0] e_lt        = {31'b0, e_sub[31] ^ ((rs1_fwd[31] ^ e_arith_op2[31]) & (e_sub[31] ^ rs1_fwd[31]))};
 wire [31:0] e_ltu       = {31'b0, e_sub_b};
 wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_funct7_sel ? e_add :
                           de_opcode == OPC_ARITH && de_funct3 == 3'd0 &&  de_funct7_sel ? e_sub :

@@ -61,8 +61,14 @@ public:
         core_scope = svGetScopeFromName("TOP.RXVCore");
 
         periodic(ClockSetup, [&] {
-            after_n_cycles(0, [&] {
-                this->dut.i_data = this->read_mem<uint32_t>(this->dut.i_addr);
+            uint32_t v = 0;
+            try {
+                v = this->read_mem<uint32_t>(this->dut.i_addr);
+            } catch (MemFault e) {
+                v = 0;
+            }
+            after_n_cycles(0, [&, v] {
+                this->dut.i_data = v;
             });
         });
 
@@ -86,6 +92,7 @@ public:
                             ((this->dut.d_bytesel & 4) ? 0x00ff0000 : 0) |
                             ((this->dut.d_bytesel & 8) ? 0xff000000 : 0);
             uint32_t addr = this->dut.d_addr;
+            uint32_t v = this->read_mem<uint32_t>(addr) & mask;
 
             if (this->dut.d_wren) {
                 uint32_t wdata = this->dut.d_wdata;
@@ -96,8 +103,8 @@ public:
                     this->write_mem<uint32_t>(addr, tmp);
                 });
             } else {
-                after_n_cycles(0, [&, addr, mask] {
-                    this->dut.d_rdata = this->read_mem<uint32_t>(addr) & mask;
+                after_n_cycles(0, [&, v] {
+                    this->dut.d_rdata = v;
                 });
             }
         });
@@ -130,7 +137,10 @@ public:
     {
         svSetScope(core_scope);
         pc = v;
+	    this->dut.eval();
         this->dut.write_pc(v);
+	    this->dut.set_reset_vector(v);
+	    reset();
     }
 
     void step()

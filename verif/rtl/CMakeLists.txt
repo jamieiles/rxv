@@ -21,3 +21,4 @@ target_link_libraries(rtl-unittest
                       VRXVCore
                       VRegFile)
 add_test(rtl-unittest rtl-unittest)
+set_tests_properties(rtl-unittest PROPERTIES TIMEOUT 10)

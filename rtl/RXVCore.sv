@@ -18,6 +18,16 @@ module RXVCore(input logic clk,
                ,
                // RVFI
                output logic rvfi_valid,
+               output logic [63:0] rvfi_order,
+               output logic rvfi_trap,
+               output logic rvfi_halt,
+               output logic rvfi_intr,
+               output logic [1:0] rvfi_mode,
+               output logic [1:0] rvfi_ixl,
+               output logic [4:0] rvfi_rs1_addr,
+               output logic [4:0] rvfi_rs2_addr,
+               output logic [31:0] rvfi_rs1_rdata,
+               output logic [31:0] rvfi_rs2_rdata,
                output logic [31:0] rvfi_insn,
                output logic [4:0] rvfi_rd_addr,
                output logic [31:0] rvfi_rd_wdata,
@@ -46,33 +56,41 @@ module RXVCore(input logic clk,
                output logic [31:0] rvfi_csr_mscratch_wmask,
                output logic [31:0] rvfi_csr_mscratch_rdata,
                output logic [31:0] rvfi_csr_mscratch_rmask,
-               output logic [31:0] rvfi_csr_mscratch_wdata
+               output logic [31:0] rvfi_csr_mscratch_wdata,
+               output logic [31:0] rvfi_mem_addr,
+               output logic [3:0] rvfi_mem_rmask,
+               output logic [3:0] rvfi_mem_wmask,
+               output logic [31:0] rvfi_mem_rdata,
+               output logic [31:0] rvfi_mem_wdata
 `endif // RXV_RVFI
                );
+
+reg [31:0] reset_vector = 32'b0;
 
 // Instruction fetch
 // verilator lint_off BLKANDNBLK
 reg [31:0] pc;
 // verilator lint_on BLKANDNBLK
-wire [31:0] instruction = insert_bubble && !f_clear_bubble ? 32'h00000013 : i_data;
-wire [31:0] next_pc     = w_exception ? w_next_pc :
-                          ef_write_pc ? em_next_pc :
-                          insert_bubble ? pc : pc + 32'd4;
-assign i_addr           = pc;
-reg insert_bubble;
+reg delay_slot;
+wire f_insert_nop       = flush_pipeline | delay_slot;
+wire [31:0] instruction = f_insert_nop || 1'b0 ? 32'h00000013 : i_data;
+wire d_write_pc         = d_is_branch && d_br_type == BRANCH_IMMED;
+wire [31:0] next_pc     = w_write_pc ? w_next_pc :
+                          e_write_pc ? e_next_pc :
+                          d_write_pc ? d_br_tgt :
+                          d_load_delay || f_flush_pipeline || (flush_pipeline && !f_finish_flush) ? pc : pc + 32'd4;
+assign i_addr           = next_pc;
+reg flush_pipeline;
 
-wire f_clear_bubble     = (em_valid & ef_branch_resolved) |
-                          (de_valid & de_load) |
-                          (mw_valid & mw_write_csr) |
+wire f_finish_flush     = (mw_valid & mw_write_csr) |
                           (mw_valid & mw_do_fence) |
+                          (mw_valid & mw_do_mret) |
                           w_exception;
-wire f_insert_bubble    = d_is_branch |
-                          d_opcode == OPC_LOAD |
-                          d_fence |
-                          d_write_csr |
-                          d_abort |
-                          d_read_mepc |
-                          d_illegal_instr;
+wire f_flush_pipeline   = (d_fence |
+                           d_write_csr |
+                           d_read_mepc |
+                           (instruction == INSTR_ECALL) |
+                           (instruction == INSTR_EBREAK)) & fd_valid & ~w_exception;
 
 // Instruction field extraction
 wire [6:0] funct7       = instruction[31:25];
@@ -90,17 +108,31 @@ wire [31:0] b_immed     = {{20{instruction[31]}}, instruction[7], instruction[30
 wire [31:0] u_immed     = {instruction[31:12], 12'b0};
 wire [31:0] j_immed     = {{12{instruction[31]}}, instruction[19:12], instruction[20], instruction[30:21], 1'b0};
 
-localparam OPC_LUI      = 7'b0110111,
-           OPC_AUIPC    = 7'b0010111,
-           OPC_JAL      = 7'b1101111,
-           OPC_JALR     = 7'b1100111,
-           OPC_BRANCH   = 7'b1100011,
-           OPC_LOAD     = 7'b0000011,
-           OPC_STORE    = 7'b0100011,
-           OPC_ARITHI   = 7'b0010011,
-           OPC_ARITH    = 7'b0110011,
-           OPC_FENCE    = 7'b0001111,
-           OPC_ENV      = 7'b1110011;
+localparam OPC_LUI      = 7'b011_0111,
+           OPC_AUIPC    = 7'b001_0111,
+           OPC_JAL      = 7'b110_1111,
+           OPC_JALR     = 7'b110_0111,
+           OPC_BRANCH   = 7'b110_0011,
+           OPC_LOAD     = 7'b000_0011,
+           OPC_STORE    = 7'b010_0011,
+           OPC_ARITHI   = 7'b001_0011,
+           OPC_ARITH    = 7'b011_0011,
+           OPC_FENCE    = 7'b000_1111,
+           OPC_ENV      = 7'b111_0011;
+
+localparam ALU_OP_ADD   = 4'd0,
+           ALU_OP_SUB   = 4'd1,
+           ALU_OP_SLL   = 4'd2,
+           ALU_OP_LT    = 4'd3,
+           ALU_OP_LTU   = 4'd4,
+           ALU_OP_XOR   = 4'd5,
+           ALU_OP_SRL   = 4'd6,
+           ALU_OP_SRA   = 4'd7,
+           ALU_OP_OR    = 4'd8,
+           ALU_OP_AND   = 4'd9,
+           ALU_OP_IMMED = 4'd10,
+           ALU_OP_NPC   = 4'd11,
+           ALU_OP_RDCSR = 4'd12;
 
 localparam BR_BEQ       = 3'b000,
            BR_BNE       = 3'b001,
@@ -171,7 +203,7 @@ wire d_write_csr        = d_opcode == OPC_ENV &&
                            ((funct3 == CSRRSI || funct3 == CSRRCI) && |rs1));
 
 wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
-                          d_opcode == OPC_AUIPC ? u_immed :
+                          d_opcode == OPC_AUIPC ? fd_pc + u_immed :
                           d_opcode == OPC_JAL ? j_immed :
                           d_opcode == OPC_JALR ? i_immed_s :
                           d_opcode == OPC_LOAD ? i_immed_s :
@@ -179,6 +211,9 @@ wire [31:0] d_immed     = d_opcode == OPC_LUI ? u_immed :
                           d_opcode == OPC_BRANCH ? b_immed :
                           d_opcode == OPC_STORE ? s_immed :
                           d_opcode == OPC_ENV ? i_immed : i_immed;
+wire [31:0] d_br_tgt    = d_opcode == OPC_JAL ? fd_pc + j_immed :
+                          d_opcode == OPC_JALR ? fd_pc + i_immed_s :
+                          fd_pc + b_immed;
 
 wire d_writeback        = d_opcode == OPC_LUI ||
                           d_opcode == OPC_AUIPC ||
@@ -203,6 +238,8 @@ wire d_bad_opc          = !(d_opcode == OPC_LUI ||
 wire d_is_branch        = d_opcode == OPC_JAL ||
                           d_opcode == OPC_JALR ||
                           d_opcode == OPC_BRANCH;
+wire d_bad_jalr         = d_opcode == OPC_JALR &&
+                          funct3 != 3'b000;
 wire d_bad_branch       = d_opcode == OPC_BRANCH &&
                           (funct3 == 3'd2 || funct3 == 3'd3);
 wire d_bad_load         = d_opcode == OPC_LOAD &&
@@ -213,7 +250,8 @@ wire d_bad_arithi       = d_opcode == OPC_ARITHI &&
                           ((funct3 == 3'd1 && funct7 != 7'd0) ||
                            (funct3 == 3'd5 && |{funct7[6], funct7[4:0]}));
 wire d_bad_arith        = d_opcode == OPC_ARITH &&
-                          ((funct3 == 3'd0 || funct7 == 7'd5) && |{funct7[6], funct7[4:0]});
+                          (((funct3 == 3'd0 || funct3 == 3'd5) && |{funct7[6], funct7[4:0]}) ||
+                           ((funct3 != 3'd0 && funct3 != 3'd5) && |funct7));
                            // FIXME: check supported CSRs
 wire d_bad_csr          = i_immed > 32'h1000;
 wire d_is_csr_access    = d_opcode == OPC_ENV && !(funct3 == 3'd0 || funct3 == 3'd4);
@@ -225,71 +263,82 @@ wire d_bad_env          = d_opcode == OPC_ENV &&
                              instruction == INSTR_MRET))) ||
                           d_is_csr_access && d_bad_csr;
 wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
-                          d_bad_arithi | d_bad_arith | d_bad_env;
+                          d_bad_arithi | d_bad_arith | d_bad_env | d_bad_jalr | d_bad_fence;
 wire [1:0] d_br_type    = d_opcode == OPC_JAL ? BRANCH_IMMED :
                           d_opcode == OPC_JALR ? BRANCH_INDIR :
                           d_opcode == OPC_BRANCH ? BRANCH_COND : BRANCH_NONE;
 wire [1:0] d_ls_width   = funct3[1:0];
 wire d_load_sext        = ~funct3[2];
-wire d_abort            = e_abort;
 wire d_read_mepc        = instruction == INSTR_MRET;
-wire d_fence            = d_opcode == OPC_FENCE && funct3[2:1] == 2'b0;
+// verilator lint_off UNUSED
+wire [3:0] d_fence_fm   = instruction[31:28];
+// verilator lint_on UNUSED
+wire d_fence            = d_opcode == OPC_FENCE && !d_bad_fence;
+wire d_bad_fence        = d_opcode == OPC_FENCE &&
+                          !(funct3[2:1] == 2'b0 && d_fence_fm[2:0] == 3'b0);
+wire d_load_delay       = (d_opcode == OPC_LOAD || (d_is_branch && d_br_type != BRANCH_IMMED)) && !d_illegal_instr;
+wire [3:0] d_alu_op     = d_opcode == OPC_ARITH && funct3 == 3'd0 && ~funct7[5] ? ALU_OP_ADD :
+                          d_opcode == OPC_ARITH && funct3 == 3'd0 &&  funct7[5] ? ALU_OP_SUB :
+                          d_opcode == OPC_ARITHI && funct3 == 3'd0 ? ALU_OP_ADD :
+                          d_opcode == OPC_LUI ? ALU_OP_IMMED :
+                          d_opcode == OPC_AUIPC ? ALU_OP_IMMED :
+                          d_opcode == OPC_JAL ? ALU_OP_NPC :
+                          d_opcode == OPC_JALR ? ALU_OP_NPC :
+                          d_opcode == OPC_STORE ? ALU_OP_ADD :
+                          d_opcode == OPC_LOAD ? ALU_OP_ADD :
+                          d_opcode == OPC_ENV && d_read_csr ? ALU_OP_RDCSR :
+                          d_read_mepc ? ALU_OP_RDCSR :
+                          funct3 == 3'd1 ? ALU_OP_SLL :
+                          funct3 == 3'd2 ? ALU_OP_LT :
+                          funct3 == 3'd3 ? ALU_OP_LTU :
+                          funct3 == 3'd4 ? ALU_OP_XOR :
+                          funct3 == 3'd5 && ~funct7[5] ? ALU_OP_SRL :
+                          funct3 == 3'd5 &&  funct7[5] ? ALU_OP_SRA :
+                          funct3 == 3'd6 ? ALU_OP_OR :
+                          funct3 == 3'd7 ? ALU_OP_AND : ALU_OP_AND;
+wire d_op2_immed        = d_opcode == OPC_ARITHI ||
+                          (d_is_branch && d_br_type == BRANCH_INDIR) ||
+                          d_opcode == OPC_STORE ||
+                          d_opcode == OPC_LOAD;
 
 // Instruction execution
-wire e_sub_b;
-wire [31:0] e_sub;
-wire [31:0] alu_out     = de_opcode == OPC_LUI ? de_immed :
-                          de_opcode == OPC_AUIPC ? de_immed + de_pc :
-                          de_opcode == OPC_JAL ? de_pc + 32'd4 :
-                          de_opcode == OPC_JALR ? de_pc + 32'd4 :
-                          de_opcode == OPC_ARITHI || de_opcode == OPC_ARITH ? e_arith_res :
-                          de_opcode == OPC_STORE ? rs1_fwd + de_immed :
-                          de_opcode == OPC_LOAD ? rs1_fwd + de_immed :
-                          de_opcode == OPC_ENV && de_read_csr ? e_csr_val :
-                          de_immed;
-// verilator lint_off UNUSED
-wire [31:0] e_indir_tgt = rs1_fwd + de_immed;
-// verilator lint_on UNUSED
-wire [31:0] e_next_pc   = de_br_type == BRANCH_IMMED ? de_pc + de_immed :
-                          de_br_type == BRANCH_INDIR ? {e_indir_tgt[31:1], 1'b0} :
-                          de_br_type == BRANCH_COND && e_br_taken ? de_pc + de_immed :
-                          de_do_mret ? mepc_reg :
-                          de_pc + 32'd4;
+wire [31:0] alu_out     = de_alu_op == ALU_OP_IMMED ? de_immed :
+                          de_alu_op == ALU_OP_NPC ? de_next_seq_pc :
+                          de_alu_op == ALU_OP_RDCSR ? e_csr_val :
+                          de_alu_op == ALU_OP_ADD ? e_add :
+                          de_alu_op == ALU_OP_SUB ? e_sub :
+                          de_alu_op == ALU_OP_SLL ? e_sll :
+                          de_alu_op == ALU_OP_LT ? e_lt :
+                          de_alu_op == ALU_OP_LTU ? e_ltu :
+                          de_alu_op == ALU_OP_XOR ? e_xor :
+                          de_alu_op == ALU_OP_SRL ? e_srl :
+                          de_alu_op == ALU_OP_SRA ? e_sra :
+                          de_alu_op == ALU_OP_OR ? e_or :
+                          de_alu_op == ALU_OP_AND ? e_and : e_and;
+wire [31:0] e_branch_tgt= de_br_type == BRANCH_INDIR ? {e_add[31:1], 1'b0} :
+                          e_br_taken ? de_branch_tgt : de_next_seq_pc;
 
-wire e_write_pc         = (de_br_type == BRANCH_IMMED ||
-                           de_br_type == BRANCH_INDIR ||
-                           (de_br_type == BRANCH_COND && e_br_taken) ||
-                           de_do_mret) &&
-                          !e_instr_ac;
+wire e_write_pc         = de_br_type == BRANCH_INDIR ||
+                          de_br_type == BRANCH_COND;
 wire e_br_taken         = de_funct3 == BR_BEQ  ? rs1_fwd == rs2_fwd :
                           de_funct3 == BR_BNE  ? rs1_fwd != rs2_fwd :
-                          de_funct3 == BR_BLT  ? e_lt[0] :
-                          de_funct3 == BR_BGE  ? ~e_lt[0] :
-                          de_funct3 == BR_BLTU ? e_sub_b :
-                          de_funct3 == BR_BGEU ? ~e_sub_b: 1'b0;
-wire [31:0] e_arith_op2 = de_opcode == OPC_ARITHI ? de_immed : rs2_fwd;
-wire [4:0] e_shift_cnt  = de_opcode == OPC_ARITHI ? de_immed[4:0] : rs2_fwd[4:0];
+                          de_funct3 == BR_BLT  ? $signed(rs1_fwd) < $signed(rs2_fwd) :
+                          de_funct3 == BR_BGE  ? $signed(rs1_fwd) >= $signed(rs2_fwd) :
+                          de_funct3 == BR_BLTU ? rs1_fwd < rs2_fwd :
+                          /*de_funct3 == BR_BGEU*/ rs1_fwd >= rs2_fwd;
+wire [31:0] e_arith_op2 = de_op2_immed ? de_immed : rs2_fwd;
+wire [4:0] e_shift_cnt  = e_arith_op2[4:0];
 wire [31:0] e_sll       = rs1_fwd << e_shift_cnt;
 wire [31:0] e_srl       = rs1_fwd >> e_shift_cnt;
 wire [31:0] e_sra       = $signed(rs1_fwd) >>> e_shift_cnt;
 wire [31:0] e_add       = rs1_fwd + e_arith_op2;
+wire [31:0] e_sub       = rs1_fwd - e_arith_op2;
 wire [31:0] e_xor       = rs1_fwd ^ e_arith_op2;
 wire [31:0] e_or        = rs1_fwd | e_arith_op2;
 wire [31:0] e_and       = rs1_fwd & e_arith_op2;
-wire [31:0] e_lt        = {31'b0, e_sub[31] ^ ((rs1_fwd[31] ^ e_arith_op2[31]) & (e_sub[31] ^ rs1_fwd[31]))};
-wire [31:0] e_ltu       = {31'b0, e_sub_b};
-wire [31:0] e_arith_res = de_opcode == OPC_ARITH && de_funct3 == 3'd0 && ~de_funct7_sel ? e_add :
-                          de_opcode == OPC_ARITH && de_funct3 == 3'd0 &&  de_funct7_sel ? e_sub :
-                          de_opcode == OPC_ARITHI && de_funct3 == 3'd0 ? e_add :
-                          de_funct3 == 3'd1 ? e_sll :
-                          de_funct3 == 3'd2 ? e_lt :
-                          de_funct3 == 3'd3 ? e_ltu :
-                          de_funct3 == 3'd4 ? e_xor :
-                          de_funct3 == 3'd5 && ~de_funct7_sel ? e_srl :
-                          de_funct3 == 3'd5 &&  de_funct7_sel ? e_sra :
-                          de_funct3 == 3'd6 ? e_or :
-                          de_funct3 == 3'd7 ? e_and :
-                          e_add;
+wire [31:0] e_lt        = {31'b0, $signed(rs1_fwd) < $signed(e_arith_op2)}; //{31'b0, e_sub[31] ^ ((rs1_fwd[31] ^ e_arith_op2[31]) & (e_sub[31] ^ rs1_fwd[31]))};
+wire [31:0] e_ltu       = {31'b0, rs1_fwd < e_arith_op2}; //{31'b0, e_sub_b};
+
 wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
                           de_immed[15:0] == CSR_MCAUSE ? mcause_reg :
@@ -304,11 +353,11 @@ wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
                           de_funct3 == CSRRSI ? e_csr_val | {27'b0, de_csr_immed} :
                           de_funct3 == CSRRCI ? e_csr_val & ~{27'b0, de_csr_immed} :
                           rs1_fwd;
-assign {e_sub_b, e_sub} = {1'b0, rs1_fwd} - {1'b0, e_arith_op2};
-reg ef_write_pc;
-reg ef_branch_resolved;
-wire e_abort            = m_abort | e_instr_ac;
-wire e_instr_ac         = de_valid && |e_next_pc[1:0] && de_br_type != BRANCH_NONE;
+wire [31:0] e_next_pc   = de_br_type == BRANCH_NONE ? de_next_seq_pc :
+                          de_br_type == BRANCH_IMMED ? de_branch_tgt :
+                          e_branch_tgt;
+wire e_instr_ac         = de_valid &&
+                          de_br_type != BRANCH_NONE && e_next_pc[1];
 
 // Memory cycles
 assign d_access         = em_valid & (em_load | em_store) & !m_align_check;
@@ -335,7 +384,7 @@ wire [31:0] d_rdata_rot = mw_addr_lsb[1:0] == 2'b11 ? {24'b0, d_rdata[31:24]} :
                           d_rdata;
 wire [31:0] d_rdata_msk = mw_ls_width == LS_WIDTH_32 ? d_rdata_rot :
                           mw_ls_width == LS_WIDTH_16 ? {16'b0, d_rdata_rot[15:0]} :
-                          mw_ls_width == LS_WIDTH_8 ? {24'b0, d_rdata_rot[7:0]} : 32'b0;
+                          {24'b0, d_rdata_rot[7:0]};
 wire [31:0] d_rdata_s   = mw_ls_width == LS_WIDTH_16 ? {{17{d_rdata_rot[15]}}, d_rdata_rot[14:0]} :
                           mw_ls_width == LS_WIDTH_8 ? {{25{d_rdata_rot[7]}}, d_rdata_rot[6:0]} :
                           d_rdata_rot;
@@ -345,17 +394,30 @@ assign d_addr           = {em_result[31:2], 2'b00};
 wire m_align_check      = em_ls_width == LS_WIDTH_32 ? |em_result[1:0] :
                           em_ls_width == LS_WIDTH_16 ? em_result[0] : 1'b0;
 wire m_raise_ac         = em_valid && (em_load || em_store) && m_align_check;
-wire m_abort            = m_raise_ac;
+wire m_abort            = m_raise_ac | w_exception;
 
 wire [31:0] rs1_data, rs2_data;
 wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? w_data : rs1_data;
 wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? w_data : rs2_data;
+reg [31:0] fd_pc;
+reg fd_valid;
 
-always_ff @(posedge clk) begin
-    if (f_clear_bubble)
-        insert_bubble <= 1'b0;
-    else if (f_insert_bubble)
-        insert_bubble <= 1'b1;
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        flush_pipeline <= 1'b0;
+        delay_slot <= 1'b0;
+        fd_pc <= reset_vector;
+        fd_valid <= 1'b0;
+    end else begin
+        if (f_finish_flush)
+            flush_pipeline <= 1'b0;
+        if (f_flush_pipeline)
+            flush_pipeline <= 1'b1;
+
+        delay_slot <= d_load_delay && !w_exception;
+        fd_pc <= next_pc;
+        fd_valid <= !(d_load_delay || f_flush_pipeline || (flush_pipeline && !f_finish_flush)) || w_write_pc || e_write_pc || d_write_pc;
+    end
 end
 
 // CSRs
@@ -376,9 +438,10 @@ reg [31:2] mepc_reg_msb;
 wire [31:0] mepc_reg = {mepc_reg_msb, 2'b0};
 // verilator lint_on BLKANDNBLK
 
-reg [6:0] de_opcode;
 reg [31:0] de_immed;
 reg [31:0] de_pc;
+reg [31:0] de_next_seq_pc;
+reg [31:0] de_branch_tgt;
 reg [4:0] de_rd;
 reg de_writeback;
 reg de_illegal_instr;
@@ -386,18 +449,21 @@ reg [31:0] de_instruction;
 reg de_valid;
 reg [1:0] de_br_type;
 reg [2:0] de_funct3;
-reg de_funct7_sel;
 reg de_load;
 reg de_store;
 reg [1:0] de_ls_width;
 reg de_load_sext;
+`ifdef RXV_RVFI
 reg de_read_csr;
+`endif
 reg de_write_csr;
 reg [4:0] de_csr_immed;
 reg de_do_mret;
 reg de_do_ecall;
 reg de_do_ebreak;
 reg de_do_fence;
+reg [3:0] de_alu_op;
+reg de_op2_immed;
 // Forward from end of exec stage back to start of exec?
 reg fwd_rs1_e, fwd_rs2_e;
 // Forward from end of mem stage back to start of exec?
@@ -405,40 +471,72 @@ reg fwd_rs1_m, fwd_rs2_m;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
+        de_immed <= 32'b0;
+        de_writeback <= 1'b0;
+        de_instruction <= 32'h00000013;
+        de_rd <= 5'b0;
+        de_pc <= 32'b0;
+        de_next_seq_pc <= 32'b0;
+        de_branch_tgt <= 32'b0;
+        de_illegal_instr <= 1'b0;
         de_valid <= 1'b0;
+        de_br_type <= 2'b0;
+        de_funct3 <= 3'b0;
+        de_load <= 1'b0;
+        de_store <= 1'b0;
+        de_ls_width <= 2'b0;
+        de_load_sext <= 1'b0;
+`ifdef RXV_RVFI
+        de_read_csr <= 1'b0;
+`endif
+        de_write_csr <= 1'b0;
+        de_csr_immed <= 5'b0;
+        de_do_mret <= 1'b0;
+        de_do_ecall <= 1'b0;
+        de_do_ebreak <= 1'b0;
+        de_do_fence <= 1'b0;
+        de_alu_op <= 4'b0;
+        de_op2_immed <= 1'b0;
+        fwd_rs1_e <= 1'b0;
+        fwd_rs2_e <= 1'b0;
     end else begin
-        de_opcode <= d_opcode;
         de_immed <= d_immed;
         de_writeback <= d_writeback;
         de_instruction <= instruction;
         de_rd <= d_rd;
-        de_pc <= pc;
-        de_illegal_instr <= d_illegal_instr;
-        de_valid <= !insert_bubble && !e_abort;
-        de_br_type <= d_br_type;
+        de_pc <= fd_pc;
+        de_next_seq_pc <= fd_pc + 32'd4;
+        de_branch_tgt <= d_br_tgt;
+        de_illegal_instr <= fd_valid && d_illegal_instr && !w_exception;
+        de_valid <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr;
+        de_br_type <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr ? d_br_type : 2'b00;
         de_funct3 <= funct3;
-        de_funct7_sel <= funct7[5];
         de_load <= d_opcode == OPC_LOAD;
         de_store <= d_opcode == OPC_STORE;
         de_ls_width <= d_ls_width;
         de_load_sext <= d_load_sext;
+`ifdef RXV_RVFI
         de_read_csr <= d_read_csr;
-        de_write_csr <= d_write_csr;
+`endif
+        de_write_csr <= fd_valid && d_write_csr;
         de_csr_immed <= rs1;
-        de_do_mret <= d_read_mepc;
-        de_do_ecall <= instruction == INSTR_ECALL;
-        de_do_ebreak <= instruction == INSTR_EBREAK;
-        de_do_fence <= d_fence;
+        de_do_mret <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && d_read_mepc;
+        de_do_ecall <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_ECALL;
+        de_do_ebreak <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_EBREAK;
+        de_do_fence <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && d_fence;
+        de_alu_op <= d_alu_op;
+        de_op2_immed <= d_op2_immed;
 
-        fwd_rs1_e <= |rs1 && de_valid && de_writeback && de_rd == rs1;
-        fwd_rs2_e <= |rs2 && de_valid && de_writeback && de_rd == rs2;
+        fwd_rs1_e <= |de_rd && de_valid && de_writeback && de_rd == rs1;
+        fwd_rs2_e <= |de_rd && de_valid && de_writeback && de_rd == rs2;
     end
 end
 
 reg em_writeback;
 reg [4:0] em_rd;
 reg [31:0] em_result;
-reg [31:0] em_pc, em_next_pc;
+reg [31:0] em_pc;
+reg [31:0] em_next_pc;
 reg [31:0] em_instruction;
 reg [31:0] em_store_data;
 reg em_illegal_instr;
@@ -454,18 +552,41 @@ reg em_instr_align_check;
 reg em_do_ecall;
 reg em_do_ebreak;
 reg em_do_fence;
+reg em_do_mret;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
+        em_writeback <= 1'b0;
+        em_rd <= 5'b0;
+        em_result <= 32'b0;
+        em_pc <= 32'b0;
+        em_next_pc <= 32'b0;
+        em_instruction <= 32'b0;
+        em_illegal_instr <= 1'b0;
         em_valid <= 1'b0;
+        em_store_data <= 32'b0;
+        em_load <= 1'b0;
+        em_store <= 1'b0;
+        em_ls_width <= 2'b0;
+        em_load_sext <= 1'b0;
+        em_write_csr <= 1'b0;
+        em_csr_rd <= 16'b0;
+        em_csr_wdata <= 32'b0;
+        em_instr_align_check <= 1'b0;
+        em_do_ecall <= 1'b0;
+        em_do_ebreak <= 1'b0;
+        em_do_fence <= 1'b0;
+        em_do_mret <= 1'b0;
+        fwd_rs1_m <= 1'b0;
+        fwd_rs2_m <= 1'b0;
     end else begin
-        em_writeback <= de_valid && de_writeback && !e_instr_ac && !m_abort;
+        em_writeback <= de_valid && de_writeback && !e_instr_ac && !w_exception;
         em_rd <= de_rd;
         em_result <= alu_out;
         em_pc <= de_pc;
-        em_instruction <= de_instruction;
         em_next_pc <= e_next_pc;
-        em_illegal_instr <= de_illegal_instr;
+        em_instruction <= de_instruction;
+        em_illegal_instr <= de_illegal_instr && !w_exception;
         em_valid <= de_valid && !m_abort;
         em_store_data <= rs2_fwd;
         em_load <= de_load;
@@ -475,16 +596,14 @@ always_ff @(posedge clk or posedge reset) begin
         em_write_csr <= de_write_csr;
         em_csr_rd <= de_immed[15:0];
         em_csr_wdata <= e_csr_wdata;
-        em_instr_align_check <= e_instr_ac;
-        em_do_ecall <= de_do_ecall;
-        em_do_ebreak <= de_do_ebreak;
-        em_do_fence <= de_do_fence;
+        em_instr_align_check <= e_instr_ac && !w_exception;
+        em_do_ecall <= de_do_ecall && !w_exception;
+        em_do_ebreak <= de_do_ebreak && !w_exception;
+        em_do_fence <= de_do_fence && !w_exception;
+        em_do_mret <= de_do_mret && !w_exception;
 
-        fwd_rs1_m <= |rs1 && em_valid && em_writeback && em_rd == rs1;
-        fwd_rs2_m <= |rs2 && em_valid && em_writeback && em_rd == rs2;
-
-        ef_write_pc <= de_valid && e_write_pc && !e_instr_ac;
-        ef_branch_resolved <= de_valid && (de_br_type != BRANCH_NONE || de_do_mret) && ~e_instr_ac;
+        fwd_rs1_m <= |em_rd && em_valid && em_writeback && em_rd == rs1;
+        fwd_rs2_m <= |em_rd && em_valid && em_writeback && em_rd == rs2;
     end
 end
 
@@ -509,31 +628,53 @@ reg mw_instr_align_check;
 reg mw_do_ecall;
 reg mw_do_ebreak;
 reg mw_do_fence;
+reg mw_do_mret;
 wire [31:0] w_data = mw_load ? (mw_load_sext ? d_rdata_s : d_rdata_msk) : mw_result;
+wire w_wr_en = mw_valid && mw_writeback && !w_exception;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
+        mw_writeback <= 1'b0;
+        mw_rd <= 5'b0;
+        mw_result <= 32'b0;
+        mw_pc <= 32'b0;
+        mw_instruction <= 32'b0;
+        mw_next_pc <= 32'b0;
+        mw_illegal_instr <= 1'b0;
         mw_valid <= 1'b0;
+        mw_ls_width <= 2'b0;
+        mw_load <= 1'b0;
+        mw_load_sext <= 1'b0;
+        mw_write_csr <= 1'b0;
+        mw_csr_rd <= 16'b0;
+        mw_csr_wdata <= 32'b0;
+        mw_data_align_check <= 1'b0;
+        mw_do_ecall <= 1'b0;
+        mw_do_ebreak <= 1'b0;
+        mw_do_fence <= 1'b0;
+        mw_do_mret <= 1'b0;
+        mw_instr_align_check <= 1'b0;
     end else begin
-        mw_writeback <= em_writeback && !m_raise_ac;
+        mw_writeback <= em_writeback && !m_abort && !w_exception;
         mw_rd <= em_rd;
         mw_result <= em_result;
         mw_pc <= em_pc;
         mw_instruction <= em_instruction;
         mw_next_pc <= em_next_pc;
-        mw_illegal_instr <= em_illegal_instr;
-        mw_valid <= em_valid;
+        mw_illegal_instr <= em_illegal_instr && !w_exception;
+        mw_valid <= em_valid && !w_exception;
         mw_ls_width <= em_ls_width;
         mw_load <= em_load;
         mw_load_sext <= em_load_sext;
         mw_write_csr <= em_write_csr;
         mw_csr_rd <= em_csr_rd;
         mw_csr_wdata <= em_csr_wdata;
-        mw_data_align_check <= m_raise_ac;
-        mw_do_ecall <= em_do_ecall;
-        mw_do_ebreak <= em_do_ebreak;
-        mw_do_fence <= em_do_fence;
-        mw_instr_align_check <= em_instr_align_check;
+        mw_data_align_check <= m_raise_ac && !w_exception;
+        mw_do_ecall <= em_do_ecall && !w_exception;
+        mw_do_ebreak <= em_do_ebreak && !w_exception;
+        mw_do_fence <= em_do_fence && !w_exception;
+        mw_do_mret <= em_do_mret && !w_exception;
+        mw_instr_align_check <= em_instr_align_check && !w_exception;
     end
 end
 
@@ -579,18 +720,19 @@ always_ff @(posedge clk or posedge reset)
             mtval_reg <= mw_csr_wdata;
     end
 
-RegFile RegFile(.rd_addr_a(rs1),
+RegFile RegFile(.clk(clk),
+		.reset(reset),
+		.rd_addr_a(rs1),
                 .rd_data_a(rs1_data),
                 .rd_addr_b(rs2),
                 .rd_data_b(rs2_data),
-                .wr_en(mw_writeback),
+                .wr_en(w_wr_en),
                 .wr_addr(mw_rd),
-                .wr_data(w_data),
-                .*);
+                .wr_data(w_data));
 
 always_ff @(posedge clk or posedge reset)
     if (reset)
-        pc <= 32'b0;
+        pc <= reset_vector - 32'd4;
     else begin
         pc <= next_pc;
     end
@@ -611,7 +753,9 @@ wire [3:0] w_mcause_code = mw_data_align_check && mw_load ? EX_LOAD_ALIGN:
 wire [31:0] w_mtval      = mw_data_align_check ? mw_result :
                            mw_illegal_instr ? mw_instruction :
                            mw_instr_align_check ? mw_next_pc : 32'b0;
-wire [31:0] w_next_pc    = w_exception ? {mtvec_reg_base, 2'b0} : mw_next_pc;
+wire [31:0] w_next_pc    = w_exception ? {mtvec_reg_base, 2'b0} :
+                           mw_result;
+wire w_write_pc          = w_exception || mw_do_mret;
 
 `ifdef RXV_RVFI
 reg [127:0] rvfi_csr_marchid_pipe;
@@ -623,14 +767,56 @@ reg [127:0] rvfi_csr_mepc_pipe;
 
 assign rvfi_csr_marchid_wmask = 32'h0;
 assign rvfi_csr_marchid_wdata = 32'd0;
+assign rvfi_halt = 1'b0;
+assign rvfi_intr = 1'b0;
+assign rvfi_mode = 2'b11;
+assign rvfi_ixl = 2'b01;
+
+reg [63:0] rvfi_mem_addr_pipe;
+reg [7:0] rvfi_mem_rmask_pipe;
+reg [7:0] rvfi_mem_wmask_pipe;
+reg [63:0] rvfi_mem_wdata_pipe;
+reg [95:0] rvfi_rs1_rdata_pipe;
+reg [95:0] rvfi_rs2_rdata_pipe;
+reg [19:0] rvfi_rs1_addr_pipe;
+reg [19:0] rvfi_rs2_addr_pipe;
+
+assign rvfi_mem_addr = rvfi_mem_addr_pipe[63:32];
+assign rvfi_mem_rmask = rvfi_mem_rmask_pipe[7:4];
+assign rvfi_mem_wmask = rvfi_mem_wmask_pipe[7:4];
+assign rvfi_mem_wdata = rvfi_mem_wdata_pipe[63:32];
+assign rvfi_rs1_rdata = rvfi_rs1_rdata_pipe[95:64];
+assign rvfi_rs2_rdata = rvfi_rs2_rdata_pipe[95:64];
+assign rvfi_rs1_addr = rvfi_rs1_addr_pipe[19:15];
+assign rvfi_rs2_addr = rvfi_rs2_addr_pipe[19:15];
+
+wire rvfi_retire = mw_valid | w_exception;
+
+initial begin
+    rvfi_valid = 1'b0;
+    rvfi_order = 64'b0;
+    rvfi_trap = 1'b0;
+end
 
 always_ff @(posedge clk) begin
-    rvfi_valid <= mw_valid;
+    rvfi_valid <= rvfi_retire;
     rvfi_pc_rdata <= mw_pc;
-    rvfi_pc_wdata <= w_next_pc;
+    rvfi_pc_wdata <= w_write_pc ? w_next_pc : mw_next_pc;
     rvfi_insn <= mw_instruction;
     rvfi_rd_addr <= mw_valid && mw_writeback ? mw_rd : 5'b0;
-    rvfi_rd_wdata <= mw_rd == 5'd0 ? 32'b0 : w_data;
+    rvfi_rd_wdata <= mw_valid && mw_writeback && mw_rd != 5'd0 ? w_data : 32'b0;
+    rvfi_order <= rvfi_order + {63'b0, rvfi_retire};
+    rvfi_trap <= w_exception;
+    rvfi_mem_rdata <= d_rdata;
+
+    rvfi_mem_addr_pipe <= {rvfi_mem_addr_pipe[31:0], d_addr};
+    rvfi_mem_rmask_pipe <= {rvfi_mem_rmask_pipe[3:0], d_wren ? 4'h0 : d_bytesel};
+    rvfi_mem_wmask_pipe <= {rvfi_mem_wmask_pipe[3:0], d_wren ? d_bytesel : 4'b0};
+    rvfi_mem_wdata_pipe <= {rvfi_mem_wdata_pipe[31:0], d_wren ? d_wdata : 32'b0};
+    rvfi_rs1_rdata_pipe <= {rvfi_rs1_rdata_pipe[63:0], rs1_fwd};
+    rvfi_rs2_rdata_pipe <= {rvfi_rs2_rdata_pipe[63:0], rs2_fwd};
+    rvfi_rs1_addr_pipe <= {rvfi_rs1_addr_pipe[14:0], rs1};
+    rvfi_rs2_addr_pipe <= {rvfi_rs2_addr_pipe[14:0], rs2};
 
     // MARCHID
     rvfi_csr_marchid_pipe <= {rvfi_csr_marchid_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MARCHID ? 32'hffffffff : 32'h00000000, e_csr_val};
@@ -639,36 +825,38 @@ always_ff @(posedge clk) begin
     // MSCRATCH
     rvfi_csr_mscratch_pipe <= {rvfi_csr_mscratch_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MSCRATCH ? 32'hffffffff : 32'h00000000, e_csr_val};
     {rvfi_csr_mscratch_rmask, rvfi_csr_mscratch_rdata} <= rvfi_csr_mscratch_pipe[127:64];
-    rvfi_csr_mscratch_wmask <= mw_valid && mw_write_csr && mw_csr_rd == CSR_MSCRATCH ? 32'hffffffff : 32'h0;
+    rvfi_csr_mscratch_wmask <= rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MSCRATCH ? 32'hffffffff : 32'h0;
     rvfi_csr_mscratch_wdata <= mw_csr_wdata;
 
     // MTVEC
     rvfi_csr_mtvec_pipe <= {rvfi_csr_mtvec_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MTVEC ? 32'hffffffff : 32'h00000000, e_csr_val};
     {rvfi_csr_mtvec_rmask, rvfi_csr_mtvec_rdata} <= w_exception ? {32'hffffffff, mtvec_reg} : rvfi_csr_mtvec_pipe[127:64];
-    rvfi_csr_mtvec_wmask <= mw_valid && mw_write_csr && mw_csr_rd == CSR_MTVEC ? 32'hffffffff : 32'h0;
+    rvfi_csr_mtvec_wmask <= rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MTVEC ? 32'hffffffff : 32'h0;
     rvfi_csr_mtvec_wdata <= mw_csr_wdata;
 
     // MCAUSE
     rvfi_csr_mcause_pipe <= {rvfi_csr_mcause_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MCAUSE ? 32'hffffffff : 32'h00000000, e_csr_val};
     {rvfi_csr_mcause_rmask, rvfi_csr_mcause_rdata} <= rvfi_csr_mcause_pipe[127:64];
-    rvfi_csr_mcause_wmask <= (mw_valid && mw_write_csr && mw_csr_rd == CSR_MCAUSE) || w_exception ? 32'hffffffff : 32'h0;
+    rvfi_csr_mcause_wmask <= (rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MCAUSE) || w_exception ? 32'hffffffff : 32'h0;
     rvfi_csr_mcause_wdata <= w_exception ? {w_mcause_i, 27'b0, w_mcause_code} : mw_csr_wdata;
 
     // MTVAL
     rvfi_csr_mtval_pipe <= {rvfi_csr_mtval_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MTVAL ? 32'hffffffff : 32'h00000000, e_csr_val};
     {rvfi_csr_mtval_rmask, rvfi_csr_mtval_rdata} <= rvfi_csr_mtval_pipe[127:64];
-    rvfi_csr_mtval_wmask <= (mw_valid && mw_write_csr && mw_csr_rd == CSR_MTVAL) || w_exception ? 32'hffffffff : 32'h0;
+    rvfi_csr_mtval_wmask <= (rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MTVAL) || w_exception ? 32'hffffffff : 32'h0;
     rvfi_csr_mtval_wdata <= w_exception ? w_mtval : mw_csr_wdata;
 
     // MEPC
     rvfi_csr_mepc_pipe <= {rvfi_csr_mepc_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MEPC || de_do_mret ? 32'hffffffff : 32'h00000000, e_csr_val};
     {rvfi_csr_mepc_rmask, rvfi_csr_mepc_rdata} <= rvfi_csr_mepc_pipe[127:64];
-    rvfi_csr_mepc_wmask <= (mw_valid && mw_write_csr && mw_csr_rd == CSR_MEPC) || w_exception ? 32'hffffffff : 32'h0;
+    rvfi_csr_mepc_wmask <= (rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MEPC) || w_exception ? 32'hffffffff : 32'h0;
     rvfi_csr_mepc_wdata <= w_exception ? mw_pc : mw_csr_wdata;
 end
 
+`ifdef verilator
 export "DPI-C" function write_csr;
 export "DPI-C" function write_pc;
+export "DPI-C" function set_reset_vector;
 
 function void write_csr;
     input int csr;
@@ -681,11 +869,19 @@ function void write_csr;
     endcase
 endfunction
 
+function void set_reset_vector;
+    input int val;
+
+    reset_vector = val;
+endfunction
+
 function void write_pc;
     input int val;
 
     pc = val;
 endfunction
+
+`endif // verilator
 `endif // RXV_RVFI
 
 endmodule

@@ -57,6 +57,18 @@ module RXVCore(input logic clk,
                output logic [31:0] rvfi_csr_mscratch_rdata,
                output logic [31:0] rvfi_csr_mscratch_rmask,
                output logic [31:0] rvfi_csr_mscratch_wdata,
+               output logic [31:0] rvfi_csr_mip_wmask,
+               output logic [31:0] rvfi_csr_mip_rdata,
+               output logic [31:0] rvfi_csr_mip_rmask,
+               output logic [31:0] rvfi_csr_mip_wdata,
+               output logic [31:0] rvfi_csr_mie_wmask,
+               output logic [31:0] rvfi_csr_mie_rdata,
+               output logic [31:0] rvfi_csr_mie_rmask,
+               output logic [31:0] rvfi_csr_mie_wdata,
+               output logic [31:0] rvfi_csr_mstatus_wmask,
+               output logic [31:0] rvfi_csr_mstatus_rdata,
+               output logic [31:0] rvfi_csr_mstatus_rmask,
+               output logic [31:0] rvfi_csr_mstatus_wdata,
                output logic [31:0] rvfi_mem_addr,
                output logic [3:0] rvfi_mem_rmask,
                output logic [3:0] rvfi_mem_wmask,
@@ -344,6 +356,9 @@ wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MCAUSE ? mcause_reg :
                           de_immed[15:0] == CSR_MTVAL ? mtval_reg :
                           de_immed[15:0] == CSR_MTVEC ? mtvec_reg :
+                          de_immed[15:0] == CSR_MIP ? mip_reg :
+                          de_immed[15:0] == CSR_MIE ? mie_reg :
+                          de_immed[15:0] == CSR_MSTATUS ? mstatus_reg :
                           de_immed[15:0] == CSR_MEPC || de_do_mret ? mepc_reg :
                           32'h00000000;
 wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
@@ -436,6 +451,21 @@ wire [31:0] mtvec_reg = {mtvec_reg_base, 1'b0, mtvec_reg_mode};
 
 reg [31:2] mepc_reg_msb;
 wire [31:0] mepc_reg = {mepc_reg_msb, 2'b0};
+
+reg mip_msip;
+reg mip_mtip;
+reg mip_meip;
+wire [31:0] mip_reg = {20'b0, mip_meip, 3'b0, mip_mtip, 3'b0, mip_msip, 3'b0};
+
+reg mie_msie;
+reg mie_mtie;
+reg mie_meie;
+wire [31:0] mie_reg = {20'b0, mie_meie, 3'b0, mie_mtie, 3'b0, mie_msie, 3'b0};
+
+reg mstatus_mie;
+reg mstatus_mpie;
+// Always in M-mode
+wire [31:0] mstatus_reg = {19'b0, 2'b11, 3'b0, mstatus_mpie, 3'b0, mstatus_mie, 3'b0};
 // verilator lint_on BLKANDNBLK
 
 reg [31:0] de_immed;
@@ -720,6 +750,24 @@ always_ff @(posedge clk or posedge reset)
             mtval_reg <= mw_csr_wdata;
     end
 
+always_ff @(posedge clk or posedge reset)
+    if (reset)
+        {mip_meip, mip_mtip, mip_msip} <= 3'b0;
+    else if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MIP)
+        {mip_meip, mip_mtip, mip_msip} <= {mw_csr_wdata[11], mw_csr_wdata[7], mw_csr_wdata[3]};
+
+always_ff @(posedge clk or posedge reset)
+    if (reset)
+        {mie_meie, mie_mtie, mie_msie} <= 3'b0;
+    else if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MIE)
+        {mie_meie, mie_mtie, mie_msie} <= {mw_csr_wdata[11], mw_csr_wdata[7], mw_csr_wdata[3]};
+
+always_ff @(posedge clk or posedge reset)
+    if (reset)
+        {mstatus_mpie, mstatus_mie} <= 2'b0;
+    else if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MSTATUS)
+        {mstatus_mpie, mstatus_mie} <= {mw_csr_wdata[7], mw_csr_wdata[3]};
+
 RegFile RegFile(.clk(clk),
 		.reset(reset),
 		.rd_addr_a(rs1),
@@ -764,6 +812,9 @@ reg [127:0] rvfi_csr_mcause_pipe;
 reg [127:0] rvfi_csr_mtvec_pipe;
 reg [127:0] rvfi_csr_mtval_pipe;
 reg [127:0] rvfi_csr_mepc_pipe;
+reg [127:0] rvfi_csr_mip_pipe;
+reg [127:0] rvfi_csr_mie_pipe;
+reg [127:0] rvfi_csr_mstatus_pipe;
 
 assign rvfi_csr_marchid_wmask = 32'h0;
 assign rvfi_csr_marchid_wdata = 32'd0;
@@ -851,6 +902,24 @@ always_ff @(posedge clk) begin
     {rvfi_csr_mepc_rmask, rvfi_csr_mepc_rdata} <= rvfi_csr_mepc_pipe[127:64];
     rvfi_csr_mepc_wmask <= (rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MEPC) || w_exception ? 32'hffffffff : 32'h0;
     rvfi_csr_mepc_wdata <= w_exception ? mw_pc : mw_csr_wdata;
+
+    // MIP
+    rvfi_csr_mip_pipe <= {rvfi_csr_mip_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MIP ? 32'h00000888 : 32'h00000000, e_csr_val};
+    {rvfi_csr_mip_rmask, rvfi_csr_mip_rdata} <= rvfi_csr_mip_pipe[127:64];
+    rvfi_csr_mip_wmask <= rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MIP ? 32'h00000888 : 32'h0;
+    rvfi_csr_mip_wdata <= mw_csr_wdata;
+
+    // MIE
+    rvfi_csr_mie_pipe <= {rvfi_csr_mie_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MIE ? 32'h00000888 : 32'h00000000, e_csr_val};
+    {rvfi_csr_mie_rmask, rvfi_csr_mie_rdata} <= rvfi_csr_mie_pipe[127:64];
+    rvfi_csr_mie_wmask <= rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MIE ? 32'h00000888 : 32'h0;
+    rvfi_csr_mie_wdata <= mw_csr_wdata;
+
+    // MSTATUS
+    rvfi_csr_mstatus_pipe <= {rvfi_csr_mstatus_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MSTATUS ? 32'h00001888 : 32'h00000000, e_csr_val};
+    {rvfi_csr_mstatus_rmask, rvfi_csr_mstatus_rdata} <= rvfi_csr_mstatus_pipe[127:64];
+    rvfi_csr_mstatus_wmask <= rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MSTATUS ? 32'h00001888 : 32'h0;
+    rvfi_csr_mstatus_wdata <= mw_csr_wdata;
 end
 
 `ifdef verilator

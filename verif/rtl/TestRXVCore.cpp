@@ -80,6 +80,9 @@ public:
             CSR_ACCESS(MTVAL, mtval);
             CSR_ACCESS(MTVEC, mtvec);
             CSR_ACCESS(MEPC, mepc);
+            CSR_ACCESS(MIP, mip);
+            CSR_ACCESS(MIE, mie);
+            CSR_ACCESS(MSTATUS, mstatus);
         });
     }
 

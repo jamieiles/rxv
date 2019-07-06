@@ -10,6 +10,12 @@
 #include "RXVCPU.h"
 
 static const uint32_t NOP = 0x00000013;
+static const uint32_t MSTATUS_MPP_M = 0x3 << 11;
+static const uint32_t MSTATUS_MPIE = 1 << 7;
+static const uint32_t MSTATUS_MIE = 1 << 3;
+static const uint32_t MIX_MSIX = 1 << 3;
+static const uint32_t MIX_MTIX = 1 << 7;
+static const uint32_t MIX_MEIX = 1 << 11;
 
 struct CSRAccess {
     uint32_t wmask;
@@ -96,13 +102,17 @@ public:
     void expect_exception(int instr_idx,
                           uint32_t pc,
                           uint32_t val,
-                          ExCause cause)
+                          ExCause cause,
+                          bool interrupts_enabled = false)
     {
         csr_accesses[instr_idx][MCAUSE] = {0xffffffff, cause, 0, 0};
         csr_accesses[instr_idx][MEPC] = {0xffffffff, pc, 0, 0};
         csr_accesses[instr_idx][MTVAL] = {0xffffffff, val, 0, 0};
         csr_accesses[instr_idx][MTVEC] = {0x00000000, 0x00000000, 0xffffffff,
                                           mtvec_addr};
+        csr_accesses[instr_idx][MSTATUS] = {
+            0x0001888, MSTATUS_MPP_M | (interrupts_enabled ? MSTATUS_MPIE : 0),
+            0, 0};
     }
 
     void check_exceptions()

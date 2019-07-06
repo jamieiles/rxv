@@ -768,6 +768,8 @@ always_ff @(posedge clk or posedge reset)
     else begin
         if (w_exception)
             {mstatus_mpie, mstatus_mie} <= {mstatus_mie, 1'b0};
+        else if (mw_do_mret)
+            {mstatus_mpie, mstatus_mie} <= {1'b1, mstatus_mpie};
         if (mw_valid && mw_write_csr && mw_csr_rd == CSR_MSTATUS)
             {mstatus_mpie, mstatus_mie} <= {mw_csr_wdata[7], mw_csr_wdata[3]};
     end
@@ -922,8 +924,9 @@ always_ff @(posedge clk) begin
     // MSTATUS
     rvfi_csr_mstatus_pipe <= {rvfi_csr_mstatus_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MSTATUS ? 32'h00001888 : 32'h00000000, e_csr_val};
     {rvfi_csr_mstatus_rmask, rvfi_csr_mstatus_rdata} <= rvfi_csr_mstatus_pipe[127:64];
-    rvfi_csr_mstatus_wmask <= (rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MSTATUS) || w_exception ? 32'h00001888 : 32'h0;
-    rvfi_csr_mstatus_wdata <= w_exception ? {19'b0, 2'b11, 3'b0, mstatus_mie, 3'b0, 1'b0, 3'b0} : mw_csr_wdata;
+    rvfi_csr_mstatus_wmask <= (rvfi_retire && mw_write_csr && mw_csr_rd == CSR_MSTATUS) || w_exception || mw_do_mret ? 32'h00001888 : 32'h0;
+    rvfi_csr_mstatus_wdata <= w_exception ? {19'b0, 2'b11, 3'b0, mstatus_mie, 3'b0, 1'b0, 3'b0} :
+                              mw_do_mret ? {19'b0, 2'b11, 3'b0, 1'b1, 3'b0, mstatus_mpie, 3'b0} : mw_csr_wdata;
 end
 
 `ifdef verilator
@@ -938,6 +941,7 @@ function void write_csr;
     case (csr[15:0])
     CSR_MTVEC: {mtvec_reg_base, mtvec_reg_mode} = {val[31:2], val[0]};
     CSR_MEPC: mepc_reg_msb = val[31:2];
+    CSR_MSTATUS: {mstatus_mpie, mstatus_mie} = {val[7], val[3]};
     default: $display("unsupported CSR %x", csr);
     endcase
 endfunction

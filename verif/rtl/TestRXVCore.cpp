@@ -1204,6 +1204,26 @@ TEST_F(RXVCoreTestbench, MRET)
     EXPECT_EQ(0x1000, instr.next_pc);
     CSRMap expected;
     expected[MEPC] = {0, 0, 0xffffffff, 0x0001000};
+    expected[MSTATUS] = {0x0001888, MSTATUS_MPP_M | MSTATUS_MPIE, 0, 0};
+    EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
+}
+
+TEST_F(RXVCoreTestbench, MRETInterruptsEnabled)
+{
+    write_csr(MEPC, 0x1000);
+    write_csr(MSTATUS, MSTATUS_MPP_M | MSTATUS_MPIE);
+    write_reg(1, 0x800180ff);
+    // mret
+    write_mem<uint32_t>(4, 0x30200073);
+
+    cycle(20);
+
+    auto instr = retired_instructions[1];
+    EXPECT_EQ(0, instr.rd);
+    EXPECT_EQ(0x1000, instr.next_pc);
+    CSRMap expected;
+    expected[MEPC] = {0, 0, 0xffffffff, 0x0001000};
+    expected[MSTATUS] = {0x0001888, MSTATUS_MPP_M | MSTATUS_MPIE | MSTATUS_MIE, 0, 0};
     EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 }
 

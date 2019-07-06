@@ -48,6 +48,12 @@ public:
     }
 
     void step();
+    void raise_timer_irq()
+    {
+    }
+    void clear_timer_irq()
+    {
+    }
 
 private:
     struct CSR {

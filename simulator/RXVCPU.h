@@ -40,7 +40,8 @@ enum ExCause {
     EX_ECALL_M       = 11,
     EX_INSTR_PF      = 12,
     EX_LOAD_PF       = 13,
-    EX_STORE_PF      = 15
+    EX_STORE_PF      = 15,
+    EX_INTERRUPT     = 1 << 31
 };
 // clang-format on
 
@@ -59,6 +60,8 @@ public:
 
         reg_file_scope = svGetScopeFromName("TOP.RXVCore.RegFile");
         core_scope = svGetScopeFromName("TOP.RXVCore");
+        this->dut.intr_timer = 0;
+        this->dut.intr_ext = 0;
 
         periodic(ClockSetup, [&] {
             uint32_t v = 0;
@@ -146,8 +149,20 @@ public:
     void step()
     {
         insn_completed = false;
-        while (!insn_completed)
+        while (!insn_completed) {
             cycle();
+            timer_tick();
+        }
+    }
+
+    void raise_timer_irq()
+    {
+        after_n_cycles(1, [&] { this->dut.intr_timer = 1; });
+    }
+
+    void clear_timer_irq()
+    {
+        after_n_cycles(1, [&] { this->dut.intr_timer = 0; });
     }
 
 private:

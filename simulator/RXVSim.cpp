@@ -433,4 +433,6 @@ void RXVSim::step()
         do_exception(INSTR_ALIGN, new_pc);
 
     pc = new_pc;
+
+    timer_tick();
 }

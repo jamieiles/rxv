@@ -7,6 +7,11 @@
 
 double cur_time_stamp = 0;
 
+double sc_time_stamp()
+{
+    return cur_time_stamp;
+}
+
 static boost::program_options::variables_map parse_options(int argc,
                                                            char *argv[])
 {

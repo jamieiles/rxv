@@ -102,7 +102,7 @@ public:
     void expect_exception(int instr_idx,
                           uint32_t pc,
                           uint32_t val,
-                          ExCause cause,
+                          uint32_t cause,
                           bool interrupts_enabled = false)
     {
         csr_accesses[instr_idx][MCAUSE] = {0xffffffff, cause, 0, 0};
@@ -111,7 +111,7 @@ public:
         csr_accesses[instr_idx][MTVEC] = {0x00000000, 0x00000000, 0xffffffff,
                                           mtvec_addr};
         csr_accesses[instr_idx][MSTATUS] = {
-            0x0001888, MSTATUS_MPP_M | (interrupts_enabled ? MSTATUS_MPIE : 0),
+            0x0001808, MSTATUS_MPP_M | (interrupts_enabled ? MSTATUS_MPIE : 0),
             0, 0};
     }
 
@@ -1204,7 +1204,7 @@ TEST_F(RXVCoreTestbench, MRET)
     EXPECT_EQ(0x1000, instr.next_pc);
     CSRMap expected;
     expected[MEPC] = {0, 0, 0xffffffff, 0x0001000};
-    expected[MSTATUS] = {0x0001888, MSTATUS_MPP_M | MSTATUS_MPIE, 0, 0};
+    expected[MSTATUS] = {0x0001808, MSTATUS_MPP_M | MSTATUS_MPIE, 0, 0};
     EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 }
 
@@ -1223,7 +1223,8 @@ TEST_F(RXVCoreTestbench, MRETInterruptsEnabled)
     EXPECT_EQ(0x1000, instr.next_pc);
     CSRMap expected;
     expected[MEPC] = {0, 0, 0xffffffff, 0x0001000};
-    expected[MSTATUS] = {0x0001888, MSTATUS_MPP_M | MSTATUS_MPIE | MSTATUS_MIE, 0, 0};
+    expected[MSTATUS] = {0x0001808, MSTATUS_MPP_M | MSTATUS_MPIE | MSTATUS_MIE,
+                         0, 0};
     EXPECT_THAT(retired_csrs[1], ::testing::ContainerEq(expected));
 }
 
@@ -1271,4 +1272,86 @@ TEST_F(RXVCoreTestbench, FENCE)
     EXPECT_EQ(0x8, instr.next_pc);
 
     check_exceptions();
+}
+
+TEST_F(RXVCoreTestbench, InterruptsDisabledNoIRQ)
+{
+    write_csr(MIE, 0xffffffff);
+    write_csr(MIP, 0xffffffff);
+    cycle(20);
+
+    for (auto &instr : retired_instructions)
+        ASSERT_NE(0x8000, instr.next_pc);
+
+    check_exceptions();
+}
+
+TEST_F(RXVCoreTestbench, InterruptsEnabledTakeIRQ)
+{
+    write_csr(MIE, 0xffffffff);
+    write_csr(MIP, 0xffffffff);
+
+    // csrrsi  x0,mstatus,8
+    write_mem<uint32_t>(4, 0x30046073);
+    csr_accesses[1][MSTATUS] = {0x00001808, 0x00001808, 0x00001808, 0x0001800};
+
+    cycle(100);
+
+    bool interrupted = false;
+    for (size_t m = 0; m < retired_instructions.size(); ++m) {
+        auto instr = retired_instructions[m];
+        if (instr.next_pc == 0x8000)
+            interrupted = true;
+    }
+    EXPECT_TRUE(interrupted);
+}
+
+TEST_F(RXVCoreTestbench, VectoredInterrupts)
+{
+    // Vectored mtvec
+    set_mtvec(0x8000 | 1);
+
+    write_csr(MIE, 0xffffffff);
+    write_csr(MIP, 0xffffffff);
+
+    // csrrsi  x0,mstatus,8
+    write_mem<uint32_t>(4, 0x30046073);
+    csr_accesses[1][MSTATUS] = {0x00001808, 0x00001808, 0x00001808, 0x0001800};
+
+    cycle(100);
+
+    bool interrupted = false;
+    for (size_t m = 0; m < retired_instructions.size(); ++m) {
+        auto instr = retired_instructions[m];
+        if (instr.next_pc == 0x8000 + 3 * sizeof(uint32_t))
+            interrupted = true;
+    }
+    EXPECT_TRUE(interrupted);
+}
+
+TEST_F(RXVCoreTestbench, MRETInterruptTarget)
+{
+    write_csr(MIE, 0xffffffff);
+    write_csr(MIP, 0xffffffff);
+    write_csr(MSTATUS, 0x80);
+    write_csr(MEPC, 0x2000);
+
+    // csrrsi  x0,mstatus,3
+    write_mem<uint32_t>(4, 0x3001e073);
+    // mret
+    write_mem<uint32_t>(8, 0x30200073);
+
+    // addi x1, x0, 1
+    write_mem<uint32_t>(0x2000, 0x00100093);
+
+    // csrrw   x0,mip,x0
+    write_mem<uint32_t>(0x8000, 0x34401073);
+    write_mem<uint32_t>(0x8004, 0x30200073);
+
+    cycle(100);
+
+    auto instr = retired_instructions[3];
+    EXPECT_EQ(0x2000, instr.pc);
+    EXPECT_EQ(0x1, instr.rd);
+    EXPECT_EQ(0x1, instr.rd_val);
 }

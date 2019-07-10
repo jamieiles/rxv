@@ -190,7 +190,11 @@ localparam CSR_MVENDORID    = 16'h0f11,
            CSR_MEPC         = 16'h0341,
            CSR_MCAUSE       = 16'h0342,
            CSR_MTVAL        = 16'h0343,
-           CSR_MIP          = 16'h0344;
+           CSR_MIP          = 16'h0344,
+           CSR_MCYCLE       = 16'h0b00,
+           CSR_MCYCLEH      = 16'h0b80,
+           CSR_MINSTRET     = 16'h0b02,
+           CSR_MINSTRETH    = 16'h0b82;
 
 localparam EX_INSTR_ALIGN   = 4'd0,
            EX_INSTR_ACCESS  = 4'd1,
@@ -363,8 +367,13 @@ wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MTVEC ? mtvec_reg :
                           de_immed[15:0] == CSR_MIP ? mip_reg :
                           de_immed[15:0] == CSR_MIE ? mie_reg :
+                          de_immed[15:0] == CSR_MCOUNTEREN ? mcounteren_reg :
                           de_immed[15:0] == CSR_MSTATUS ? mstatus_reg :
                           de_immed[15:0] == CSR_MEPC || de_do_mret ? mepc_reg :
+                          de_immed[15:0] == CSR_MCYCLE ? mcycle_reg[31:0] :
+                          de_immed[15:0] == CSR_MCYCLEH ? mcycle_reg[63:32] :
+                          de_immed[15:0] == CSR_MINSTRET ? minstret_reg[31:0] :
+                          de_immed[15:0] == CSR_MINSTRETH ? minstret_reg[63:32] :
                           32'h00000000;
 wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
                           de_funct3 == CSRRS ? e_csr_val | rs1_fwd :
@@ -469,6 +478,11 @@ wire [31:0] mepc_reg = {mepc_reg_msb, 2'b0};
 reg mip_msip;
 wire [31:0] mip_reg = {20'b0, intr_ext, 3'b0, intr_timer, 3'b0, mip_msip, 3'b0};
 
+reg mcounteren_cy;
+reg mcounteren_tm;
+reg mcounteren_ir;
+wire [31:0] mcounteren_reg = {29'b0, mcounteren_ir, mcounteren_tm, mcounteren_cy};
+
 reg mie_msie;
 reg mie_mtie;
 reg mie_meie;
@@ -479,6 +493,18 @@ reg mstatus_mpie;
 // Always in M-mode
 wire [31:0] mstatus_reg = {19'b0, 2'b11, 3'b0, mstatus_mpie, 3'b0, mstatus_mie, 3'b0};
 // verilator lint_on BLKANDNBLK
+
+reg [63:0] mcycle_reg;
+reg [63:0] minstret_reg;
+
+always_ff @(posedge clk or posedge reset)
+    if (reset) begin
+        mcycle_reg <= 64'b0;
+        minstret_reg <= 64'b0;
+    end else begin
+        mcycle_reg <= mcycle_reg + {63'b0, mcounteren_cy};
+        minstret_reg <= minstret_reg + {63'b0, mcounteren_ir & mw_valid};
+    end
 
 reg [31:0] de_immed;
 reg [31:0] de_pc;

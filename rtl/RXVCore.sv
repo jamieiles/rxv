@@ -357,8 +357,8 @@ wire [31:0] e_sub       = rs1_fwd - e_arith_op2;
 wire [31:0] e_xor       = rs1_fwd ^ e_arith_op2;
 wire [31:0] e_or        = rs1_fwd | e_arith_op2;
 wire [31:0] e_and       = rs1_fwd & e_arith_op2;
-wire [31:0] e_lt        = {31'b0, $signed(rs1_fwd) < $signed(e_arith_op2)}; //{31'b0, e_sub[31] ^ ((rs1_fwd[31] ^ e_arith_op2[31]) & (e_sub[31] ^ rs1_fwd[31]))};
-wire [31:0] e_ltu       = {31'b0, rs1_fwd < e_arith_op2}; //{31'b0, e_sub_b};
+wire [31:0] e_lt        = {31'b0, $signed(rs1_fwd) < $signed(e_arith_op2)};
+wire [31:0] e_ltu       = {31'b0, rs1_fwd < e_arith_op2};
 
 wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
                           de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :

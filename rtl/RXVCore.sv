@@ -1035,7 +1035,6 @@ assign rvfi_csr_marchid_wdata = 32'd0;
 assign rvfi_halt = 1'b0;
 assign rvfi_mode = 2'b11;
 assign rvfi_ixl = 2'b01;
-assign rvfi_pc_wdata = w_take_interrupt & ~w_trap ? w_next_pc : rvfi_pc_wdata_next;
 
 reg [63:0] rvfi_mem_addr_pipe;
 reg [7:0] rvfi_mem_rmask_pipe;
@@ -1045,7 +1044,6 @@ reg [95:0] rvfi_rs1_rdata_pipe;
 reg [95:0] rvfi_rs2_rdata_pipe;
 reg [19:0] rvfi_rs1_addr_pipe;
 reg [19:0] rvfi_rs2_addr_pipe;
-reg [31:0] rvfi_pc_wdata_next;
 
 assign rvfi_mem_addr = rvfi_mem_addr_pipe[63:32];
 assign rvfi_mem_rmask = rvfi_mem_rmask_pipe[7:4];
@@ -1067,7 +1065,7 @@ end
 always_ff @(posedge clk) begin
     rvfi_valid <= rvfi_retire;
     rvfi_pc_rdata <= mw_pc;
-    rvfi_pc_wdata_next <= w_write_pc ? w_next_pc : mw_next_pc;
+    rvfi_pc_wdata <= w_write_pc && !w_take_interrupt ? w_next_pc : mw_next_pc;
     rvfi_insn <= mw_instruction;
     rvfi_rd_addr <= mw_valid && mw_writeback ? mw_rd : 5'b0;
     rvfi_rd_wdata <= mw_valid && mw_writeback && mw_rd != 5'd0 ? w_data : 32'b0;

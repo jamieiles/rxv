@@ -38,6 +38,7 @@ struct RetiredInstruction {
     uint32_t next_pc;
     uint32_t rd_val;
     uint8_t rd;
+    uint8_t irq;
 };
 
 class RXVCoreTestbench
@@ -63,7 +64,8 @@ public:
             RetiredInstruction ri{this->dut.rvfi_insn, this->dut.rvfi_pc_rdata,
                                   this->dut.rvfi_pc_wdata,
                                   this->dut.rvfi_rd_wdata,
-                                  this->dut.rvfi_rd_addr};
+                                  this->dut.rvfi_rd_addr,
+				  this->dut.rvfi_intr};
             retired_instructions.push_back(ri);
 
 #define CSR_ACCESS(id, name)                                      \
@@ -1300,7 +1302,7 @@ TEST_F(RXVCoreTestbench, InterruptsEnabledTakeIRQ)
     bool interrupted = false;
     for (size_t m = 0; m < retired_instructions.size(); ++m) {
         auto instr = retired_instructions[m];
-        if (instr.next_pc == 0x8000)
+        if (instr.irq && instr.pc == 0x8000)
             interrupted = true;
     }
     EXPECT_TRUE(interrupted);
@@ -1323,7 +1325,7 @@ TEST_F(RXVCoreTestbench, VectoredInterrupts)
     bool interrupted = false;
     for (size_t m = 0; m < retired_instructions.size(); ++m) {
         auto instr = retired_instructions[m];
-        if (instr.next_pc == 0x8000 + 3 * sizeof(uint32_t))
+        if (instr.irq && instr.pc == 0x8000 + 3 * sizeof(uint32_t))
             interrupted = true;
     }
     EXPECT_TRUE(interrupted);

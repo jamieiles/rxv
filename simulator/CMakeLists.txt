@@ -1,11 +1,13 @@
 find_package(Boost COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(../verif/rtl)
+include_directories(../rtl)
 include(Verilator)
 
 verilate(TOPLEVEL RXVCore
 	 VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVCore.sv
 	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVFetch.sv
+	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVDecode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RegFile.sv)
 
 add_executable(rxv-simulator

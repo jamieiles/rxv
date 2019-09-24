@@ -4,7 +4,8 @@ include_directories(../verif/rtl)
 include(Verilator)
 
 verilate(TOPLEVEL RXVCore
-         VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVCore.sv
+	 VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVCore.sv
+	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RegFile.sv)
 
 add_executable(rxv-simulator

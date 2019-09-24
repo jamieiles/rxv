@@ -80,34 +80,7 @@ module RXVCore(input logic clk,
 `endif // RXV_RVFI
                );
 
-reg [31:0] reset_vector = 32'b0;
-
-// Instruction fetch
-// verilator lint_off BLKANDNBLK
-reg [31:0] pc;
-// verilator lint_on BLKANDNBLK
-reg delay_slot;
-wire f_insert_nop       = flush_pipeline | delay_slot;
-wire [31:0] instruction = f_insert_nop || 1'b0 ? 32'h00000013 : i_data;
 wire d_write_pc         = fd_valid && d_is_branch && d_br_type == BRANCH_IMMED;
-wire [31:0] next_pc     = w_write_pc ? w_next_pc :
-                          e_write_pc ? e_next_pc :
-                          d_write_pc ? d_br_tgt :
-                          d_load_delay || f_flush_pipeline || (flush_pipeline && !f_finish_flush) ? pc : pc + 32'd4;
-assign i_addr           = next_pc;
-reg flush_pipeline;
-
-wire f_finish_flush     = (mw_valid & mw_write_csr) |
-                          (mw_valid & mw_do_fence) |
-                          (mw_valid & mw_do_mret) |
-                          w_exception;
-wire f_flush_pipeline   = (d_fence |
-                           d_write_csr |
-                           d_read_mepc |
-			   d_illegal_instr |
-			   m_abort |
-                           (instruction == INSTR_ECALL) |
-                           (instruction == INSTR_EBREAK)) & fd_valid & ~w_exception;
 
 // Instruction field extraction
 wire [6:0] funct7       = instruction[31:25];
@@ -161,7 +134,7 @@ localparam BR_BEQ       = 3'b000,
 localparam INSTR_ECALL  = 32'h00000073,
            INSTR_EBREAK = 32'h00100073,
            INSTR_MRET   = 32'h30200073,
-	   INSTR_WFI	= 32'h10500073;
+	       INSTR_WFI	= 32'h10500073;
 
 localparam BRANCH_NONE  = 2'b00,
            BRANCH_IMMED = 2'b01,
@@ -323,6 +296,16 @@ wire d_op2_immed        = d_opcode == OPC_ARITHI ||
                           (d_is_branch && d_br_type == BRANCH_INDIR) ||
                           d_opcode == OPC_STORE ||
                           d_opcode == OPC_LOAD;
+ wire df_flush          = d_fence |
+                          d_write_csr |
+                          d_read_mepc |
+			              d_illegal_instr |
+                          (instruction == INSTR_ECALL) |
+                          (instruction == INSTR_EBREAK);
+wire f_write_pc           = w_write_pc | e_write_pc | d_write_pc;
+wire [31:0] f_write_pc_val = w_write_pc ? w_next_pc :
+                           e_write_pc ? e_next_pc :
+                           d_br_tgt;
 
 // Instruction execution
 wire [31:0] alu_out     = de_alu_op == ALU_OP_IMMED ? de_immed :
@@ -430,35 +413,14 @@ wire m_abort            = m_raise_ac | w_exception;
 wire [31:0] rs1_data, rs2_data;
 wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? w_data : rs1_data;
 wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? w_data : rs2_data;
-reg [31:0] fd_pc;
-reg fd_valid;
-`ifdef RXV_RVFI
-reg fd_intr;
-`endif
 
-always_ff @(posedge clk or posedge reset) begin
-    if (reset) begin
-        flush_pipeline <= 1'b0;
-        delay_slot <= 1'b0;
-        fd_pc <= reset_vector;
-        fd_valid <= 1'b0;
-`ifdef RXV_RVFI
-        fd_intr <= 1'b0;
-`endif
-    end else begin
-        if (f_finish_flush)
-            flush_pipeline <= 1'b0;
-        if (f_flush_pipeline)
-            flush_pipeline <= 1'b1;
+wire [31:0] instruction;
+wire fd_intr;
+wire [31:0] fd_pc;
+wire fd_valid;
+wire fd_flush_pipeline;
 
-        delay_slot <= d_load_delay && !w_exception;
-        fd_pc <= next_pc;
-        fd_valid <= !(d_load_delay || f_flush_pipeline || (flush_pipeline && !f_finish_flush)) || w_write_pc || e_write_pc || d_write_pc;
-`ifdef RXV_RVFI
-        fd_intr <= w_take_interrupt;
-`endif
-    end
-end
+RXVFetch RXVFetch(.*);
 
 // CSRs
 // verilator lint_off BLKANDNBLK
@@ -580,8 +542,8 @@ always_ff @(posedge clk or posedge reset) begin
         de_next_seq_pc <= fd_pc + 32'd4;
         de_branch_tgt <= d_br_tgt;
         de_illegal_instr <= fd_valid && d_illegal_instr && !w_exception;
-        de_valid <= fd_valid && !e_instr_ac && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && !m_abort;
-        de_br_type <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr ? d_br_type : 2'b00;
+        de_valid <= fd_valid && !e_instr_ac && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && !m_abort;
+        de_br_type <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr ? d_br_type : 2'b00;
         de_funct3 <= funct3;
         de_load <= d_opcode == OPC_LOAD;
         de_store <= d_opcode == OPC_STORE;
@@ -593,10 +555,10 @@ always_ff @(posedge clk or posedge reset) begin
 `endif
         de_write_csr <= fd_valid && d_write_csr;
         de_csr_immed <= rs1;
-        de_do_mret <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && d_read_mepc;
-        de_do_ecall <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_ECALL;
-        de_do_ebreak <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_EBREAK;
-        de_do_fence <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && d_fence;
+        de_do_mret <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && d_read_mepc;
+        de_do_ecall <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_ECALL;
+        de_do_ebreak <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_EBREAK;
+        de_do_fence <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && d_fence;
         de_alu_op <= d_alu_op;
         de_op2_immed <= d_op2_immed;
 
@@ -973,13 +935,6 @@ RegFile RegFile(.clk(clk),
                 .wr_addr(mw_rd),
                 .wr_data(w_data));
 
-always_ff @(posedge clk or posedge reset)
-    if (reset)
-        pc <= reset_vector - 32'd4;
-    else begin
-        pc <= next_pc;
-    end
-
 wire w_take_interrupt = !mw_write_csr &
                         mw_valid &
                         ~w_trap &
@@ -1020,6 +975,12 @@ wire [31:0] w_mtval      = mw_data_align_check ? mw_result :
 wire [31:0] w_next_pc    = w_exception ? w_irq_addr :
                            mw_result;
 wire w_write_pc          = w_exception || mw_do_mret;
+
+
+wire wf_finish_flush    = (mw_valid & mw_write_csr) |
+                          (mw_valid & mw_do_fence) |
+                          (mw_valid & mw_do_mret) |
+                          w_exception;
 
 `ifdef RXV_RVFI
 reg [127:0] rvfi_csr_marchid_pipe;
@@ -1119,13 +1080,13 @@ endfunction
 function void set_reset_vector;
     input int val;
 
-    reset_vector = val;
+    RXVFetch.reset_vector = val;
 endfunction
 
 function void write_pc;
     input int val;
 
-    pc = val;
+    RXVFetch.pc = val;
 endfunction
 
 `endif // verilator

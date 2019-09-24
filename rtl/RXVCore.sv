@@ -104,6 +104,8 @@ wire f_finish_flush     = (mw_valid & mw_write_csr) |
 wire f_flush_pipeline   = (d_fence |
                            d_write_csr |
                            d_read_mepc |
+			   d_illegal_instr |
+			   m_abort |
                            (instruction == INSTR_ECALL) |
                            (instruction == INSTR_EBREAK)) & fd_valid & ~w_exception;
 
@@ -578,7 +580,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_next_seq_pc <= fd_pc + 32'd4;
         de_branch_tgt <= d_br_tgt;
         de_illegal_instr <= fd_valid && d_illegal_instr && !w_exception;
-        de_valid <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr;
+        de_valid <= fd_valid && !e_instr_ac && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr && !m_abort;
         de_br_type <= fd_valid && !w_exception && !flush_pipeline && !w_exception && !d_illegal_instr ? d_br_type : 2'b00;
         de_funct3 <= funct3;
         de_load <= d_opcode == OPC_LOAD;
@@ -664,7 +666,7 @@ always_ff @(posedge clk or posedge reset) begin
         em_next_pc <= e_next_pc;
         em_instruction <= de_instruction;
         em_illegal_instr <= de_illegal_instr && !w_exception;
-        em_valid <= de_valid && !m_abort;
+        em_valid <= de_valid && !m_abort && !w_exception;
         em_store_data <= rs2_fwd;
         em_load <= de_load;
         em_store <= de_store;
@@ -1075,8 +1077,8 @@ always_ff @(posedge clk) begin
     rvfi_intr <= mw_intr;
 
     rvfi_mem_addr_pipe <= {rvfi_mem_addr_pipe[31:0], d_addr};
-    rvfi_mem_rmask_pipe <= {rvfi_mem_rmask_pipe[3:0], d_wren ? 4'h0 : d_bytesel};
-    rvfi_mem_wmask_pipe <= {rvfi_mem_wmask_pipe[3:0], d_wren ? d_bytesel : 4'b0};
+    rvfi_mem_rmask_pipe <= {rvfi_mem_rmask_pipe[3:0], d_access && ~d_wren && ~m_align_check ? d_bytesel : 4'b0};
+    rvfi_mem_wmask_pipe <= {rvfi_mem_wmask_pipe[3:0], d_access && d_wren && ~m_align_check ? d_bytesel : 4'b0};
     rvfi_mem_wdata_pipe <= {rvfi_mem_wdata_pipe[31:0], d_wren ? d_wdata : 32'b0};
     rvfi_rs1_rdata_pipe <= {rvfi_rs1_rdata_pipe[63:0], rs1_fwd};
     rvfi_rs2_rdata_pipe <= {rvfi_rs2_rdata_pipe[63:0], rs2_fwd};

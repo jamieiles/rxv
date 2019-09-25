@@ -85,3 +85,5 @@ localparam EX_INSTR_ALIGN   = 4'd0,
            EX_INSTR_PF      = 4'd12,
            EX_LOAD_PF       = 4'd13,
            EX_STORE_PF      = 4'd15;
+
+localparam RXV_MARCHID = 32'h72787600;

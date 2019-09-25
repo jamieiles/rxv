@@ -8,6 +8,7 @@ verilate(TOPLEVEL RXVCore
 	 VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVCore.sv
 	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVFetch.sv
 	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVDecode.sv
+	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RegFile.sv)
 
 add_executable(rxv-simulator

@@ -83,76 +83,11 @@ module RXVCore(input logic clk,
 `include "RiscVDefines.svh"
 
 wire d_write_pc;
+wire e_write_pc;
 wire f_write_pc           = w_write_pc | e_write_pc | d_write_pc;
 wire [31:0] f_write_pc_val = w_write_pc ? w_next_pc :
                            e_write_pc ? e_next_pc :
                            d_br_tgt;
-
-// Instruction execution
-wire [31:0] alu_out     = de_alu_op == ALU_OP_IMMED ? de_immed :
-                          de_alu_op == ALU_OP_NPC ? de_next_seq_pc :
-                          de_alu_op == ALU_OP_RDCSR ? e_csr_val :
-                          de_alu_op == ALU_OP_ADD ? e_add :
-                          de_alu_op == ALU_OP_SUB ? e_sub :
-                          de_alu_op == ALU_OP_SLL ? e_sll :
-                          de_alu_op == ALU_OP_LT ? e_lt :
-                          de_alu_op == ALU_OP_LTU ? e_ltu :
-                          de_alu_op == ALU_OP_XOR ? e_xor :
-                          de_alu_op == ALU_OP_SRL ? e_srl :
-                          de_alu_op == ALU_OP_SRA ? e_sra :
-                          de_alu_op == ALU_OP_OR ? e_or :
-                          de_alu_op == ALU_OP_AND ? e_and : e_and;
-wire [31:0] e_branch_tgt= de_br_type == BRANCH_INDIR ? {e_add[31:1], 1'b0} :
-                          e_br_taken ? de_branch_tgt : de_next_seq_pc;
-
-wire e_write_pc         = de_br_type == BRANCH_INDIR ||
-                          de_br_type == BRANCH_COND;
-wire e_br_taken         = de_funct3 == BR_BEQ  ? rs1_fwd == rs2_fwd :
-                          de_funct3 == BR_BNE  ? rs1_fwd != rs2_fwd :
-                          de_funct3 == BR_BLT  ? $signed(rs1_fwd) < $signed(rs2_fwd) :
-                          de_funct3 == BR_BGE  ? $signed(rs1_fwd) >= $signed(rs2_fwd) :
-                          de_funct3 == BR_BLTU ? rs1_fwd < rs2_fwd :
-                          /*de_funct3 == BR_BGEU*/ rs1_fwd >= rs2_fwd;
-wire [31:0] e_arith_op2 = de_op2_immed ? de_immed : rs2_fwd;
-wire [4:0] e_shift_cnt  = e_arith_op2[4:0];
-wire [31:0] e_sll       = rs1_fwd << e_shift_cnt;
-wire [31:0] e_srl       = rs1_fwd >> e_shift_cnt;
-wire [31:0] e_sra       = $signed(rs1_fwd) >>> e_shift_cnt;
-wire [31:0] e_add       = rs1_fwd + e_arith_op2;
-wire [31:0] e_sub       = rs1_fwd - e_arith_op2;
-wire [31:0] e_xor       = rs1_fwd ^ e_arith_op2;
-wire [31:0] e_or        = rs1_fwd | e_arith_op2;
-wire [31:0] e_and       = rs1_fwd & e_arith_op2;
-wire [31:0] e_lt        = {31'b0, $signed(rs1_fwd) < $signed(e_arith_op2)};
-wire [31:0] e_ltu       = {31'b0, rs1_fwd < e_arith_op2};
-
-wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? 32'h72787600 :
-                          de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
-                          de_immed[15:0] == CSR_MCAUSE ? mcause_reg :
-                          de_immed[15:0] == CSR_MTVAL ? mtval_reg :
-                          de_immed[15:0] == CSR_MTVEC ? mtvec_reg :
-                          de_immed[15:0] == CSR_MIP ? mip_reg :
-                          de_immed[15:0] == CSR_MIE ? mie_reg :
-                          de_immed[15:0] == CSR_MCOUNTEREN ? mcounteren_reg :
-                          de_immed[15:0] == CSR_MSTATUS ? mstatus_reg :
-                          de_immed[15:0] == CSR_MEPC || de_do_mret ? mepc_reg :
-                          de_immed[15:0] == CSR_MCYCLE ? mcycle_reg[31:0] :
-                          de_immed[15:0] == CSR_MCYCLEH ? mcycle_reg[63:32] :
-                          de_immed[15:0] == CSR_MINSTRET ? minstret_reg[31:0] :
-                          de_immed[15:0] == CSR_MINSTRETH ? minstret_reg[63:32] :
-                          32'h00000000;
-wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_fwd :
-                          de_funct3 == CSRRS ? e_csr_val | rs1_fwd :
-                          de_funct3 == CSRRC ? e_csr_val & ~rs1_fwd :
-                          de_funct3 == CSRRWI ? {27'b0, de_csr_immed} :
-                          de_funct3 == CSRRSI ? e_csr_val | {27'b0, de_csr_immed} :
-                          de_funct3 == CSRRCI ? e_csr_val & ~{27'b0, de_csr_immed} :
-                          rs1_fwd;
-wire [31:0] e_next_pc   = de_br_type == BRANCH_NONE ? de_next_seq_pc :
-                          de_br_type == BRANCH_IMMED ? de_branch_tgt :
-                          e_branch_tgt;
-wire e_instr_ac         = de_valid &&
-                          de_br_type != BRANCH_NONE && e_next_pc[1];
 
 // Memory cycles
 assign d_access         = em_valid & (em_load | em_store) & !m_align_check;
@@ -288,89 +223,36 @@ always_ff @(posedge clk or posedge reset)
         minstret_reg <= minstret_reg + {63'b0, mcounteren_ir & mw_valid};
     end
 
-reg em_writeback;
-reg [4:0] em_rd;
-reg [31:0] em_result;
-reg [31:0] em_pc;
-reg [31:0] em_next_pc;
-reg [31:0] em_instruction;
-reg [31:0] em_store_data;
-reg em_illegal_instr;
-reg em_valid;
-reg em_load;
-reg em_store;
-reg [1:0] em_ls_width;
-reg [15:0] em_csr_rd;
-reg em_load_sext;
-reg em_write_csr;
-reg [31:0] em_csr_wdata;
-reg em_instr_align_check;
-reg em_do_ecall;
-reg em_do_ebreak;
-reg em_do_fence;
-reg em_do_mret;
+wire em_writeback;
+wire [4:0] em_rd;
+wire [31:0] em_result;
+wire [31:0] em_pc;
+wire [31:0] em_next_pc;
+wire [31:0] em_instruction;
+wire [31:0] em_store_data;
+wire em_illegal_instr;
+wire em_valid;
+wire em_load;
+wire em_store;
+wire [1:0] em_ls_width;
+wire [15:0] em_csr_rd;
+wire em_load_sext;
+wire em_write_csr;
+wire [31:0] em_csr_wdata;
+wire em_instr_align_check;
+wire em_do_ecall;
+wire em_do_ebreak;
+wire em_do_fence;
+wire em_do_mret;
 `ifdef RXV_RVFI
-reg em_intr;
+wire em_intr;
 `endif
+wire [31:0] e_next_pc;
+wire e_instr_ac;
 
-always_ff @(posedge clk or posedge reset) begin
-    if (reset) begin
-        em_writeback <= 1'b0;
-        em_rd <= 5'b0;
-        em_result <= 32'b0;
-        em_pc <= 32'b0;
-        em_next_pc <= 32'b0;
-        em_instruction <= 32'b0;
-        em_illegal_instr <= 1'b0;
-        em_valid <= 1'b0;
-        em_store_data <= 32'b0;
-        em_load <= 1'b0;
-        em_store <= 1'b0;
-        em_ls_width <= 2'b0;
-        em_load_sext <= 1'b0;
-        em_write_csr <= 1'b0;
-        em_csr_rd <= 16'b0;
-        em_csr_wdata <= 32'b0;
-        em_instr_align_check <= 1'b0;
-        em_do_ecall <= 1'b0;
-        em_do_ebreak <= 1'b0;
-        em_do_fence <= 1'b0;
-        em_do_mret <= 1'b0;
-        fwd_rs1_m <= 1'b0;
-        fwd_rs2_m <= 1'b0;
-`ifdef RXV_RVFI
-        em_intr <= 1'b0;
-`endif
-    end else begin
-        em_writeback <= de_valid && de_writeback && !e_instr_ac && !w_exception;
-        em_rd <= de_rd;
-        em_result <= alu_out;
-        em_pc <= de_pc;
-        em_next_pc <= e_next_pc;
-        em_instruction <= de_instruction;
-        em_illegal_instr <= de_illegal_instr && !w_exception;
-        em_valid <= de_valid && !m_abort && !w_exception;
-        em_store_data <= rs2_fwd;
-        em_load <= de_load;
-        em_store <= de_store;
-        em_ls_width <= de_ls_width;
-        em_load_sext <= de_load_sext;
-        em_write_csr <= de_write_csr;
-        em_csr_rd <= de_immed[15:0];
-        em_csr_wdata <= e_csr_wdata;
-        em_instr_align_check <= e_instr_ac && !w_exception;
-        em_do_ecall <= de_do_ecall && !w_exception;
-        em_do_ebreak <= de_do_ebreak && !w_exception;
-        em_do_fence <= de_do_fence && !w_exception;
-        em_do_mret <= de_do_mret && !w_exception;
-`ifdef RXV_RVFI
-        em_intr <= de_intr;
-`endif
-
-        fwd_rs1_m <= |em_rd && em_valid && em_writeback && em_rd == rs1;
-        fwd_rs2_m <= |em_rd && em_valid && em_writeback && em_rd == rs2;
-    end
-end
+RXVExec RXVExec(.rs1_data(rs1_fwd),
+                .rs2_data(rs2_fwd),
+                .*);
 
 reg mw_writeback;
 reg [4:0] mw_rd;
@@ -467,7 +349,7 @@ always_ff @(posedge clk or posedge reset)
         {rvfi_csr_mscratch_wmask, rvfi_csr_mscratch_wdata} <= csr_mscratch_w ?
             {32'hffffffff, mw_csr_wdata} : 64'b0;
         rvfi_csr_mscratch_pipe <= {rvfi_csr_mscratch_pipe[63:0], csr_mscratch_r ?
-            32'hffffffff : 32'h00000000, e_csr_val};
+            32'hffffffff : 32'h00000000, mscratch_reg};
         {rvfi_csr_mscratch_rmask, rvfi_csr_mscratch_rdata} <=
             rvfi_csr_mscratch_pipe[127:64];
 `endif
@@ -491,7 +373,7 @@ always_ff @(posedge clk or posedge reset)
             w_exception ? {32'hffffffff, w_mcause_i, 27'b0, w_mcause_code} :
             csr_mcause_w ? {32'hffffffff, mw_csr_wdata} : 64'b0;
         rvfi_csr_mcause_pipe <= {rvfi_csr_mcause_pipe[63:0], csr_mcause_r ?
-            32'hffffffff : 32'h00000000, e_csr_val};
+            32'hffffffff : 32'h00000000, mcause_reg};
         {rvfi_csr_mcause_rmask, rvfi_csr_mcause_rdata} <= rvfi_csr_mcause_pipe[127:64];
 
 `endif
@@ -512,7 +394,7 @@ always_ff @(posedge clk or posedge reset)
         {rvfi_csr_mtvec_wmask, rvfi_csr_mtvec_wdata} <= csr_mtvec_w ?
             {32'hffffffff, mw_csr_wdata} : 64'b0;
         rvfi_csr_mtvec_pipe <= {rvfi_csr_mtvec_pipe[63:0], csr_mtvec_r ?
-            32'hffffffff : 32'h00000000, e_csr_val};
+            32'hffffffff : 32'h00000000, mtvec_reg};
         {rvfi_csr_mtvec_rmask, rvfi_csr_mtvec_rdata} <= w_exception ?
             {32'hffffffff, mtvec_reg} : rvfi_csr_mtvec_pipe[127:64];
 `endif
@@ -539,7 +421,7 @@ always_ff @(posedge clk or posedge reset)
             w_take_interrupt ? {32'hffffffff, mw_next_pc[31:2], 2'b0} :
             csr_mepc_w ? {32'hffffffff, mw_csr_wdata} : 64'b0;
         rvfi_csr_mepc_pipe <= {rvfi_csr_mepc_pipe[63:0], csr_mepc_r ?
-            32'hffffffff : 32'h00000000, e_csr_val};
+            32'hffffffff : 32'h00000000, mepc_reg};
         {rvfi_csr_mepc_rmask, rvfi_csr_mepc_rdata} <= rvfi_csr_mepc_pipe[127:64];
 `endif
     end
@@ -563,7 +445,7 @@ always_ff @(posedge clk or posedge reset)
             csr_mtval_w ? {32'hffffffff, mw_csr_wdata} :
             64'b0;
         rvfi_csr_mtval_pipe <= {rvfi_csr_mtval_pipe[63:0], csr_mtval_r ?
-            32'hffffffff : 32'h00000000, e_csr_val};
+            32'hffffffff : 32'h00000000, mtval_reg};
         {rvfi_csr_mtval_rmask, rvfi_csr_mtval_rdata} <= rvfi_csr_mtval_pipe[127:64];
 
 `endif
@@ -584,7 +466,7 @@ always_ff @(posedge clk or posedge reset)
         {rvfi_csr_mip_wmask, rvfi_csr_mip_wdata} <=
             csr_mip_w ? {32'hffffffff, mw_csr_wdata} : 64'b0;
         rvfi_csr_mip_pipe <= {rvfi_csr_mip_pipe[63:0], csr_mip_r ?
-            32'h00000888 : 32'h00000000, e_csr_val};
+            32'h00000888 : 32'h00000000, mip_reg};
         {rvfi_csr_mip_rmask, rvfi_csr_mip_rdata} <= rvfi_csr_mip_pipe[127:64];
 
 `endif
@@ -615,7 +497,7 @@ always_ff @(posedge clk or posedge reset)
         {rvfi_csr_mie_wmask, rvfi_csr_mie_wdata} <=
             csr_mie_w ? {32'hffffffff, mw_csr_wdata} : 64'b0;
         rvfi_csr_mie_pipe <= {rvfi_csr_mie_pipe[63:0], csr_mie_r ?
-            32'h00000888 : 32'h00000000, e_csr_val};
+            32'h00000888 : 32'h00000000, mie_reg};
         {rvfi_csr_mie_rmask, rvfi_csr_mie_rdata} <= rvfi_csr_mie_pipe[127:64];
 `endif
     end
@@ -641,7 +523,7 @@ always_ff @(posedge clk or posedge reset)
             mw_do_mret ? {32'h00001808, 19'b0, 2'b11, 3'b0, 1'b1, 3'b0, mstatus_mpie, 3'b0} :
             csr_mstatus_w ? {32'h00001808, mw_csr_wdata} : 64'b0;
         rvfi_csr_mstatus_pipe <= {rvfi_csr_mstatus_pipe[63:0], csr_mstatus_r ?
-            32'h00001808 : 32'h00000000, e_csr_val};
+            32'h00001808 : 32'h00000000, mstatus_reg};
         {rvfi_csr_mstatus_rmask, rvfi_csr_mstatus_rdata} <= rvfi_csr_mstatus_pipe[127:64];
 `endif
     end
@@ -768,7 +650,7 @@ always_ff @(posedge clk) begin
     rvfi_rs2_addr_pipe <= {rvfi_rs2_addr_pipe[14:0], rs2};
 
     // MARCHID
-    rvfi_csr_marchid_pipe <= {rvfi_csr_marchid_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MARCHID ? 32'hffffffff : 32'h00000000, e_csr_val};
+    rvfi_csr_marchid_pipe <= {rvfi_csr_marchid_pipe[63:0], de_valid && de_read_csr && de_immed[15:0] == CSR_MARCHID ? 32'hffffffff : 32'h00000000, RXV_MARCHID};
     {rvfi_csr_marchid_rmask, rvfi_csr_marchid_rdata} <= rvfi_csr_marchid_pipe[127:64];
 end
 

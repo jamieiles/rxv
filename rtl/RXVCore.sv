@@ -136,7 +136,6 @@ wire fd_intr;
 `endif
 wire [31:0] fd_pc;
 wire fd_valid;
-wire fd_flush_pipeline;
 
 RXVFetch RXVFetch(.clk(clk),
 		  .reset(reset),
@@ -148,7 +147,6 @@ RXVFetch RXVFetch(.clk(clk),
 `endif
 		  .fd_pc(fd_pc),
 		  .fd_valid(fd_valid),
-		  .fd_flush_pipeline(fd_flush_pipeline),
 		  .wf_finish_flush(wf_finish_flush),
 		  .w_exception(w_exception),
 		  .df_flush(df_flush),
@@ -198,7 +196,6 @@ RXVDecode RXVDecode(.clk(clk),
 		    .fd_valid(fd_valid),
 		    .w_exception(w_exception),
 		    .e_instr_ac(e_instr_ac),
-		    .fd_flush_pipeline(fd_flush_pipeline),
 		    .m_abort(m_abort),
 		    .instruction(instruction),
 		    .de_immed(de_immed),

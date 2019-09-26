@@ -8,7 +8,6 @@ module RXVFetch(input logic clk,
 `endif
                 output logic [31:0] fd_pc,
                 output logic fd_valid,
-                output logic fd_flush_pipeline,
                 input logic wf_finish_flush,
                 input logic w_exception,
                 input logic df_flush,
@@ -22,10 +21,11 @@ reg [31:0] reset_vector = 32'b0;
 reg [31:0] pc;
 // verilator lint_on BLKANDNBLK
 reg delay_slot;
+reg flushing_pipeline;
 
-wire insert_nop         = fd_flush_pipeline | delay_slot;
+wire insert_nop         = flushing_pipeline | delay_slot;
 wire f_flush_pipeline   = df_flush & fd_valid & ~w_exception;
-wire stall              = d_load_delay || f_flush_pipeline || (fd_flush_pipeline && !wf_finish_flush);
+wire stall              = d_load_delay || f_flush_pipeline || (flushing_pipeline && !wf_finish_flush);
 wire [31:0] next_pc     = f_write_pc ? f_write_pc_val :
                           stall ? pc :
                           pc + 32'd4;
@@ -35,7 +35,7 @@ assign instruction = insert_nop || 1'b0 ? 32'h00000013 : i_data;
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin
-        fd_flush_pipeline <= 1'b0;
+        flushing_pipeline <= 1'b0;
         delay_slot <= 1'b0;
         fd_pc <= reset_vector;
         fd_valid <= 1'b0;
@@ -44,9 +44,9 @@ always_ff @(posedge clk or posedge reset) begin
 `endif
     end else begin
         if (wf_finish_flush)
-            fd_flush_pipeline <= 1'b0;
+            flushing_pipeline <= 1'b0;
         if (f_flush_pipeline)
-            fd_flush_pipeline <= 1'b1;
+            flushing_pipeline <= 1'b1;
 
         delay_slot <= d_load_delay && !w_exception;
         fd_pc <= next_pc;

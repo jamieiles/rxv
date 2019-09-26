@@ -4,7 +4,6 @@ module RXVDecode(input logic clk,
                  input logic fd_valid,
                  input logic w_exception,
                  input logic e_instr_ac,
-                 input logic fd_flush_pipeline,
                  input logic m_abort,
                  input logic fd_intr,
                  input logic [31:0] instruction,
@@ -181,7 +180,6 @@ wire d_op2_immed        = d_opcode == OPC_ARITHI ||
                           d_opcode == OPC_LOAD;
 wire abort              = e_instr_ac |
                           w_exception |
-                          fd_flush_pipeline |
                           w_exception |
                           m_abort;
 wire valid              = fd_valid && !abort && !d_illegal_instr;

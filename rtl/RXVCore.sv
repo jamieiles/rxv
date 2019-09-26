@@ -131,7 +131,9 @@ wire [31:0] rs1_fwd = fwd_rs1_e ? em_result : fwd_rs1_m ? w_data : rs1_data;
 wire [31:0] rs2_fwd = fwd_rs2_e ? em_result : fwd_rs2_m ? w_data : rs2_data;
 
 wire [31:0] instruction;
+`ifdef RXV_RVFI
 wire fd_intr;
+`endif
 wire [31:0] fd_pc;
 wire fd_valid;
 wire fd_flush_pipeline;
@@ -141,7 +143,9 @@ RXVFetch RXVFetch(.clk(clk),
 		  .i_addr(i_addr),
 		  .i_data(i_data),
 		  .instruction(instruction),
+`ifdef RXV_RVFI
 		  .fd_intr(fd_intr),
+`endif
 		  .fd_pc(fd_pc),
 		  .fd_valid(fd_valid),
 		  .fd_flush_pipeline(fd_flush_pipeline),
@@ -196,7 +200,6 @@ RXVDecode RXVDecode(.clk(clk),
 		    .e_instr_ac(e_instr_ac),
 		    .fd_flush_pipeline(fd_flush_pipeline),
 		    .m_abort(m_abort),
-		    .fd_intr(fd_intr),
 		    .instruction(instruction),
 		    .de_immed(de_immed),
 		    .de_pc(de_pc),
@@ -213,8 +216,11 @@ RXVDecode RXVDecode(.clk(clk),
 		    .de_store(de_store),
 		    .de_ls_width(de_ls_width),
 		    .de_load_sext(de_load_sext),
+`ifdef RXV_RVFI
+		    .fd_intr(fd_intr),
 		    .de_read_csr(de_read_csr),
 		    .de_intr(de_intr),
+`endif
 		    .de_write_csr(de_write_csr),
 		    .de_csr_immed(de_csr_immed),
 		    .de_do_mret(de_do_mret),
@@ -374,9 +380,11 @@ RXVExec RXVExec(.clk(clk),
 		.rs1(rs1),
 		.rs2(rs2),
 		.w_exception(w_exception),
-		.m_abort(m_abort),
-		.de_intr(de_intr),
-		.em_intr(em_intr));
+`ifdef RXV_RVFI
+        .de_intr(de_intr),
+		.em_intr(em_intr),
+`endif
+		.m_abort(m_abort));
 
 reg mw_writeback;
 reg [4:0] mw_rd;
@@ -626,8 +634,8 @@ always_ff @(posedge clk or posedge reset)
 `endif
     end
 
-wire csr_mstatus_w = mw_valid && mw_write_csr && mw_csr_rd == CSR_MSTATUS;
 `ifdef RXV_RVFI
+wire csr_mstatus_w = mw_valid && mw_write_csr && mw_csr_rd == CSR_MSTATUS;
 wire csr_mstatus_r = de_valid && de_read_csr && de_immed[15:0] == CSR_MSTATUS;
 `endif
 

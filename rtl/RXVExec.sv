@@ -65,12 +65,11 @@ module RXVExec(input logic clk,
                input logic [31:0] rs1_data,
                input logic [31:0] rs2_data,
                input logic w_exception,
-               input logic m_abort,
 `ifdef RXV_RVFI
                input logic de_intr,
-               output logic em_intr
+               output logic em_intr,
 `endif
-               );
+               input logic m_abort);
 
 `include "RiscVDefines.svh"
 
@@ -91,8 +90,6 @@ wire [31:0] alu_out     = de_alu_op == ALU_OP_IMMED ? de_immed :
 wire [31:0] e_branch_tgt= de_br_type == BRANCH_INDIR ? {e_add[31:1], 1'b0} :
                           e_br_taken ? de_branch_tgt : de_next_seq_pc;
 
-wire e_write_pc         = de_br_type == BRANCH_INDIR ||
-                          de_br_type == BRANCH_COND;
 wire e_br_taken         = de_funct3 == BR_BEQ  ? rs1_data == rs2_data :
                           de_funct3 == BR_BNE  ? rs1_data != rs2_data :
                           de_funct3 == BR_BLT  ? $signed(rs1_data) < $signed(rs2_data) :
@@ -124,6 +121,8 @@ assign e_instr_ac       = de_valid &&
 assign e_next_pc        = de_br_type == BRANCH_NONE ? de_next_seq_pc :
                           de_br_type == BRANCH_IMMED ? de_branch_tgt :
                           e_branch_tgt;
+assign e_write_pc       = de_br_type == BRANCH_INDIR ||
+                          de_br_type == BRANCH_COND;
 wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? RXV_MARCHID :
                           de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
                           de_immed[15:0] == CSR_MCAUSE ? mcause_reg :

@@ -179,6 +179,13 @@ wire d_op2_immed        = d_opcode == OPC_ARITHI ||
                           (d_is_branch && d_br_type == BRANCH_INDIR) ||
                           d_opcode == OPC_STORE ||
                           d_opcode == OPC_LOAD;
+wire abort              = e_instr_ac |
+                          w_exception |
+                          fd_flush_pipeline |
+                          w_exception |
+                          m_abort;
+wire valid              = fd_valid && !abort && !d_illegal_instr;
+
 assign d_write_pc       = fd_valid && d_is_branch && d_br_type == BRANCH_IMMED;
 
 always_ff @(posedge clk or posedge reset) begin
@@ -220,9 +227,9 @@ always_ff @(posedge clk or posedge reset) begin
         de_pc <= fd_pc;
         de_next_seq_pc <= fd_pc + 32'd4;
         de_branch_tgt <= d_br_tgt;
-        de_illegal_instr <= fd_valid && d_illegal_instr && !w_exception;
-        de_valid <= fd_valid && !e_instr_ac && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && !m_abort;
-        de_br_type <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr ? d_br_type : 2'b00;
+        de_illegal_instr <= fd_valid && !abort && d_illegal_instr;
+        de_valid <= valid;
+        de_br_type <= valid ? d_br_type : 2'b00;
         de_funct3 <= funct3;
         de_load <= d_opcode == OPC_LOAD;
         de_store <= d_opcode == OPC_STORE;
@@ -234,10 +241,10 @@ always_ff @(posedge clk or posedge reset) begin
 `endif
         de_write_csr <= fd_valid && d_write_csr;
         de_csr_immed <= rs1;
-        de_do_mret <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && d_read_mepc;
-        de_do_ecall <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_ECALL;
-        de_do_ebreak <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && instruction == INSTR_EBREAK;
-        de_do_fence <= fd_valid && !w_exception && !fd_flush_pipeline && !w_exception && !d_illegal_instr && d_fence;
+        de_do_mret <= valid && d_read_mepc;
+        de_do_ecall <= valid && instruction == INSTR_ECALL;
+        de_do_ebreak <= valid && instruction == INSTR_EBREAK;
+        de_do_fence <= valid && d_fence;
         de_alu_op <= d_alu_op;
         de_op2_immed <= d_op2_immed;
 

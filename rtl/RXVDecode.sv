@@ -7,6 +7,18 @@ module RXVDecode(input logic clk,
                  input logic m_abort,
                  input logic fd_intr,
                  input logic [31:0] instruction,
+                 input logic [31:0] mscratch_reg,
+                 input logic [31:0] mcause_reg,
+                 input logic [31:0] mtval_reg,
+                 input logic [31:0] mtvec_reg,
+                 input logic [31:0] mip_reg,
+                 input logic [31:0] mie_reg,
+                 input logic [31:0] mcounteren_reg,
+                 input logic [31:0] mstatus_reg,
+                 input logic [31:0] mepc_reg,
+                 input logic [63:0] mcycle_reg,
+                 input logic [63:0] minstret_reg,
+                 output logic [31:0] de_csr_val,
                  output logic [31:0] de_immed,
                  output logic [31:0] de_pc,
                  output logic [31:0] de_next_seq_pc,
@@ -183,6 +195,21 @@ wire abort              = e_instr_ac |
                           w_exception |
                           m_abort;
 wire valid              = fd_valid && !abort && !d_illegal_instr;
+wire [31:0] d_csr_val   = d_immed[15:0] == CSR_MARCHID ? RXV_MARCHID :
+                          d_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
+                          d_immed[15:0] == CSR_MCAUSE ? mcause_reg :
+                          d_immed[15:0] == CSR_MTVAL ? mtval_reg :
+                          d_immed[15:0] == CSR_MTVEC ? mtvec_reg :
+                          d_immed[15:0] == CSR_MIP ? mip_reg :
+                          d_immed[15:0] == CSR_MIE ? mie_reg :
+                          d_immed[15:0] == CSR_MCOUNTEREN ? mcounteren_reg :
+                          d_immed[15:0] == CSR_MSTATUS ? mstatus_reg :
+                          d_immed[15:0] == CSR_MEPC || d_read_mepc ? mepc_reg :
+                          d_immed[15:0] == CSR_MCYCLE ? mcycle_reg[31:0] :
+                          d_immed[15:0] == CSR_MCYCLEH ? mcycle_reg[63:32] :
+                          d_immed[15:0] == CSR_MINSTRET ? minstret_reg[31:0] :
+                          d_immed[15:0] == CSR_MINSTRETH ? minstret_reg[63:32] :
+                          32'h00000000;
 
 assign d_write_pc       = fd_valid && d_is_branch && d_br_type == BRANCH_IMMED;
 
@@ -215,6 +242,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_do_fence <= 1'b0;
         de_alu_op <= 4'b0;
         de_op2_immed <= 1'b0;
+        de_csr_val <= 32'b0;
         fwd_rs1_e <= 1'b0;
         fwd_rs2_e <= 1'b0;
     end else begin
@@ -245,6 +273,7 @@ always_ff @(posedge clk or posedge reset) begin
         de_do_fence <= valid && d_fence;
         de_alu_op <= d_alu_op;
         de_op2_immed <= d_op2_immed;
+        de_csr_val <= d_csr_val;
 
         fwd_rs1_e <= |de_rd && de_valid && de_writeback && de_rd == rs1;
         fwd_rs2_e <= |de_rd && de_valid && de_writeback && de_rd == rs2;

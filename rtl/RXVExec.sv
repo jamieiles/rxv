@@ -26,17 +26,7 @@ module RXVExec(input logic clk,
                output logic e_instr_ac,
                output logic fwd_rs1_m,
                output logic fwd_rs2_m,
-               input logic [31:0] mscratch_reg,
-               input logic [31:0] mcause_reg,
-               input logic [31:0] mtval_reg,
-               input logic [31:0] mtvec_reg,
-               input logic [31:0] mip_reg,
-               input logic [31:0] mie_reg,
-               input logic [31:0] mcounteren_reg,
-               input logic [31:0] mstatus_reg,
-               input logic [31:0] mepc_reg,
-               input logic [63:0] mcycle_reg,
-               input logic [63:0] minstret_reg,
+               input logic [31:0] de_csr_val,
                input logic [3:0] de_alu_op,
                input logic [31:0] de_immed,
                input logic [31:0] de_next_seq_pc,
@@ -76,7 +66,7 @@ module RXVExec(input logic clk,
 // Instruction execution
 wire [31:0] alu_out     = de_alu_op == ALU_OP_IMMED ? de_immed :
                           de_alu_op == ALU_OP_NPC ? de_next_seq_pc :
-                          de_alu_op == ALU_OP_RDCSR ? e_csr_val :
+                          de_alu_op == ALU_OP_RDCSR ? de_csr_val :
                           de_alu_op == ALU_OP_ADD ? e_add :
                           de_alu_op == ALU_OP_SUB ? e_sub :
                           de_alu_op == ALU_OP_SLL ? e_sll :
@@ -110,11 +100,11 @@ wire [31:0] e_lt        = {31'b0, $signed(rs1_data) < $signed(e_arith_op2)};
 wire [31:0] e_ltu       = {31'b0, rs1_data < e_arith_op2};
 
 wire [31:0] e_csr_wdata = de_funct3 == CSRRW ? rs1_data :
-                          de_funct3 == CSRRS ? e_csr_val | rs1_data :
-                          de_funct3 == CSRRC ? e_csr_val & ~rs1_data :
+                          de_funct3 == CSRRS ? de_csr_val | rs1_data :
+                          de_funct3 == CSRRC ? de_csr_val & ~rs1_data :
                           de_funct3 == CSRRWI ? {27'b0, de_csr_immed} :
-                          de_funct3 == CSRRSI ? e_csr_val | {27'b0, de_csr_immed} :
-                          de_funct3 == CSRRCI ? e_csr_val & ~{27'b0, de_csr_immed} :
+                          de_funct3 == CSRRSI ? de_csr_val | {27'b0, de_csr_immed} :
+                          de_funct3 == CSRRCI ? de_csr_val & ~{27'b0, de_csr_immed} :
                           rs1_data;
 assign e_instr_ac       = de_valid &&
                           de_br_type != BRANCH_NONE && e_next_pc[1];
@@ -123,21 +113,7 @@ assign e_next_pc        = de_br_type == BRANCH_NONE ? de_next_seq_pc :
                           e_branch_tgt;
 assign e_write_pc       = de_br_type == BRANCH_INDIR ||
                           de_br_type == BRANCH_COND;
-wire [31:0] e_csr_val   = de_immed[15:0] == CSR_MARCHID ? RXV_MARCHID :
-                          de_immed[15:0] == CSR_MSCRATCH ? mscratch_reg :
-                          de_immed[15:0] == CSR_MCAUSE ? mcause_reg :
-                          de_immed[15:0] == CSR_MTVAL ? mtval_reg :
-                          de_immed[15:0] == CSR_MTVEC ? mtvec_reg :
-                          de_immed[15:0] == CSR_MIP ? mip_reg :
-                          de_immed[15:0] == CSR_MIE ? mie_reg :
-                          de_immed[15:0] == CSR_MCOUNTEREN ? mcounteren_reg :
-                          de_immed[15:0] == CSR_MSTATUS ? mstatus_reg :
-                          de_immed[15:0] == CSR_MEPC || de_do_mret ? mepc_reg :
-                          de_immed[15:0] == CSR_MCYCLE ? mcycle_reg[31:0] :
-                          de_immed[15:0] == CSR_MCYCLEH ? mcycle_reg[63:32] :
-                          de_immed[15:0] == CSR_MINSTRET ? minstret_reg[31:0] :
-                          de_immed[15:0] == CSR_MINSTRETH ? minstret_reg[63:32] :
-                          32'h00000000;
+
 
 always_ff @(posedge clk or posedge reset) begin
     if (reset) begin

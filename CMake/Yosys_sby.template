@@ -1,0 +1,13 @@
+[options]
+mode bmc
+depth @ys_formal_DEPTH@
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal @ys_formal_SOURCE_LIST@
+prep -top @ys_formal_TOP@
+
+[files]
+@ys_formal_FILE_LIST@

@@ -1,5 +1,8 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.10)
 set(CMAKE_CONFIGURATION_TYPES "Release;Debug")
+
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake/")
+find_package(Yosys REQUIRED)
 
 set(CMAKE_CXX_FLAGS_DEBUG "-DDEBUG -ggdb3 -O0 ${CMAKE_CXX_FLAGS_DEBUG}")
 

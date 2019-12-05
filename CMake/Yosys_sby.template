@@ -1,6 +1,8 @@
 [options]
 mode bmc
+skip @ys_formal_SKIP@
 depth @ys_formal_DEPTH@
+append 0
 
 [engines]
 smtbmc boolector

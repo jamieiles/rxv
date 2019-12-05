@@ -17,7 +17,7 @@ endif()
 function(verilate)
     set(options "")
     set(oneValueArgs TOPLEVEL)
-    set(multiValueArgs VERILOG_SOURCES GENERATED_SOURCES DEPENDS)
+    set(multiValueArgs VERILOG_SOURCES GENERATED_SOURCES DEPENDS VERILATOR_ARGS)
     cmake_parse_arguments(verilate "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     set(generated
         ${CMAKE_CURRENT_BINARY_DIR}/V${verilate_TOPLEVEL}.cpp
@@ -51,7 +51,8 @@ function(verilate)
                             -I${CMAKE_CURRENT_SOURCE_DIR}
                             -I${CMAKE_CURRENT_BINARY_DIR}
                             ${VERILATOR_TRACE_FLAGS} ${VERILATOR_COVERAGE_FLAGS}
-                            ${extra_compile_flags} --cc --top-module ${verilate_TOPLEVEL}
+                            ${extra_compile_flags} ${verilate_VERILATOR_ARGS}
+                            --cc --top-module ${verilate_TOPLEVEL}
                             --Mdir ${CMAKE_CURRENT_BINARY_DIR}
                             ${VERILATOR_INCLUDE_ARGS}
                        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}

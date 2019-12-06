@@ -1,20 +1,22 @@
-module RXVFetch(input logic clk,
-                input logic reset,
-                output logic [31:0] i_addr,
-                input logic [31:0] i_data,
-                output logic [31:0] instruction,
+module RXVFetch(
+    input logic clk,
+    input logic reset,
+    output logic [31:0] i_addr,
+    input logic [31:0] i_data,
+    output logic [31:0] instruction,
 `ifdef RXV_RVFI
-                output logic fd_intr,
+    output logic fd_intr,
 `endif
-                output logic [31:0] fd_pc,
-                output logic fd_valid,
-                input logic wf_finish_flush,
-                input logic w_exception,
-                input logic df_flush,
-                input logic f_write_pc,
-                input logic [31:0] f_write_pc_val,
-                input logic w_take_interrupt,
-                input logic d_load_delay);
+    output logic [31:0] fd_pc,
+    output logic fd_valid,
+    input logic wf_finish_flush,
+    input logic w_exception,
+    input logic df_flush,
+    input logic f_write_pc,
+    input logic [31:0] f_write_pc_val,
+    input logic w_take_interrupt,
+    input logic d_load_delay
+);
 
 reg [31:0] reset_vector = 32'b0;
 // verilator lint_off BLKANDNBLK

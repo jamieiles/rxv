@@ -1,60 +1,62 @@
-module RXVDecode(input logic clk,
-                 input logic reset,
-                 input logic [31:0] fd_pc,
-                 input logic fd_valid,
-                 input logic w_exception,
-                 input logic e_instr_ac,
-                 input logic m_abort,
-                 input logic fd_intr,
-                 input logic [31:0] instruction,
-                 input logic [31:0] mscratch_reg,
-                 input logic [31:0] mcause_reg,
-                 input logic [31:0] mtval_reg,
-                 input logic [31:0] mtvec_reg,
-                 input logic [31:0] mip_reg,
-                 input logic [31:0] mie_reg,
-                 input logic [31:0] mcounteren_reg,
-                 input logic [31:0] mstatus_reg,
-                 input logic [31:0] mepc_reg,
-                 input logic [63:0] mcycle_reg,
-                 input logic [63:0] minstret_reg,
-                 output logic [31:0] de_csr_val,
-                 output logic [31:0] de_immed,
-                 output logic [31:0] de_pc,
-                 output logic [31:0] de_next_seq_pc,
-                 output logic [31:0] de_branch_tgt,
-                 output logic [4:0] de_rd,
-                 output logic de_writeback,
-                 output logic de_illegal_instr,
-                 output logic [31:0] de_instruction,
-                 output logic de_valid,
-                 output logic [1:0] de_br_type,
-                 output logic [2:0] de_funct3,
-                 output logic de_load,
-                 output logic de_store,
-                 output logic [1:0] de_ls_width,
-                 output logic de_load_sext,
+module RXVDecode(
+    input logic clk,
+    input logic reset,
+    input logic [31:0] fd_pc,
+    input logic fd_valid,
+    input logic w_exception,
+    input logic e_instr_ac,
+    input logic m_abort,
+    input logic fd_intr,
+    input logic [31:0] instruction,
+    input logic [31:0] mscratch_reg,
+    input logic [31:0] mcause_reg,
+    input logic [31:0] mtval_reg,
+    input logic [31:0] mtvec_reg,
+    input logic [31:0] mip_reg,
+    input logic [31:0] mie_reg,
+    input logic [31:0] mcounteren_reg,
+    input logic [31:0] mstatus_reg,
+    input logic [31:0] mepc_reg,
+    input logic [63:0] mcycle_reg,
+    input logic [63:0] minstret_reg,
+    output logic [31:0] de_csr_val,
+    output logic [31:0] de_immed,
+    output logic [31:0] de_pc,
+    output logic [31:0] de_next_seq_pc,
+    output logic [31:0] de_branch_tgt,
+    output logic [4:0] de_rd,
+    output logic de_writeback,
+    output logic de_illegal_instr,
+    output logic [31:0] de_instruction,
+    output logic de_valid,
+    output logic [1:0] de_br_type,
+    output logic [2:0] de_funct3,
+    output logic de_load,
+    output logic de_store,
+    output logic [1:0] de_ls_width,
+    output logic de_load_sext,
 `ifdef RXV_RVFI
-                 output logic de_read_csr,
-                 output logic de_intr,
+    output logic de_read_csr,
+    output logic de_intr,
 `endif
-                 output logic de_write_csr,
-                 output logic [4:0] de_csr_immed,
-                 output logic de_do_mret,
-                 output logic de_do_ecall,
-                 output logic de_do_ebreak,
-                 output logic de_do_fence,
-                 output logic [3:0] de_alu_op,
-                 output logic de_op2_immed,
-                 output logic d_write_pc,
-                 output logic [31:0] d_br_tgt,
-                 output logic df_flush,
-                 // Forward from end of exec stage back to start of exec?
-                 output logic fwd_rs1_e,
-                 output logic fwd_rs2_e,
-                 output logic [4:0] rs1,
-                 output logic [4:0] rs2,
-                 output logic d_load_delay);
+    output logic de_write_csr,
+    output logic [4:0] de_csr_immed,
+    output logic de_do_mret,
+    output logic de_do_ecall,
+    output logic de_do_ebreak,
+    output logic de_do_fence,
+    output logic [3:0] de_alu_op,
+    output logic de_op2_immed,
+    output logic d_write_pc,
+    output logic [31:0] d_br_tgt,
+    output logic df_flush,
+    // Forward from end of exec stage back to start of exec?
+    output logic fwd_rs1_e,
+    output logic fwd_rs2_e,
+    output logic [4:0] rs1,
+    output logic [4:0] rs2,
+    output logic d_load_delay
+);
 
 `include "RiscVDefines.svh"
 
@@ -77,7 +79,7 @@ wire [31:0] j_immed     = {{12{instruction[31]}}, instruction[19:12], instructio
 assign df_flush         = d_fence |
                           d_write_csr |
                           d_read_mepc |
-			              d_illegal_instr |
+                          d_illegal_instr |
                           (instruction == INSTR_ECALL) |
                           (instruction == INSTR_EBREAK);
 wire d_read_csr         = d_opcode == OPC_ENV &&
@@ -150,7 +152,7 @@ wire d_bad_env          = d_opcode == OPC_ENV &&
                             !(instruction == INSTR_ECALL ||
                              instruction == INSTR_EBREAK ||
                              instruction == INSTR_MRET   ||
-			                 instruction == INSTR_WFI))) ||
+                             instruction == INSTR_WFI))) ||
                           d_is_csr_access && d_bad_csr;
 wire d_illegal_instr    = d_bad_opc | d_bad_branch | d_bad_load | d_bad_store |
                           d_bad_arithi | d_bad_arith | d_bad_env | d_bad_jalr | d_bad_fence;

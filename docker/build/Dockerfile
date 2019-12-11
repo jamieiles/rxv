@@ -81,6 +81,11 @@ RUN git clone https://github.com/boolector/boolector && \
 	cp deps/btor2tools/bin/btorsim /usr/bin/ && \
 	cd / && \
 	rm -rf boolector
+RUN cd /tmp && \
+	wget https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz && \
+	mkdir -p /opt/riscv && \
+	tar -C /usr --strip-components=1 -xf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz && \
+	rm *.tar.gz
 
 RUN mkdir -p /build
 WORKDIR /build

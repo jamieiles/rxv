@@ -9,7 +9,8 @@ docker run -w $(pwd) \
     -v /sys:/sys:ro \
     -v /etc/machine-id:/etc/machine-id \
     -v /home:/home \
-    -e RXV_DEV_USER=$(id -u -n) \
+    -e RXV_DEV_USER=devuser \
+    -e RXV_DEV_HOME=$HOME \
     -e RXV_DEV_UID=$(id -u) \
     -e RXV_DEV_GID=$(id -g) \
     rxv-dev:latest $@

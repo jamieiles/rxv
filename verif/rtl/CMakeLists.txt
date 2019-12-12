@@ -27,3 +27,8 @@ ys_formal(TOP DPRAMBE
           DEPTH 5
           SKIP 0
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/DPRAMBE.sv)
+
+ys_formal(TOP DPRAM
+          DEPTH 5
+          SKIP 0
+          SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/DPRAM.sv)

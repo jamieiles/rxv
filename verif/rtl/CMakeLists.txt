@@ -22,3 +22,8 @@ target_link_libraries(rtl-unittest
                       VRegFile)
 add_test(rtl-unittest rtl-unittest)
 set_tests_properties(rtl-unittest PROPERTIES TIMEOUT 10)
+
+ys_formal(TOP DPRAMBE
+          DEPTH 5
+          SKIP 0
+          SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/DPRAMBE.sv)

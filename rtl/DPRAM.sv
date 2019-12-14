@@ -33,6 +33,13 @@ always_ff @(posedge clk) begin
 end
 
 `ifdef FORMAL
+
+`ifdef FORMAL_DPRAM
+`define ASSUME assume
+`else
+`define ASSUME assert
+`endif
+
 (* anyconst *)  wire [addr_bits-1:0] f_addr;
 reg [width-1:0] f_data;
 reg f_past_valid = 1'b0;
@@ -40,10 +47,10 @@ reg f_past_valid = 1'b0;
 always @(*)
     assert(mem[f_addr] == f_data);
 
-initial assume(f_data == mem[f_addr]);
+initial `ASSUME(f_data == mem[f_addr]);
 
 always_ff @(posedge clk)
-    assume(!(wren_a && wren_b && addr_a == addr_b));
+    `ASSUME(!(wren_a && wren_b && addr_a == addr_b));
 
 always_ff @(posedge clk)
     f_past_valid <= 1'b1;

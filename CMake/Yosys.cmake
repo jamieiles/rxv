@@ -3,8 +3,12 @@ file(READ "${PROJECT_SOURCE_DIR}/CMake/Yosys_sby.template" YOSYS_SBY_TEMPLATE)
 function(ys_formal)
     set(options "")
     set(oneValueArgs TOP DEPTH SKIP)
-    set(multiValueArgs SOURCES DEPENDS EXTRA_FILES)
+    set(multiValueArgs SOURCES DEPENDS EXTRA_FILES DEFINES)
     cmake_parse_arguments(ys_formal "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    foreach(define ${ys_formal_DEFINES})
+        string(APPEND ys_formal_DEFINE_LINES "read -define ${define}\n")
+    endforeach(define)
 
     foreach(source ${ys_formal_SOURCES})
         list(APPEND SOURCE_ARGS --source=${source})

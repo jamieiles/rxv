@@ -26,9 +26,11 @@ set_tests_properties(rtl-unittest PROPERTIES TIMEOUT 10)
 ys_formal(TOP DPRAMBE
           DEPTH 5
           SKIP 0
+          DEFINES "FORMAL_DPRAMBE"
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/DPRAMBE.sv)
 
 ys_formal(TOP DPRAM
           DEPTH 5
           SKIP 0
+          DEFINES "FORMAL_DPRAM"
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/DPRAM.sv)

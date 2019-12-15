@@ -1,5 +1,10 @@
+[tasks]
+cover
+bmc
+
 [options]
-mode bmc
+bmc: mode bmc
+cover: mode cover
 skip @ys_formal_SKIP@
 depth @ys_formal_DEPTH@
 append 0
@@ -11,6 +16,8 @@ smtbmc boolector
 @ys_formal_DEFINE_LINES@
 read -formal @ys_formal_SOURCE_LIST@
 prep -top @ys_formal_TOP@
+memory
+write_smt2 -wires @ys_formal_TOP@.smt2
 
 [files]
 @ys_formal_FILE_LIST@

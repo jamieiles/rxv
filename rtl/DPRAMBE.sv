@@ -29,7 +29,7 @@ always_ff @(posedge clk) begin
     if (wren_a) begin
         for (b = 0; b < byte_width; b++) begin
             if (byte_en_a[b])
-                mem[addr_a][b*8:+8] <= din_a[b*8:+8];
+                mem[addr_a][b*8+:8] <= din_a[b*8+:8];
         end
     end
     dout_a <= mem[addr_a];
@@ -82,7 +82,7 @@ always_ff @(posedge clk) begin
     if (wren_a && addr_a == f_addr) begin
         for (b = 0; b < byte_width; b++) begin
             if (byte_en_a[b])
-                f_data[b*8:+8] <= din_a[b*8:+8];
+                f_data[b*8+:8] <= din_a[b*8+:8];
         end
     end
 

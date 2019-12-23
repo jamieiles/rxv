@@ -14,6 +14,7 @@ module DPRAMBE #(
     input logic [addr_bits-1:0] addr_b,
     input logic wren_b,
     input logic [data_bits-1:0] din_b,
+    input logic [byte_width-1:0] byte_en_b,
     output logic [data_bits-1:0] dout_b
 );
 
@@ -23,11 +24,6 @@ localparam data_bits = 8 * byte_width;
 logic [data_bits-1:0] mem[0:depth-1];
 
 integer b;
-always_ff @(posedge clk) begin
-    if (wren_b)
-        mem[addr_b] <= din_b;
-    dout_b <= mem[addr_b];
-end
 
 always_ff @(posedge clk) begin
     if (wren_a) begin
@@ -37,6 +33,16 @@ always_ff @(posedge clk) begin
         end
     end
     dout_a <= mem[addr_a];
+end
+
+always_ff @(posedge clk) begin
+    if (wren_b) begin
+        for (b = 0; b < byte_width; b++) begin
+            if (byte_en_b[b])
+                mem[addr_b][b*8+:8] <= din_b[b*8+:8];
+        end
+    end
+    dout_b <= mem[addr_b];
 end
 
 `ifdef FORMAL
@@ -68,13 +74,17 @@ always_ff @(posedge clk) begin
     if (f_past_valid && $past(addr_b) == f_addr)
         assert(dout_b == $past(f_data));
 
-    if (wren_b && addr_b == f_addr)
-        f_data <= din_b;
-
     if (wren_a && addr_a == f_addr) begin
         for (b = 0; b < byte_width; b++) begin
             if (byte_en_a[b])
                 f_data[b*8:+8] <= din_a[b*8:+8];
+        end
+    end
+
+    if (wren_b && addr_b == f_addr) begin
+        for (b = 0; b < byte_width; b++) begin
+            if (byte_en_b[b])
+                f_data[b*8+:8] <= din_b[b*8+:8];
         end
     end
 end

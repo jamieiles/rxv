@@ -1,11 +1,11 @@
 #!/bin/bash
 
+# Copyright Jamie Iles, 2020
+
 set -e
 tar --exclude=scripts/archive \
-    --exclude=scripts/run-dev-unittest \
     --exclude=.git* \
     --exclude=.exrc \
-    --exclude=.ycm_extra_conf.py \
     --exclude=_build \
     --exclude=*.tar.xz \
     --exclude=*.pyc \

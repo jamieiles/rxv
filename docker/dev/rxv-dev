@@ -1,9 +1,8 @@
 #!/bin/bash
 set -e
-/usr/sbin/addgroup --quiet --gid $RXV_DEV_GID $RXV_DEV_USER
-/usr/sbin/adduser --quiet --home $RXV_DEV_HOME --disabled-password --gecos $RXV_DEV_USER --uid $RXV_DEV_UID --gid $RXV_DEV_GID --no-create-home $RXV_DEV_USER
-/usr/sbin/usermod --groups $RXV_DEV_USER,adm,sudo $RXV_DEV_USER
-echo "%sudo   ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+if [ "$RXV_DEV_USER" = "" ]; then
+	exec /bin/bash
+fi
 if [ "$#" -ge 1 ]; then
     HOME=$RXV_DEV_HOME exec /usr/bin/chpst -u :$RXV_DEV_UID:$RXV_DEV_GID /bin/bash -c "$*"
 else

@@ -9,7 +9,14 @@ RUN apt-get update && apt-get install -y runit \
         gdb \
         sudo \
         code
-ADD rxv-dev /usr/bin/rxv-dev
+ADD docker/dev/rxv-dev /usr/bin/rxv-dev
 ENV CTEST_OUTPUT_ON_FAILURE=1
 ENV GTEST_COLOR=1
+RUN useradd -ms /bin/bash -G sudo,adm devuser
+RUN echo "%sudo   ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN mkdir -p /home/devuser/.vscode-server/extensions \
+        /home/devuser/.vscode-server-insiders/extensions \
+    && chown -R devuser \
+        /home/devuser/.vscode-server \
+        /home/devuser/.vscode-server-insiders
 ENTRYPOINT ["/usr/bin/rxv-dev"]

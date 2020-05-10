@@ -3,6 +3,7 @@
     "cmake.buildDirectory": "${workspaceRoot}/_build",
     "cmake.configureSettings": {
     },
+    "cmake.sourceDirectory": "${workspaceFolder}",
     "cmake.ctestArgs": [],
     "editor.tokenColorCustomizations": {
         "textMateRules": [
@@ -34,7 +35,9 @@
     ],
     "files.exclude": {
         "_build": true,
-        "build": true
+        "build": true,
+        "*.vcd": true,
+        "*.tar.xz": true
     },
     "gtest-adapter.supportLocation": true,
     "gtest-adapter.debugConfig": "rtl-unittest"

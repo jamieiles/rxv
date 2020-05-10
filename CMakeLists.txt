@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+project(RXV C CXX ASM)
 set(CMAKE_CONFIGURATION_TYPES "Release;Debug")
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake/")

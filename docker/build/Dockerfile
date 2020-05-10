@@ -1,7 +1,7 @@
-FROM ubuntu:18.04
+FROM ubuntu:20.04
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
-ARG VERILATOR_VERSION=4.022
+ARG VERILATOR_VERSION=4.034
 RUN apt-get update && apt-get install --no-install-recommends -y \
 	autoconf \
         bison \
@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	gperf \
 	graphviz \
 	libboost-program-options-dev \
-        libboost-python1.62.0 \
+        libboost-python1.71.0 \
         libboost-python-dev \
         libboost-serialization-dev \
 	libffi-dev \
@@ -38,9 +38,9 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         python3-pystache \
         python3-yaml \
         python-dev \
-        python-distorm3 \
+        python3-distorm3 \
         python-lxml \
-        python-pystache \
+        python3-pystache \
         python-yaml \
         ruby \
         ruby-dev \

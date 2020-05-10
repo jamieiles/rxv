@@ -1,4 +1,5 @@
 include_directories(${VERILATOR_INCLUDE_DIRS})
+find_package(ZLIB)
 
 set(VERILATED_HEADERS)
 
@@ -10,7 +11,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
 endif()
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(VERILATOR_TRACE_FLAGS --trace --trace-underscore)
+    set(VERILATOR_TRACE_FLAGS --trace-fst --trace-underscore)
 endif()
 
 function(verilate)

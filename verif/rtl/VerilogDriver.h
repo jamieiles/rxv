@@ -1,7 +1,7 @@
 #pragma once
 
 #include <verilated.h>
-#include <verilated_vcd_c.h>
+#include <verilated_fst_c.h>
 #include <verilated_cov.h>
 
 #include <boost/algorithm/string/replace.hpp>
@@ -78,7 +78,7 @@ private:
     void run_periodic_events(PeriodicEventType edge_type);
     void setup_trace();
     void teardown_trace();
-    VerilatedVcdC tracer;
+    VerilatedFstC tracer;
     vluint64_t cur_time;
     vluint64_t cycle_num;
 
@@ -113,7 +113,7 @@ struct tracer_impl {
 
 template <typename T>
 struct tracer_impl<T, true> {
-    static void trace_dut(T *dut, VerilatedVcdC *tracer)
+    static void trace_dut(T *dut, VerilatedFstC *tracer)
     {
         dut->trace(tracer, 99);
     }
@@ -121,7 +121,7 @@ struct tracer_impl<T, true> {
 
 template <typename T>
 struct tracer_impl<T, false> {
-    static void trace_dut(T *, VerilatedVcdC *)
+    static void trace_dut(T *, VerilatedFstC *)
     {
     }
 };
@@ -133,7 +133,7 @@ void VerilogDriver<T, debug_enabled>::setup_trace()
         Verilated::traceEverOn(true);
         tracer_impl<T, debug_enabled>::trace_dut(&dut, &tracer);
 
-        auto filename = (boost::format("%s.vcd") % instance_name).str();
+        auto filename = (boost::format("%s.fst") % instance_name).str();
         boost::replace_all(filename, "/", "_");
         tracer.open(filename.c_str());
     }

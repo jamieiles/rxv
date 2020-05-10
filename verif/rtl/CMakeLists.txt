@@ -19,7 +19,8 @@ target_link_libraries(rtl-unittest
                       gmock
                       verilator
                       VRXVCore
-                      VRegFile)
+                      VRegFile
+		      ${ZLIB_LIBRARIES})
 add_test(rtl-unittest rtl-unittest)
 set_tests_properties(rtl-unittest PROPERTIES TIMEOUT 10)
 

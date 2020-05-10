@@ -25,7 +25,8 @@ add_executable(rxv-simulator
 target_link_libraries(rxv-simulator
 		      verilator
 		      VRXVCore
-                      ${Boost_LIBRARIES})
+                      ${Boost_LIBRARIES}
+		      ${ZLIB_LIBRARIES})
 
 ExternalProject_Add(riscv-compliance
 		    GIT_REPOSITORY https://github.com/jamieiles/riscv-compliance.git

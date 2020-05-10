@@ -23,7 +23,8 @@ constexpr uint32_t misa_ext_i = 1 << 8;
 class RXVSim : public SimulatorBase
 {
 public:
-    RXVSim(size_t mem_size = default_mem_size,
+    RXVSim(const std::string trace_name = std::string(default_trace_name),
+           size_t mem_size = default_mem_size,
            uint32_t mem_base = default_mem_base);
 
     uint32_t get_pc() const

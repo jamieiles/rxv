@@ -50,9 +50,11 @@ class RXVCPU
     , public VerilogDriver<VRXVCore>
 {
 public:
-    RXVCPU(size_t mem_size = default_mem_size,
+    RXVCPU(const std::string trace_name = std::string(default_trace_name),
+           size_t mem_size = default_mem_size,
            uint32_t mem_base = default_mem_base)
-        : SimulatorBase(mem_size, mem_base),
+        : SimulatorBase(trace_name, mem_size, mem_base),
+        VerilogDriver(trace_name),
         insn_completed(false)
     {
         for (int i = 0; i < 32; ++i)

@@ -48,7 +48,8 @@ class RXVCoreTestbench
 public:
     static constexpr int num_instructions = 512 * 1024 * 4;
 
-    RXVCoreTestbench() : RXVCPU(num_instructions * 4, 0)
+    RXVCoreTestbench() : RXVCPU(current_test_name(),
+                                num_instructions * 4, 0)
     {
         for (auto m = 0; m < num_instructions; ++m)
             write_mem<uint32_t>(m * 4, NOP);

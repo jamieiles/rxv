@@ -52,7 +52,7 @@ enable_testing()
 
 add_test(software-compliance
 	 make -C ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance RISCV_TARGET="rxv-simulator" RXV_SIMULATOR=software RISCV_ISA=rv32i RISCV_DEVICE=rv32i -j1)
-set_tests_properties(software-compliance PROPERTIES TIMEOUT 10)
+set_tests_properties(software-compliance PROPERTIES TIMEOUT 20)
 set_property(TEST software-compliance PROPERTY ENVIRONMENT
 	     "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
 set_tests_properties(software-compliance PROPERTIES RESOURCE_LOCK "compliance")
@@ -63,7 +63,7 @@ set_tests_properties(software-isa PROPERTIES TIMEOUT 10)
 
 add_test(rtl-compliance
 	 make -C ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance RISCV_TARGET="rxv-simulator" RXV_SIMULATOR=rtl RISCV_ISA=rv32i RISCV_DEVICE=rv32i -j1)
-set_tests_properties(rtl-compliance PROPERTIES TIMEOUT 20)
+set_tests_properties(rtl-compliance PROPERTIES TIMEOUT 30)
 set_property(TEST rtl-compliance PROPERTY ENVIRONMENT
              "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
 set_tests_properties(rtl-compliance PROPERTIES RESOURCE_LOCK "compliance")

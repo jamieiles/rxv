@@ -21,6 +21,7 @@ module RXVFetch(
 reg [31:0] reset_vector = 32'b0;
 // verilator lint_off BLKANDNBLK
 reg [31:0] pc;
+reg [31:0] next_seq_pc;
 // verilator lint_on BLKANDNBLK
 reg delay_slot;
 reg flushing_pipeline;
@@ -30,7 +31,7 @@ wire f_flush_pipeline   = df_flush & fd_valid & ~w_exception;
 wire stall              = d_load_delay || f_flush_pipeline || (flushing_pipeline && !wf_finish_flush);
 wire [31:0] next_pc     = f_write_pc ? f_write_pc_val :
                           stall ? pc :
-                          pc + 32'd4;
+                          next_seq_pc;
 
 assign i_addr           = next_pc;
 assign instruction = insert_nop || 1'b0 ? 32'h00000013 : i_data;
@@ -60,10 +61,12 @@ always_ff @(posedge clk or posedge reset) begin
 end
 
 always_ff @(posedge clk or posedge reset)
-    if (reset)
+    if (reset) begin
         pc <= reset_vector - 32'd4;
-    else begin
+        next_seq_pc <= reset_vector;
+    end else begin
         pc <= next_pc;
+        next_seq_pc <= next_pc + 32'd4;
     end
 
 endmodule

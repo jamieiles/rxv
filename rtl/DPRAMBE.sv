@@ -23,13 +23,13 @@ localparam data_bits = 8 * byte_width;
 
 logic [data_bits-1:0] mem[0:depth-1];
 
-integer b;
+integer a, b;
 
 always_ff @(posedge clk) begin
     if (wren_a) begin
-        for (b = 0; b < byte_width; b++) begin
-            if (byte_en_a[b])
-                mem[addr_a][b*8+:8] <= din_a[b*8+:8];
+        for (a = 0; a < byte_width; a++) begin
+            if (byte_en_a[a])
+                mem[addr_a][a*8+:8] <= din_a[a*8+:8];
         end
     end
     dout_a <= mem[addr_a];

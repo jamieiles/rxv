@@ -33,6 +33,7 @@
             "pattern": "{_build,build,Build,BUILD,out,Out,OUT}/**/*unittest*"
         }
     ],
+    "cmakeExplorer.buildDir": "_build",
     "files.exclude": {
         "_build": true,
         "build": true,

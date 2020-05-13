@@ -12,6 +12,8 @@ public:
 
     CacheTestbench()
     {
+        reset();
+
         periodic(ClockCapture, [&] {
             if (this->dut.cpu_ack) {
                 this->dut.cpu_access = 0;

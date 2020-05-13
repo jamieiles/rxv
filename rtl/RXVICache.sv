@@ -110,8 +110,8 @@ end
 endgenerate
 
 wire [nr_ways-1:0] fe_way_hit;
-reg [nr_ways-1:0] way_wr_sel = 'b1;
-reg last_bus_snoop_req = 1'b0;
+reg [nr_ways-1:0] way_wr_sel;
+reg last_bus_snoop_req;
 
 wire [index_bits-1:0] be_tag_lookup_addr = bus_snoop_req ?
     index(bus_snoop_addr_i) : cpu_index;
@@ -119,7 +119,7 @@ wire [index_bits-1:0] be_tag_lookup_addr = bus_snoop_req ?
 reg [29:0] latched_addr;
 wire [index_bits-1:0] cpu_index = index(cpu_addr);
 wire [offset_bits-1:0] cpu_offset = offset(cpu_addr);
-reg [offset_bits-1:0] write_offset = 'b0;
+reg [offset_bits-1:0] write_offset;
 
 reg [way_bits:0] data_way_sel;
 wire [nr_ways-1:0] snoop_way_hit;
@@ -127,11 +127,10 @@ wire [tag_bits+1-1:0] be_tag_wr_val[0:nr_ways-1];
 wire [nr_ways-1:0] be_tag_wren;
 wire [31:0] data_val [nr_ways];
 
-reg last_access = 1'b0;
-reg lookup_done = 1'b0;
+reg last_access;
+reg lookup_done;
 wire fe_hit = last_access && |fe_way_hit;
 wire start_lookup = cpu_access && (cpu_ack || !last_access);
-initial bus_request = 1'b0;
 
 wire [nr_ways-1:0] fe_valid_o;
 wire [tag_bits-1:0] fe_tag_o [nr_ways];
@@ -139,11 +138,11 @@ wire [nr_ways-1:0] be_valid_o;
 wire [tag_bits-1:0] be_tag_o [nr_ways];
 wire [tag_bits-1:0] tag_i = tag(cpu_addr);
 
-reg fill_complete = 1'b0;
+reg fill_complete;
 wire fill_stb = lookup_done & ~fe_hit;
-reg filling = 1'b0;
+reg filling;
 
-reg [29:0] latched_snoop_addr = 'b0;
+reg [29:0] latched_snoop_addr;
 
 assign cpu_ack = fe_hit;
 assign mem_access = last_access && (!fe_hit || filling) && !mem_ack && !fill_complete && bus_grant;
@@ -151,10 +150,16 @@ assign mem_addr = {cpu_addr[29:offset_bits], write_offset};
 assign cache_busy = filling | fill_complete;
 
 // Frontend logic
-always_ff @(posedge clk) begin
-    latched_addr <= cpu_addr;
-    last_access <= cpu_access;
-    lookup_done <= start_lookup;
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        last_access <= 1'b0;
+        lookup_done <= 1'b0;
+        latched_addr <= 'b0;
+    end else begin
+        latched_addr <= cpu_addr;
+        last_access <= cpu_access;
+        lookup_done <= start_lookup;
+    end
 end
 
 always_comb begin
@@ -167,25 +172,35 @@ always_comb begin
 end
 
 // Backend linefill logic
-always_ff @(posedge clk) begin
-    latched_snoop_addr <= bus_snoop_addr_i;
-    last_bus_snoop_req <= bus_snoop_req;
-
-    if (fill_stb) begin
-        filling <= 1'b1;
-        bus_request <= 1'b1;
-    end
-
-    if (mem_ack)
-        write_offset <= write_offset + 1'b1;
-
-    fill_complete <= 1'b0;
-    if (mem_ack && write_offset == words_per_line[offset_bits-1:0] - 1'b1) begin
-        filling <= 1'b0;
-        fill_complete <= 1'b1;
+always_ff @(posedge clk or posedge reset) begin
+    if (reset) begin
+        way_wr_sel <= 'b1;
+        last_bus_snoop_req <= 1'b0;
+        write_offset <= 'b0;
         bus_request <= 1'b0;
-        // Round robin line fill
-        way_wr_sel <= {way_wr_sel[nr_ways-2:0], way_wr_sel[nr_ways-1]};
+        fill_complete <= 1'b0;
+        filling <= 1'b0;
+        latched_snoop_addr <= 'b0;
+    end else begin
+        latched_snoop_addr <= bus_snoop_addr_i;
+        last_bus_snoop_req <= bus_snoop_req;
+
+        if (fill_stb) begin
+            filling <= 1'b1;
+            bus_request <= 1'b1;
+        end
+
+        if (mem_ack)
+            write_offset <= write_offset + 1'b1;
+
+        fill_complete <= 1'b0;
+        if (mem_ack && write_offset == words_per_line[offset_bits-1:0] - 1'b1) begin
+            filling <= 1'b0;
+            fill_complete <= 1'b1;
+            bus_request <= 1'b0;
+            // Round robin line fill
+            way_wr_sel <= {way_wr_sel[nr_ways-2:0], way_wr_sel[nr_ways-1]};
+        end
     end
 end
 
@@ -213,6 +228,7 @@ reg [$clog2(nr_ways):0] f_i;
 
 wire f_snoop_hit = last_bus_snoop_req && |snoop_way_hit;
 
+initial assume(reset == 1'b1);
 initial assume(mem_ack == 1'b0);
 initial assume(bus_grant == 1'b0);
 initial assert(offset_bits+index_bits+tag_bits == 30);
@@ -224,6 +240,10 @@ end
 
 always_ff @(posedge clk)
     f_past_valid <= 1'b1;
+
+always_comb
+    if (f_past_valid)
+        assume(!reset);
 
 always_ff @(posedge clk) begin
     if (f_past_valid && $past(mem_addr) == f_addr)

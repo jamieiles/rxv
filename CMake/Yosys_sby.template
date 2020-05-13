@@ -17,6 +17,7 @@ smtbmc boolector
 read -formal @ys_formal_SOURCE_LIST@
 prep -top @ys_formal_TOP@
 memory
+async2sync
 write_smt2 -wires @ys_formal_TOP@.smt2
 
 [files]

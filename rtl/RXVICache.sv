@@ -290,10 +290,6 @@ always_ff @(posedge clk)
     if (mem_ack && cpu_index == f_index)
         f_valid <= cpu_addr == f_addr;
 
-always_comb
-    if (cpu_access)
-        `ASSUME(eventually(cpu_ack));
-
 always_ff @(posedge clk) begin
     if (cpu_access)
         transaction_timeout <= transaction_timeout - 1'b1;
@@ -327,9 +323,6 @@ always_comb
 always_comb
     if (fe_hit)
         assert(!mem_access);
-
-always_ff @(posedge clk)
-    assert({cpu_addr[29:4],cpu_addr[3:2], cpu_addr[1:0]} == cpu_addr);
 
 always_ff @(posedge clk)
     assert(!(fe_hit && filling));

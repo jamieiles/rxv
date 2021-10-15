@@ -2,8 +2,11 @@
 sim=$1
 src=$2
 obj=$3
+target_dir=$4
 
 find "$obj" -name '*.log' -delete
 find "$obj" -name '*.signature.output' -delete
-exec make -C "$src" O="$obj" RISCV_SIMULATOR="$sim" \
-	RISCV_TARGET="rxv-simulator" RISCV_ISA=rv32i RISCV_DEVICE=rv32i -j1
+make -C "$src" WORK="$obj" RISCV_SIMULATOR="$sim" TARGETDIR=$target_dir \
+	RISCV_TARGET="rxv-simulator" RISCV_DEVICE=I -j1 simulate
+make -C "$src" WORK="$obj" RISCV_SIMULATOR="$sim" TARGETDIR=$target_dir \
+	RISCV_TARGET="rxv-simulator" RISCV_DEVICE=I -j1 verify

@@ -28,16 +28,6 @@ target_link_libraries(rxv-simulator
                       ${Boost_LIBRARIES}
 		      ${ZLIB_LIBRARIES})
 
-ExternalProject_Add(riscv-compliance
-		    GIT_REPOSITORY https://github.com/jamieiles/riscv-compliance.git
-		    GIT_TAG origin/rxv
-		    UPDATE_DISCONNECTED ${UPDATE_DISCONNECTED}
-		    UPDATE_COMMAND ""
-		    CONFIGURE_COMMAND ""
-		    BUILD_COMMAND ""
-		    INSTALL_COMMAND ""
-		    TEST_COMMAND "")
-
 ExternalProject_Add(riscv-tests
 		    GIT_REPOSITORY https://github.com/riscv/riscv-tests.git
 		    GIT_TAG origin/master
@@ -51,7 +41,7 @@ ExternalProject_Add(riscv-tests
 enable_testing()
 
 add_test(software-compliance
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-compliance-tests software ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance ${CMAKE_CURRENT_BINARY_DIR}/software-compliance)
+	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-compliance-tests software ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/riscv-arch-test ${CMAKE_CURRENT_BINARY_DIR}/software-compliance ${CMAKE_CURRENT_SOURCE_DIR}/../verif/rxv-arch-test-target)
 set_tests_properties(software-compliance PROPERTIES TIMEOUT 20)
 set_property(TEST software-compliance PROPERTY ENVIRONMENT
 	     "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")

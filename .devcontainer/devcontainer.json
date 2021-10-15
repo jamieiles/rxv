@@ -42,6 +42,9 @@
 	// Add the IDs of extensions you want installed when the container is created in the array below.
 	"extensions": [],
 	"mounts": [
-		"source=rxv-dev-extensions,target=/home/devuser/.vscode-server/extensions,type=volume"
+		"source=rxv-dev-extensions,target=/home/devuser/.vscode-server/extensions,type=volume",
+		"source=rxv-bashhistory,target=/commandhistory,type=volume",
+		"source=${env:HOME}/.bashrc,target=/home/devuser/.bashrc,type=bind",
+		"source=${env:HOME}/.inputrc,target=/home/devuser/.inputrc,type=bind"
 	]
 }

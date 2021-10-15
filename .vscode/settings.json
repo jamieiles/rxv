@@ -41,5 +41,8 @@
         "*.tar.xz": true
     },
     "gtest-adapter.supportLocation": true,
-    "gtest-adapter.debugConfig": "rtl-unittest"
+    "gtest-adapter.debugConfig": "rtl-unittest",
+    "files.associations": {
+        "iosfwd": "cpp"
+    }
 }

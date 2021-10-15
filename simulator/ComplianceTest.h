@@ -14,9 +14,9 @@ class ComplianceTest
 {
 public:
     explicit ComplianceTest(const std::string &filename)
-        : elf(filename),
-        sim(std::string("compliance.vcd"), 1024 * 1024, 0x80000000),
-        test_status(RUNNING)
+        : elf(filename)
+        , sim(std::string("compliance.vcd"), 32 * 1024 * 1024, 0x80000000)
+        , test_status(RUNNING)
     {
         sim.load_elf(elf);
         load_io_writes();

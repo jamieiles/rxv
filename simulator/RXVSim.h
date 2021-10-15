@@ -37,18 +37,18 @@ public:
         pc = v;
     }
 
-    void write_reg(int r, uint32_t v)
+    void do_write_reg(int r, uint32_t v)
     {
         if (r != 0)
             regs[r] = v;
     }
 
-    uint32_t read_reg(int r)
+    uint32_t do_read_reg(int r)
     {
         return regs[r];
     }
 
-    void step();
+    void do_step();
     void raise_timer_irq()
     {
     }

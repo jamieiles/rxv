@@ -125,9 +125,11 @@ void RXVSim::dump_regs() const
     std::cout.flush();
 }
 
-void RXVSim::step()
+void RXVSim::do_step()
 {
     uint32_t instr = read_mem<uint32_t>(pc);
+
+    trace_instruction(pc, instr);
 
     auto opcode = instr & 0x7f;
     auto rd = (instr >> 7) & 0x1f;
@@ -159,7 +161,7 @@ void RXVSim::step()
         break;
     }
     case 0x67: { // JALR
-        new_pc = (sign_extend(i_immed, 12) + regs[rs1]) & ~1;
+        new_pc = (sign_extend(i_immed, 12) + read_reg(rs1)) & ~1;
         write_reg(rd, pc + 4);
         break;
     }
@@ -169,24 +171,24 @@ void RXVSim::step()
 
         switch (funct3) {
         case 0x0: // BEQ
-            taken = regs[rs1] == regs[rs2];
+            taken = read_reg(rs1) == read_reg(rs2);
             break;
         case 0x1: // BNE
-            taken = regs[rs1] != regs[rs2];
+            taken = read_reg(rs1) != read_reg(rs2);
             break;
         case 0x4: // BLT
-            taken = static_cast<int32_t>(regs[rs1]) <
-                    static_cast<int32_t>(regs[rs2]);
+            taken = static_cast<int32_t>(read_reg(rs1)) <
+                    static_cast<int32_t>(read_reg(rs2));
             break;
         case 0x5: // BGE
-            taken = static_cast<int32_t>(regs[rs1]) >=
-                    static_cast<int32_t>(regs[rs2]);
+            taken = static_cast<int32_t>(read_reg(rs1)) >=
+                    static_cast<int32_t>(read_reg(rs2));
             break;
         case 0x6: // BLTU
-            taken = regs[rs1] < regs[rs2];
+            taken = read_reg(rs1) < read_reg(rs2);
             break;
         case 0x7: // BGEU
-            taken = regs[rs1] >= regs[rs2];
+            taken = read_reg(rs1) >= read_reg(rs2);
             break;
         default: illegal_instruction = true; break;
         }
@@ -197,7 +199,7 @@ void RXVSim::step()
     }
     case 0x03: // LOAD
     {
-        auto addr = regs[rs1] + sign_extend(i_immed, 12);
+        auto addr = read_reg(rs1) + sign_extend(i_immed, 12);
         bool aligned = true;
         uint32_t v = 0;
 
@@ -237,22 +239,22 @@ void RXVSim::step()
         break;
     }
     case 0x23: { // STORE
-        auto addr = regs[rs1] + sign_extend(s_immed, 12);
+        auto addr = read_reg(rs1) + sign_extend(s_immed, 12);
         bool aligned = true;
 
         switch (funct3) {
-        case 0x0: write_mem<uint8_t>(addr, regs[rs2]); break;
+        case 0x0: write_mem<uint8_t>(addr, read_reg(rs2)); break;
         case 0x1:
             if (addr & 1)
                 aligned = false;
             else
-                write_mem<uint16_t>(addr, regs[rs2]);
+                write_mem<uint16_t>(addr, read_reg(rs2));
             break;
         case 0x2:
             if (addr & 3)
                 aligned = false;
             else
-                write_mem<uint32_t>(addr, regs[rs2]);
+                write_mem<uint32_t>(addr, read_reg(rs2));
             break;
         default: illegal_instruction = true; break;
         }
@@ -264,43 +266,43 @@ void RXVSim::step()
     case 0x13: { // ARITHI
         switch (funct3) {
         case 0x0: // ADDI
-            write_reg(rd, regs[rs1] + sign_extend(i_immed, 12));
+            write_reg(rd, read_reg(rs1) + sign_extend(i_immed, 12));
             break;
         case 0x1:
             if (funct7 == 0) // SLLI
-                write_reg(rd, regs[rs1] << (i_immed & 0x1f));
+                write_reg(rd, read_reg(rs1) << (i_immed & 0x1f));
             else
                 illegal_instruction = true;
             break;
         case 0x2: // SLTI
-            write_reg(rd,
-                      static_cast<int32_t>(regs[rs1]) < sign_extend(i_immed, 12)
-                          ? 1
-                          : 0);
+            write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
+                                  sign_extend(i_immed, 12)
+                              ? 1
+                              : 0);
             break;
         case 0x3: // SLTIU
-            write_reg(
-                rd, regs[rs1] < static_cast<uint32_t>(sign_extend(i_immed, 12))
-                        ? 1
-                        : 0);
+            write_reg(rd, read_reg(rs1) < static_cast<uint32_t>(
+                                              sign_extend(i_immed, 12))
+                              ? 1
+                              : 0);
             break;
         case 0x4: // XORI
-            write_reg(rd, regs[rs1] ^ sign_extend(i_immed, 12));
+            write_reg(rd, read_reg(rs1) ^ sign_extend(i_immed, 12));
             break;
         case 0x5:
             if (funct7 == 0) // SLRI
-                write_reg(rd, regs[rs1] >> (i_immed & 0x1f));
+                write_reg(rd, read_reg(rs1) >> (i_immed & 0x1f));
             else if (funct7 == 0x20) // SRAI
-                write_reg(rd,
-                          static_cast<int32_t>(regs[rs1]) >> (i_immed & 0x1f));
+                write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
+                                  (i_immed & 0x1f));
             else
                 illegal_instruction = true;
             break;
         case 0x6: // ORI
-            write_reg(rd, regs[rs1] | sign_extend(i_immed, 12));
+            write_reg(rd, read_reg(rs1) | sign_extend(i_immed, 12));
             break;
         case 0x7: // ANDI
-            write_reg(rd, regs[rs1] & sign_extend(i_immed, 12));
+            write_reg(rd, read_reg(rs1) & sign_extend(i_immed, 12));
             break;
         default: break;
         }
@@ -310,41 +312,41 @@ void RXVSim::step()
         switch (funct3) {
         case 0x0:
             if (funct7 == 0) // ADD
-                write_reg(rd, regs[rs1] + regs[rs2]);
+                write_reg(rd, read_reg(rs1) + read_reg(rs2));
             else if (funct7 == 0x20) // SUB
-                write_reg(rd, regs[rs1] - regs[rs2]);
+                write_reg(rd, read_reg(rs1) - read_reg(rs2));
             else
                 illegal_instruction = true;
             break;
         case 0x1: // SLL
-            write_reg(rd, regs[rs1] << (regs[rs2] & 0x1f));
+            write_reg(rd, read_reg(rs1) << (read_reg(rs2) & 0x1f));
             break;
         case 0x2: // SLT
-            write_reg(rd, static_cast<int32_t>(regs[rs1]) <
-                                  static_cast<int32_t>(regs[rs2])
+            write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
+                                  static_cast<int32_t>(read_reg(rs2))
                               ? 1
                               : 0);
             break;
         case 0x3: // SLTU
-            write_reg(rd, regs[rs1] < regs[rs2] ? 1 : 0);
+            write_reg(rd, read_reg(rs1) < read_reg(rs2) ? 1 : 0);
             break;
         case 0x4: // XOR
-            write_reg(rd, regs[rs1] ^ regs[rs2]);
+            write_reg(rd, read_reg(rs1) ^ read_reg(rs2));
             break;
         case 0x5:
             if (funct7 == 0) // SRL
-                write_reg(rd, regs[rs1] >> (regs[rs2] & 0x1f));
+                write_reg(rd, read_reg(rs1) >> (read_reg(rs2) & 0x1f));
             else if (funct7 == 0x20) // SRA
-                write_reg(
-                    rd, static_cast<int32_t>(regs[rs1]) >> (regs[rs2] & 0x1f));
+                write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
+                                  (read_reg(rs2) & 0x1f));
             else
                 illegal_instruction = true;
             break;
         case 0x6: // OR
-            write_reg(rd, regs[rs1] | regs[rs2]);
+            write_reg(rd, read_reg(rs1) | read_reg(rs2));
             break;
         case 0x7: // AND
-            write_reg(rd, regs[rs1] & regs[rs2]);
+            write_reg(rd, read_reg(rs1) & read_reg(rs2));
             break;
         }
         break;
@@ -366,7 +368,7 @@ void RXVSim::step()
             if (csrs.find(i_immed) == csrs.end()) {
                 illegal_instruction = true;
             } else {
-                auto orig = regs[rs1];
+                auto orig = read_reg(rs1);
                 write_reg(rd, csrs[i_immed].val);
                 csrs[i_immed].val = orig & csrs[i_immed].def->wr_mask;
             }
@@ -375,7 +377,7 @@ void RXVSim::step()
             if (csrs.find(i_immed) == csrs.end()) {
                 illegal_instruction = true;
             } else {
-                auto orig = regs[rs1];
+                auto orig = read_reg(rs1);
                 write_reg(rd, csrs[i_immed].val);
                 if (rs1 != 0)
                     csrs[i_immed].val |= orig & csrs[i_immed].def->wr_mask;
@@ -385,7 +387,7 @@ void RXVSim::step()
             if (csrs.find(i_immed) == csrs.end()) {
                 illegal_instruction = true;
             } else {
-                auto orig = regs[rs1];
+                auto orig = read_reg(rs1);
                 write_reg(rd, csrs[i_immed].val);
                 if (rs1 != 0)
                     csrs[i_immed].val &= ~orig & csrs[i_immed].def->wr_mask;

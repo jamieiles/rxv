@@ -148,7 +148,7 @@ public:
 	    reset();
     }
 
-    void step()
+    void do_step()
     {
         insn_completed = false;
         while (!insn_completed) {

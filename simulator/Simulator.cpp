@@ -19,12 +19,14 @@ static boost::program_options::variables_map parse_options(int argc,
     options.add_options()
         ("test", boost::program_options::value<std::string>(), "Test")
         ("sim", boost::program_options::value<std::string>(), "Simulator")
+        ("trace_file", boost::program_options::value<std::string>(), "TraceName")
         ("help,h", "Help screen");
     // clang-format on
 
     boost::program_options::positional_options_description positional;
     positional.add("sim", 1);
     positional.add("test", 1);
+    positional.add("trace_file", 1);
 
     boost::program_options::command_line_parser parser{argc, argv};
     parser.options(options).positional(positional).allow_unregistered();
@@ -60,7 +62,8 @@ int main(int argc, char *argv[])
 
     try {
         if (vm["sim"].as<std::string>() == "software") {
-            ComplianceTest<RXVSim> test(vm["test"].as<std::string>());
+            ComplianceTest<RXVSim> test(vm["test"].as<std::string>(),
+                                        vm["trace_file"].as<std::string>());
             return test.run() ? 0 : 1;
         } else {
             std::cerr << "error: invalid simulator " << vm["sim"].as<std::string>() << std::endl;

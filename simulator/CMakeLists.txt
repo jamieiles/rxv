@@ -2,6 +2,7 @@ set(Boost_NO_BOOST_CMAKE ON)
 set(Boost_USE_MULTITHREADED TRUE)
 find_package(Boost 1.71.0 COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/../tools)
 
 add_executable(rxv-simulator
                Simulator.cpp
@@ -12,6 +13,7 @@ add_executable(rxv-simulator
 	       SimulatorBase.h
                RiscVELF.cpp
                RiscVELF.h)
+add_dependencies(rxv-simulator gen_trace_h)
 target_link_libraries(rxv-simulator
                       ${Boost_LIBRARIES}
 		      ${ZLIB_LIBRARIES})

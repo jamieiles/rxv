@@ -13,9 +13,10 @@ template <typename T>
 class ComplianceTest
 {
 public:
-    explicit ComplianceTest(const std::string &filename)
+    explicit ComplianceTest(const std::string &filename,
+                            const std::string &trace_name)
         : elf(filename)
-        , sim(std::string("compliance.vcd"), 32 * 1024 * 1024, 0x80000000)
+        , sim(trace_name, 32 * 1024 * 1024, 0x80000000)
         , test_status(RUNNING)
     {
         sim.load_elf(elf);
@@ -102,7 +103,7 @@ private:
         }
     }
 
-    void output_signature() const
+    void output_signature()
     {
         uint32_t begin_signature, end_signature;
 

@@ -12,7 +12,7 @@ void SimulatorBase::load_elf(const RiscVELF &elf)
     write_pc(elf.entry_point());
 }
 
-std::string SimulatorBase::read_string(uint32_t addr) const
+std::string SimulatorBase::read_string(uint32_t addr)
 {
     std::string str;
 

@@ -40,5 +40,5 @@ COMPILE_TARGET=\
         fi ;
 
 RUN_TARGET=\
-	$(TARGET_SIM) --sim $(RISCV_SIMULATOR) --test $(<) 2> $(@) > $(*).signature.output;
+	$(TARGET_SIM) --sim $(RISCV_SIMULATOR) --test $(<) --trace_file $(<).trace 2> $(@) > $(*).signature.output;
 

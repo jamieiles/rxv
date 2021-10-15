@@ -1,0 +1,52 @@
+namespace RXV.Trace;
+
+enum CSRId : uint16 {
+    INVALID	= 0x0000,
+    MSTATUS     = 0x0300,
+    MISA        = 0x0301,
+    MIE         = 0x0304,
+    MTVEC       = 0x0305,
+    MCOUNTEREN  = 0x0306,
+    MSCRATCH    = 0x0340,
+    MEPC        = 0x0341,
+    MCAUSE      = 0x0342,
+    MTVAL       = 0x0343,
+    MIP         = 0x0344,
+    MVENDORID   = 0x0F11,
+    MARCHID     = 0x0F12,
+    MIMPID      = 0x0F13,
+    MHARTID     = 0x0F14
+}
+
+table Register {
+	id:uint8;
+    read:bool;
+	value:uint32;
+}
+
+table CSRValue {
+	id:CSRId;
+	value:uint32;
+}
+
+table MemAccess {
+	addr:uint32;
+	value:uint32;
+	size:uint8;
+    read:bool;
+}
+
+table InstructionTrace {
+	cycle_num:uint64;
+	pc:uint32;
+	instruction:uint32;
+	gpr_accesses:[Register];
+    mem_accesses:[MemAccess];
+	csr_writes:[CSRValue];
+}
+
+table ProcessorTrace {
+	instructions:[InstructionTrace];
+}
+
+root_type ProcessorTrace;

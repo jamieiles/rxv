@@ -8,9 +8,12 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	build-essential \
         ccache \
         clang \
+	clang-12 \
         clang-c++ \
         cmake \
         cpp \
+        curl \
+	flatbuffers-compiler \
         flex \
 	gawk \
         git \
@@ -20,8 +23,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libboost-python1.71.0 \
         libboost-python-dev \
         libboost-serialization-dev \
+	libclang-12-dev \
 	libffi-dev \
+	libflatbuffers1 \
+	libflatbuffers-dev \
         libfl-dev \
+	libfmt-dev \
+	libfmt-dev \
 	libftdi-dev \
 	libgmp-dev \
 	libreadline-dev \
@@ -29,18 +37,19 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libsdl2-dev \
         libusb-1.0-0-dev \
         llvm \
+	llvm-12-dev \
 	mercurial \
         ninja-build \
 	pkg-config \
 	python \
 	python3 \
+        python3-distorm3 \
         python3-pip \
+        python3-pystache \
         python3-pystache \
         python3-yaml \
         python-dev \
-        python3-distorm3 \
         python-lxml \
-        python3-pystache \
         python-yaml \
         ruby \
         ruby-dev \

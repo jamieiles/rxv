@@ -1,5 +1,6 @@
 FROM rxv-build:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
+ARG USERNAME=devuser
 RUN apt-get install -y gpg curl
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg && \
         install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/ && \
@@ -8,7 +9,8 @@ RUN apt-get update && apt-get install -y runit \
         gtkwave \
         gdb \
         sudo \
-        code
+        code \
+        fzf
 ADD docker/dev/rxv-dev /usr/bin/rxv-dev
 ENV CTEST_OUTPUT_ON_FAILURE=1
 ENV GTEST_COLOR=1
@@ -19,4 +21,9 @@ RUN mkdir -p /home/devuser/.vscode-server/extensions \
     && chown -R devuser \
         /home/devuser/.vscode-server \
         /home/devuser/.vscode-server-insiders
+RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
+        && mkdir /commandhistory \
+        && touch /commandhistory/.bash_history \
+        && chown -R $USERNAME /commandhistory \
+        && echo $SNIPPET >> "/home/$USERNAME/.bashrc"
 ENTRYPOINT ["/usr/bin/rxv-dev"]

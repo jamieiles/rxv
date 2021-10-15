@@ -2,16 +2,6 @@ set(Boost_NO_BOOST_CMAKE ON)
 set(Boost_USE_MULTITHREADED TRUE)
 find_package(Boost 1.71.0 COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
-include_directories(../verif/rtl)
-include_directories(../rtl)
-include(Verilator)
-
-verilate(TOPLEVEL RXVCore
-	 VERILOG_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVCore.sv
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVFetch.sv
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVDecode.sv
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RXVExec.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../rtl/RegFile.sv)
 
 add_executable(rxv-simulator
                Simulator.cpp
@@ -23,8 +13,6 @@ add_executable(rxv-simulator
                RiscVELF.cpp
                RiscVELF.h)
 target_link_libraries(rxv-simulator
-		      verilator
-		      VRXVCore
                       ${Boost_LIBRARIES}
 		      ${ZLIB_LIBRARIES})
 
@@ -50,14 +38,3 @@ set_tests_properties(software-compliance PROPERTIES RESOURCE_LOCK "compliance")
 add_test(software-isa
 	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-isa-tests ${CMAKE_CURRENT_BINARY_DIR}/rxv-simulator software ${CMAKE_CURRENT_BINARY_DIR}/riscv-tests-prefix/src/riscv-tests-build/isa)
 set_tests_properties(software-isa PROPERTIES TIMEOUT 10)
-
-add_test(rtl-compliance
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-compliance-tests rtl ${CMAKE_CURRENT_BINARY_DIR}/riscv-compliance-prefix/src/riscv-compliance ${CMAKE_CURRENT_BINARY_DIR}/software-compliance)
-set_tests_properties(rtl-compliance PROPERTIES TIMEOUT 30)
-set_property(TEST rtl-compliance PROPERTY ENVIRONMENT
-             "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
-set_tests_properties(rtl-compliance PROPERTIES RESOURCE_LOCK "compliance")
-
-add_test(rtl-isa
-	 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-isa-tests ${CMAKE_CURRENT_BINARY_DIR}/rxv-simulator rtl ${CMAKE_CURRENT_BINARY_DIR}/riscv-tests-prefix/src/riscv-tests-build/isa)
-set_tests_properties(rtl-isa PROPERTIES TIMEOUT 20)

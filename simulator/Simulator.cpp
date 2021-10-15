@@ -3,7 +3,6 @@
 #include <boost/program_options.hpp>
 
 #include "ComplianceTest.h"
-#include "RXVCPU.h"
 
 double cur_time_stamp = 0;
 
@@ -62,9 +61,6 @@ int main(int argc, char *argv[])
     try {
         if (vm["sim"].as<std::string>() == "software") {
             ComplianceTest<RXVSim> test(vm["test"].as<std::string>());
-            return test.run() ? 0 : 1;
-        } else if (vm["sim"].as<std::string>() == "rtl") {
-            ComplianceTest<RXVCPU> test(vm["test"].as<std::string>());
             return test.run() ? 0 : 1;
         } else {
             std::cerr << "error: invalid simulator " << vm["sim"].as<std::string>() << std::endl;

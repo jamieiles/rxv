@@ -49,15 +49,20 @@ static const struct CSRDef csr_defs[] = {
 // clang-format on
 
 RXVSim::RXVSim(const std::string trace_name, size_t mem_size, uint32_t mem_base)
-    : SimulatorBase(trace_name, mem_size, mem_base)
+    : SimulatorBase(trace_name)
     , pc(0)
     , new_pc(0)
+    , ram_base(mem_base)
+    , mem_size(mem_size)
 {
     for (int i = 0; i < 32; ++i)
         regs[i] = 0;
 
     for (auto *def = csr_defs; def->name; ++def)
         csrs[def->number] = CSR{def, def->default_val};
+
+    mem = std::make_unique<uint32_t[]>(mem_size / 4);
+    mtime.time = mtime.cmp = 0;
 }
 
 static uint32_t i_immediate(uint32_t instr)

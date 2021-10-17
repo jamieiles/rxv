@@ -120,42 +120,28 @@ class SimulatorBase
 public:
     static constexpr char default_trace_name[] = "RXVCore.vcd";
     static constexpr size_t default_mem_size = 1024 * 1024;
-    static constexpr uint32_t default_mem_base = 0x0;
+    static constexpr uint32_t default_ram_base = 0x0;
     static constexpr uint32_t mtime_base = 0xffff0000;
 
-    SimulatorBase(const std::string trace_name,
-                  size_t mem_size = default_mem_size,
-                  uint32_t mem_base = default_mem_base)
-        : mem_size(mem_size)
-        , mem_base(mem_base)
-        , cur_cycle(0)
-        , tracer(trace_name)
+    SimulatorBase(const std::string trace_name)
+        : cur_cycle(0), tracer(trace_name)
     {
-        mtime.time = mtime.cmp = 0;
-        mem = std::make_unique<uint32_t[]>(mem_size / 4);
     }
 
     void load_elf(const RiscVELF &elf);
 
+    virtual void do_read_mem(uint32_t addr, char *dst, size_t len) = 0;
+
+    virtual void do_write_mem(uint32_t addr, const char *val, size_t len) = 0;
+
     template <typename T>
     T read_mem(uint32_t addr)
     {
-        if (addr >= mtime_base && addr < mtime_base + sizeof(mtime)) {
-            size_t offs = addr - mtime_base;
-            T val;
-            memcpy(&val, reinterpret_cast<const char *>(&mtime) + offs, sizeof(val));
-
-            return val;
-        }
-        addr -= mem_base;
-        if (addr + sizeof(T) > mem_size)
-            throw MemFault("Out of bounds memory access");
-
         T val;
-        memcpy(&val, reinterpret_cast<uint8_t *>(mem.get()) + addr,
-               sizeof(val));
 
-        tracer.trace_read_mem<T>(addr + mem_base, val);
+        do_read_mem(addr, reinterpret_cast<char *>(&val), sizeof(val));
+
+        tracer.trace_read_mem<T>(addr, val);
 
         return val;
     }
@@ -163,21 +149,9 @@ public:
     template <typename T>
     void write_mem(uint32_t addr, T val)
     {
-        if (addr >= mtime_base && addr < mtime_base + sizeof(mtime)) {
-            size_t offs = addr - mtime_base;
-            memcpy(reinterpret_cast<char *>(&mtime) + offs, &val, sizeof(val));
+        do_write_mem(addr, reinterpret_cast<const char *>(&val), sizeof(val));
 
-            if (offs >= sizeof(mtime.time))
-                clear_timer_irq();
-        }
-        addr -= mem_base;
-        if (addr + sizeof(T) > mem_size)
-            throw MemFault("Out of bounds memory access");
-
-        tracer.trace_write_mem<T>(addr + mem_base, val);
-
-        memcpy(reinterpret_cast<uint8_t *>(mem.get()) + addr, &val,
-               sizeof(val));
+        tracer.trace_write_mem<T>(addr, val);
     }
 
     template <typename T>
@@ -190,12 +164,7 @@ public:
         return data;
     }
 
-    void timer_tick(void)
-    {
-        mtime.time++;
-        if (mtime.time >= mtime.cmp)
-            raise_timer_irq();
-    }
+    virtual void timer_tick(void) = 0;
 
     void step()
     {
@@ -231,10 +200,6 @@ public:
     virtual void clear_timer_irq() = 0;
 
 private:
-    std::unique_ptr<uint32_t[]> mem;
-    size_t mem_size;
-    uint32_t mem_base;
-    struct mtime mtime;
     uint64_t cur_cycle;
 
     SimTracer tracer;

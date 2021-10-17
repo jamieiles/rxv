@@ -54,6 +54,32 @@ RXVSim::RXVSim(const std::string trace_name, size_t mem_size, uint32_t mem_base)
     , new_pc(0)
     , ram_base(mem_base)
     , mem_size(mem_size)
+    , dcache(8192,
+             4,
+             32,
+             std::bind(&RXVSim::raw_read_mem,
+                       this,
+                       std::placeholders::_1,
+                       std::placeholders::_2,
+                       std::placeholders::_3),
+             std::bind(&RXVSim::raw_write_mem,
+                       this,
+                       std::placeholders::_1,
+                       std::placeholders::_2,
+                       std::placeholders::_3))
+    , icache(8192,
+             4,
+             32,
+             std::bind(&RXVSim::raw_read_mem,
+                       this,
+                       std::placeholders::_1,
+                       std::placeholders::_2,
+                       std::placeholders::_3),
+             std::bind(&RXVSim::raw_write_mem,
+                       this,
+                       std::placeholders::_1,
+                       std::placeholders::_2,
+                       std::placeholders::_3))
 {
     for (int i = 0; i < 32; ++i)
         regs[i] = 0;
@@ -132,7 +158,7 @@ void RXVSim::dump_regs() const
 
 void RXVSim::do_step()
 {
-    uint32_t instr = read_mem<uint32_t>(pc);
+    uint32_t instr = read_imem<uint32_t>(pc);
 
     trace_instruction(pc, instr);
 

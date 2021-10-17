@@ -131,11 +131,24 @@ public:
     void load_elf(const RiscVELF &elf);
 
     virtual void do_read_mem(uint32_t addr, char *dst, size_t len) = 0;
+    virtual void do_read_imem(uint32_t addr, char *dst, size_t len) = 0;
 
     virtual void do_write_mem(uint32_t addr, const char *val, size_t len) = 0;
 
     template <typename T>
     T read_mem(uint32_t addr)
+    {
+        T val;
+
+        do_read_mem(addr, reinterpret_cast<char *>(&val), sizeof(val));
+
+        tracer.trace_read_mem<T>(addr, val);
+
+        return val;
+    }
+
+    template <typename T>
+    T read_imem(uint32_t addr)
     {
         T val;
 

@@ -34,7 +34,7 @@ static const struct CSRDef csr_defs[] = {
     { "mhartid",    0x00000000, 0x00000000, MHARTID },
     // Machine trap setup
     { "mstatus",    0x00000000, 0x00000000, MSTATUS },
-    { "misa",       0x00000000, misa_xlen32 | misa_ext_i, MISA },
+    { "misa",       0x00000000, misa_xlen32 | misa_ext_i | misa_ext_m, MISA },
     { "mie",        0x00000000, 0x00000000, MIE },
     { "mtvec",      0xffffffff, 0x00000000, MTVEC },
     { "mcounteren", 0x00000000, 0x00000000, MCOUNTEREN },
@@ -118,12 +118,13 @@ static uint32_t j_immediate(uint32_t instr)
            (((instr >> 21) & 0x3ff) << 1) | (((instr >> 31) & 0x1) << 20);
 }
 
-static int32_t sign_extend(uint32_t u, int bits)
+template <typename T = int32_t>
+static T sign_extend(uint32_t u, int bits)
 {
-    int32_t s = static_cast<int32_t>(u);
+    T s = static_cast<T>(u);
 
-    s <<= 32 - bits;
-    s >>= 32 - bits;
+    s <<= (sizeof(T) * 8) - bits;
+    s >>= (sizeof(T) * 8) - bits;
 
     return s;
 }
@@ -340,45 +341,118 @@ void RXVSim::do_step()
         break;
     }
     case 0x33: { // ARITH
-        switch (funct3) {
-        case 0x0:
-            if (funct7 == 0) // ADD
-                write_reg(rd, read_reg(rs1) + read_reg(rs2));
-            else if (funct7 == 0x20) // SUB
-                write_reg(rd, read_reg(rs1) - read_reg(rs2));
-            else
-                illegal_instruction = true;
-            break;
-        case 0x1: // SLL
-            write_reg(rd, read_reg(rs1) << (read_reg(rs2) & 0x1f));
-            break;
-        case 0x2: // SLT
-            write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
-                                  static_cast<int32_t>(read_reg(rs2))
-                              ? 1
-                              : 0);
-            break;
-        case 0x3: // SLTU
-            write_reg(rd, read_reg(rs1) < read_reg(rs2) ? 1 : 0);
-            break;
-        case 0x4: // XOR
-            write_reg(rd, read_reg(rs1) ^ read_reg(rs2));
-            break;
-        case 0x5:
-            if (funct7 == 0) // SRL
-                write_reg(rd, read_reg(rs1) >> (read_reg(rs2) & 0x1f));
-            else if (funct7 == 0x20) // SRA
-                write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
-                                  (read_reg(rs2) & 0x1f));
-            else
-                illegal_instruction = true;
-            break;
-        case 0x6: // OR
-            write_reg(rd, read_reg(rs1) | read_reg(rs2));
-            break;
-        case 0x7: // AND
-            write_reg(rd, read_reg(rs1) & read_reg(rs2));
-            break;
+        if (funct7 == 1) {
+            switch (funct3) {
+            case 0x0: { // MUL
+                auto rs1_val = read_reg(rs1);
+                auto rs2_val = read_reg(rs2);
+                write_reg(rd, rs1_val * rs2_val);
+                break;
+            }
+            case 0x1: { // MULH
+                auto rs1_val = sign_extend<int64_t>(read_reg(rs1), 32);
+                auto rs2_val = sign_extend<int64_t>(read_reg(rs2), 32);
+                int64_t product = rs1_val * rs2_val;
+                write_reg(rd, product >> 32);
+                break;
+            }
+            case 0x2: { // MULHSU
+                auto rs1_val = sign_extend<int64_t>(read_reg(rs1), 32);
+                auto rs2_val = static_cast<uint64_t>(read_reg(rs2));
+                int64_t product = rs1_val * rs2_val;
+                write_reg(rd, product >> 32);
+                break;
+            }
+            case 0x3: { // MULHU
+                auto rs1_val = static_cast<uint64_t>(read_reg(rs1));
+                auto rs2_val = static_cast<uint64_t>(read_reg(rs2));
+                int64_t product = rs1_val * rs2_val;
+                write_reg(rd, product >> 32);
+                break;
+            }
+            case 0x4: { // DIV
+                auto rs1_val = read_reg(rs1);
+                auto rs2_val = read_reg(rs2);
+                if (rs2_val == 0)
+                    write_reg(rd, 0xffffffff);
+                else if (rs1_val == 0x80000000 && rs2_val == 0xffffffff)
+                    write_reg(rd, 0x80000000);
+                else
+                    write_reg(rd, static_cast<int32_t>(rs1_val) /
+                                      static_cast<int32_t>(rs2_val));
+                break;
+            }
+            case 0x5: { // DIVU
+                auto rs2_val = read_reg(rs2);
+                if (rs2_val != 0)
+                    write_reg(rd, read_reg(rs1) / rs2_val);
+                else
+                    write_reg(rd, 0xffffffff);
+                break;
+            }
+            case 0x6: { // REM
+                auto rs1_val = read_reg(rs1);
+                auto rs2_val = read_reg(rs2);
+                if (rs2_val == 0)
+                    write_reg(rd, rs1_val);
+                else if (rs1_val == 0x80000000 && rs2_val == 0xffffffff)
+                    write_reg(rd, 0);
+                else
+                    write_reg(rd, static_cast<int32_t>(rs1_val) %
+                                      static_cast<int32_t>(rs2_val));
+                break;
+            }
+            case 0x7: { // REMU
+                auto rs1_val = read_reg(rs1);
+                auto rs2_val = read_reg(rs2);
+                if (rs2_val == 0)
+                    write_reg(rd, rs1_val);
+                else
+                    write_reg(rd, rs1_val % rs2_val);
+                break;
+            }
+            }
+        } else {
+            switch (funct3) {
+            case 0x0:
+                if (funct7 == 0) // ADD
+                    write_reg(rd, read_reg(rs1) + read_reg(rs2));
+                else if (funct7 == 0x20) // SUB
+                    write_reg(rd, read_reg(rs1) - read_reg(rs2));
+                else
+                    illegal_instruction = true;
+                break;
+            case 0x1: // SLL
+                write_reg(rd, read_reg(rs1) << (read_reg(rs2) & 0x1f));
+                break;
+            case 0x2: // SLT
+                write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
+                                      static_cast<int32_t>(read_reg(rs2))
+                                  ? 1
+                                  : 0);
+                break;
+            case 0x3: // SLTU
+                write_reg(rd, read_reg(rs1) < read_reg(rs2) ? 1 : 0);
+                break;
+            case 0x4: // XOR
+                write_reg(rd, read_reg(rs1) ^ read_reg(rs2));
+                break;
+            case 0x5:
+                if (funct7 == 0) // SRL
+                    write_reg(rd, read_reg(rs1) >> (read_reg(rs2) & 0x1f));
+                else if (funct7 == 0x20) // SRA
+                    write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
+                                      (read_reg(rs2) & 0x1f));
+                else
+                    illegal_instruction = true;
+                break;
+            case 0x6: // OR
+                write_reg(rd, read_reg(rs1) | read_reg(rs2));
+                break;
+            case 0x7: // AND
+                write_reg(rd, read_reg(rs1) & read_reg(rs2));
+                break;
+            }
         }
         break;
     }

@@ -20,6 +20,7 @@ struct CSRDef {
 
 constexpr uint32_t misa_xlen32 = 1 << 30;
 constexpr uint32_t misa_ext_i = 1 << 8;
+constexpr uint32_t misa_ext_m = 1 << 12;
 
 class RXVSim;
 

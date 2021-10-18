@@ -89,6 +89,8 @@ RXVSim::RXVSim(const std::string trace_name, size_t mem_size, uint32_t mem_base)
 
     mem = std::make_unique<uint32_t[]>(mem_size / 4);
     mtime.time = mtime.cmp = 0;
+
+    dcache.set_noncacheable(mtime_base, mtime_base + sizeof(mtime) - 1);
 }
 
 static uint32_t i_immediate(uint32_t instr)
@@ -456,7 +458,12 @@ void RXVSim::do_step()
         }
         break;
     }
-    case 0x0f: break; // FENCE
+    case 0x0f:
+        if (funct3 == 0x1) {
+            dcache.clean();
+            icache.invalidate();
+        }
+        break; // FENCE
     case 0x73:
         switch (funct3) {
         case 0x00:

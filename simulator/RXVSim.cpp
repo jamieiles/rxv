@@ -385,7 +385,7 @@ void RXVSim::do_step()
             write_reg(rd, read_mem<uint32_t>(read_reg(rs1), true));
             break;
         case 0x3: // SC.W
-            if (write_mem<uint32_t>(read_reg(rs2), read_reg(rs1), true))
+            if (write_mem<uint32_t>(read_reg(rs1), read_reg(rs2), true))
                 write_reg(rd, 0);
             else
                 write_reg(rd, 1);

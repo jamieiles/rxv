@@ -1,7 +1,7 @@
 namespace RXV.Trace;
 
 enum CSRId : uint16 {
-    INVALID	= 0x0000,
+    INVALID	    = 0x0000,
     MSTATUS     = 0x0300,
     MISA        = 0x0301,
     MIE         = 0x0304,
@@ -12,6 +12,14 @@ enum CSRId : uint16 {
     MCAUSE      = 0x0342,
     MTVAL       = 0x0343,
     MIP         = 0x0344,
+    MCYCLE      = 0x0B00,
+    MINSTRET    = 0x0B02,
+    MCYCLEH     = 0x0B80,
+    MINSTRETH   = 0x0B82,
+    UCYCLE      = 0x0C00,
+    UTIME       = 0x0C01,
+    UCYCLEH     = 0x0C80,
+    UTIMEH      = 0x0C81,
     MVENDORID   = 0x0F11,
     MARCHID     = 0x0F12,
     MIMPID      = 0x0F13,

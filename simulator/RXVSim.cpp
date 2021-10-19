@@ -14,6 +14,14 @@ enum CSRID {
     MARCHID     = 0x0F12,
     MIMPID      = 0x0F13,
     MHARTID     = 0x0F14,
+    UCYCLE      = 0x0C00,
+    UTIME       = 0x0C01,
+    UCYCLEH     = 0x0C80,
+    UTIMEH      = 0x0C81,
+    MCYCLE      = 0x0B00,
+    MCYCLEH     = 0x0B80,
+    MINSTRET    = 0x0B02,
+    MINSTRETH   = 0x0B82,
     MSTATUS     = 0x0300,
     MISA        = 0x0301,
     MIE         = 0x0304,
@@ -50,6 +58,16 @@ static const struct CSRDef csr_defs[] = {
     { "mcause",     0xffffffff, 0x00000000, MCAUSE },
     { "mtval",      0xffffffff, 0x00000000, MTVAL },
     { "mip",        0x00000000, 0x00000000, MIP },
+    // Performance counters
+    { "mcycle",     0x00000000, 0x00000000, MCYCLE },
+    { "mcycleh",    0x00000000, 0x00000000, MCYCLEH },
+    { "minstret",   0x00000000, 0x00000000, MINSTRET },
+    { "minstreth",  0x00000000, 0x00000000, MINSTRETH },
+    // Time counters
+    { "ucycle",     0x00000000, 0x00000000, UCYCLE },
+    { "ucycleh",    0x00000000, 0x00000000, UCYCLEH },
+    { "utime",      0x00000000, 0x00000000, UTIME },
+    { "utimeh",     0x00000000, 0x00000000, UTIMEH },
     {}
 };
 // clang-format on

@@ -24,3 +24,4 @@ set(UPDATE_DISCONNECTED true CACHE BOOL "Don't update external git repos during 
 add_subdirectory(simulator)
 add_subdirectory(tools)
 add_subdirectory(vendor/googletest)
+add_subdirectory(vendor/ELFIO)

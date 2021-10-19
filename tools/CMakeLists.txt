@@ -21,4 +21,5 @@ target_link_libraries(trace-decode
                       ${Boost_LIBRARIES}
                       ${ZLIB_LIBRARIES}
                       clangTooling
-                      fmt)
+                      fmt
+                      elfio::elfio)

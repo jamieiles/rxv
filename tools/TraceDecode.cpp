@@ -7,6 +7,8 @@
 
 #include <boost/program_options.hpp>
 
+#include <elfio/elfio.hpp>
+
 #include "llvm-c/Disassembler.h"
 #include "llvm-c/Target.h"
 
@@ -58,6 +60,7 @@ static boost::program_options::variables_map parse_options(int argc,
     // clang-format off
     options.add_options()
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
+        ("elf", boost::program_options::value<std::string>(), "ELF file")
         ("help,h", "Help screen");
     // clang-format on
 
@@ -113,6 +116,78 @@ static LLVMDisasmContextRef get_disassembler()
     return dcr;
 }
 
+struct Symbol {
+    std::string name;
+    uint32_t start;
+    uint32_t end;
+};
+
+static std::vector<Symbol> symbols;
+
+static bool symbol_compare(const Symbol &a, const Symbol &b)
+{
+    return a.start < b.start;
+}
+
+static std::string lookup_pc_symbol(uint32_t addr)
+{
+    auto s = std::find_if(symbols.rbegin(), symbols.rend(),
+                          [&](const Symbol &s) { return addr >= s.start; });
+
+    if (s == symbols.rend())
+        return "";
+
+    return fmt::format("{:s}+0x{:x}", s->name, addr - s->start);
+}
+
+static bool is_interesting_symbol(const std::string &name, unsigned char type)
+{
+    if (name.size() == 0)
+        return false;
+
+    if (!(type == ELFIO::STT_OBJECT || type == ELFIO::STT_FUNC ||
+          type == ELFIO::STT_NOTYPE))
+        return false;
+
+    return true;
+}
+
+static void load_symbols(const std::string &filename)
+{
+    ELFIO::elfio reader;
+
+    reader.load(filename);
+
+    ELFIO::Elf_Half sec_num = reader.sections.size();
+    for (int i = 0; i < sec_num; ++i) {
+        auto psec = reader.sections[i];
+        if (psec->get_type() != ELFIO::SHT_SYMTAB)
+            continue;
+
+        const ELFIO::symbol_section_accessor symtab(reader, psec);
+        for (unsigned int j = 0; j < symtab.get_symbols_num(); ++j) {
+            std::string name;
+            ELFIO::Elf64_Addr value;
+            ELFIO::Elf_Xword size;
+            unsigned char bind;
+            unsigned char type;
+            ELFIO::Elf_Half section_index;
+            unsigned char other;
+            symtab.get_symbol(j, name, value, size, bind, type, section_index,
+                              other);
+
+            if (!is_interesting_symbol(name, type))
+                continue;
+
+            symbols.emplace_back(
+                Symbol{name, static_cast<uint32_t>(value),
+                       static_cast<uint32_t>(value + size - 1)});
+        }
+    }
+
+    std::sort(symbols.begin(), symbols.end(), symbol_compare);
+}
+
 int main(int argc, char **argv)
 {
     boost::program_options::variables_map vm;
@@ -123,6 +198,9 @@ int main(int argc, char **argv)
         std::cerr << e.what() << std::endl;
         exit(3);
     }
+
+    if (vm.count("elf"))
+        load_symbols(vm["elf"].as<std::string>());
 
     auto dcr = get_disassembler();
     auto proc_trace = get_trace(vm["trace_file"].as<std::string>());
@@ -141,9 +219,12 @@ int main(int argc, char **argv)
         while (strchr(instr_string, '\t'))
             *strchr(instr_string, '\t') = ' ';
 
-        std::cout << fmt::format("@ {:<10d} {:08x} {:32s} # [instr: {:08x}]\n",
-                                 instr->cycle_num(), instr->pc(), instr_string,
-                                 converter.instr);
+        std::string symbol = lookup_pc_symbol(instr->pc());
+
+        std::cout << fmt::format(
+            "@ {:<10d} {:08x} {:32s} # [instr: {:08x}] {:s}\n",
+            instr->cycle_num(), instr->pc(), instr_string, converter.instr,
+            symbol);
         for (auto reg : *instr->gpr_accesses()) {
             if (reg->id() == 0)
                 continue;

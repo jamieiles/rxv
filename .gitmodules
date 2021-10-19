@@ -4,3 +4,6 @@
 [submodule "vendor/riscv-arch-test"]
 	path = vendor/riscv-arch-test
 	url = https://github.com/riscv-non-isa/riscv-arch-test.git
+[submodule "vendor/ELFIO"]
+	path = vendor/ELFIO
+	url = https://github.com/serge1/ELFIO.git

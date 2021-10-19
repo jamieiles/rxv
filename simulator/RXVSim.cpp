@@ -26,6 +26,12 @@ enum CSRID {
     MIP         = 0x0344,
 };
 
+constexpr uint32_t supported_extensions =
+    misa_xlen32 |
+    misa_ext_i |
+    misa_ext_m |
+    misa_ext_a;
+
 static const struct CSRDef csr_defs[] = {
     // Machine information registers
     { "mvendorid",  0x00000000, 0x00000000, MVENDORID },
@@ -34,7 +40,7 @@ static const struct CSRDef csr_defs[] = {
     { "mhartid",    0x00000000, 0x00000000, MHARTID },
     // Machine trap setup
     { "mstatus",    0x00000000, 0x00000000, MSTATUS },
-    { "misa",       0x00000000, misa_xlen32 | misa_ext_i | misa_ext_m, MISA },
+    { "misa",       0x00000000, supported_extensions, MISA },
     { "mie",        0x00000000, 0x00000000, MIE },
     { "mtvec",      0xffffffff, 0x00000000, MTVEC },
     { "mcounteren", 0x00000000, 0x00000000, MCOUNTEREN },
@@ -339,6 +345,108 @@ void RXVSim::do_step()
             write_reg(rd, read_reg(rs1) & sign_extend(i_immed, 12));
             break;
         default: break;
+        }
+        break;
+    }
+    case 0x24: { // ATOMICS
+        if (funct3 != 0x2) {
+            illegal_instruction = true;
+            break;
+        }
+
+        switch (funct7 >> 2) {
+        case 0x0: { // AMOADD.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = v + rs2_val;
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0x1: { // AMOSWAP.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            write_mem<uint32_t>(rs1_val, rs2_val);
+            break;
+        }
+        case 0x2: // LR.W
+            write_reg(rd, read_mem<uint32_t>(read_reg(rs1), true));
+            break;
+        case 0x3: // SC.W
+            if (write_mem<uint32_t>(read_reg(rs2), read_reg(rs1), true))
+                write_reg(rd, 0);
+            else
+                write_reg(rd, 1);
+            break;
+        case 0x4: { // AMOXOR.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = v ^ rs2_val;
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0xc: { // AMOAND.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = v & rs2_val;
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0x8: { // AMOOR.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = v | rs2_val;
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0x10: { // AMOMIN.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = std::min(static_cast<int32_t>(v),
+                         static_cast<int32_t>(rs2_val));
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0x14: { // AMOMAX.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = std::max(static_cast<int32_t>(v),
+                         static_cast<int32_t>(rs2_val));
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0x18: { // AMOMINU.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = std::min(v, rs2_val);
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        case 0x1c: { // AMOMAXU.W
+            auto rs1_val = read_reg(rs1);
+            auto rs2_val = read_reg(rs2);
+            auto v = read_mem<uint32_t>(rs1_val);
+            write_reg(rd, v);
+            v = std::max(v, rs2_val);
+            write_mem<uint32_t>(rs1_val, v);
+            break;
+        }
+        default: illegal_instruction = true; break;
         }
         break;
     }

@@ -130,17 +130,24 @@ public:
 
     void load_elf(const RiscVELF &elf);
 
-    virtual void do_read_mem(uint32_t addr, char *dst, size_t len) = 0;
+    virtual void do_read_mem(uint32_t addr,
+                             char *dst,
+                             size_t len,
+                             bool reserved) = 0;
     virtual void do_read_imem(uint32_t addr, char *dst, size_t len) = 0;
 
-    virtual void do_write_mem(uint32_t addr, const char *val, size_t len) = 0;
+    virtual bool do_write_mem(uint32_t addr,
+                              const char *val,
+                              size_t len,
+                              bool conditional) = 0;
 
     template <typename T>
-    T read_mem(uint32_t addr)
+    T read_mem(uint32_t addr, bool reserved = false)
     {
         T val;
 
-        do_read_mem(addr, reinterpret_cast<char *>(&val), sizeof(val));
+        do_read_mem(addr, reinterpret_cast<char *>(&val), sizeof(val),
+                    reserved);
 
         tracer.trace_read_mem<T>(addr, val);
 
@@ -152,7 +159,7 @@ public:
     {
         T val;
 
-        do_read_mem(addr, reinterpret_cast<char *>(&val), sizeof(val));
+        do_read_mem(addr, reinterpret_cast<char *>(&val), sizeof(val), false);
 
         tracer.trace_read_mem<T>(addr, val);
 
@@ -160,19 +167,25 @@ public:
     }
 
     template <typename T>
-    void write_mem(uint32_t addr, T val)
+    bool write_mem(uint32_t addr, T val, bool conditional = false)
     {
-        do_write_mem(addr, reinterpret_cast<const char *>(&val), sizeof(val));
+        auto ret = do_write_mem(addr, reinterpret_cast<const char *>(&val),
+                                sizeof(val), conditional);
 
-        tracer.trace_write_mem<T>(addr, val);
+        if (ret)
+            tracer.trace_write_mem<T>(addr, val);
+
+        return ret;
     }
 
     template <typename T>
-    std::vector<T> read_mem(uint32_t addr, size_t count)
+    std::vector<T> read_mem_vector(uint32_t addr,
+                                   size_t count,
+                                   bool reserved = false)
     {
         std::vector<T> data;
         for (auto m = 0; m < count; ++m, addr += sizeof(T))
-            data.push_back(read_mem<T>(addr));
+            data.push_back(read_mem<T>(addr, reserved));
 
         return data;
     }

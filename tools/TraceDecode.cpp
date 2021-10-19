@@ -102,7 +102,7 @@ static LLVMDisasmContextRef get_disassembler()
     LLVMInitializeAllDisassemblers();
 
     LLVMDisasmContextRef dcr = LLVMCreateDisasmCPUFeatures(
-        "riscv32-unknown-none", "generic-rv32", "+m", NULL, 0, NULL, NULL);
+        "riscv32-unknown-none", "generic-rv32", "+m,+a", NULL, 0, NULL, NULL);
 
     if (!dcr)
         errx(1, "failed to create disassembler");

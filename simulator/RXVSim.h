@@ -19,9 +19,10 @@ struct CSRDef {
     const uint16_t number;
 };
 
-constexpr uint32_t misa_xlen32 = 1 << 30;
+constexpr uint32_t misa_ext_a = 1 << 0;
 constexpr uint32_t misa_ext_i = 1 << 8;
 constexpr uint32_t misa_ext_m = 1 << 12;
+constexpr uint32_t misa_xlen32 = 1 << 30;
 
 class RXVSim;
 
@@ -38,6 +39,7 @@ public:
         , num_ways(num_ways)
         , words_per_line(line_size / sizeof(uint32_t))
         , victim(0)
+        , reserved(false)
     {
         lines_per_way = (size / num_ways) / line_size;
 
@@ -68,7 +70,7 @@ public:
         nocache_regions.emplace_back(std::make_pair(start, end));
     }
 
-    void read(uint32_t addr, char *dst, size_t len)
+    void read(uint32_t addr, char *dst, size_t len, bool reserve = false)
     {
         if (is_noncacheable(addr)) {
             mem_read(addr, dst, len);
@@ -82,10 +84,18 @@ public:
                    reinterpret_cast<const char *>(&line->words[addr_offset]) +
                        byte_offset,
                    len);
+
+            if (reserve) {
+                reserved = true;
+                reservation_addr = addr & ~((1 << index_shift) - 1);
+            }
         }
     }
 
-    void write(uint32_t addr, const char *val, size_t len)
+    bool write(uint32_t addr,
+               const char *val,
+               size_t len,
+               bool conditional = false)
     {
         if (is_noncacheable(addr)) {
             mem_write(addr, val, len);
@@ -94,12 +104,19 @@ public:
             auto addr_offset = offset(addr);
             auto byte_offset = addr & 0x3;
 
+            if (reserved && conditional) {
+                if (addr & ~((1 << index_shift) - 1) != reservation_addr)
+                    return false;
+            }
+
             assert(line != nullptr);
             memcpy(reinterpret_cast<char *>(&line->words[addr_offset]) +
                        byte_offset,
                    val, len);
             line->dirty = true;
         }
+
+        return true;
     }
 
     void clean()
@@ -161,6 +178,8 @@ private:
             return;
 
         auto dst_addr = (victim_line.tag << tag_shift) | (index << index_shift);
+        if (dst_addr == reservation_addr)
+            reserved = false;
         assert(dst_addr == victim_line.line_addr);
 
         for (int i = 0; i < words_per_line; ++i, dst_addr += sizeof(uint32_t))
@@ -228,6 +247,9 @@ private:
     size_t tag_shift;
     size_t tag_bits;
     int victim;
+
+    uint32_t reservation_addr;
+    bool reserved;
 };
 
 class RXVSim : public SimulatorBase
@@ -258,9 +280,9 @@ public:
         return regs[r];
     }
 
-    void do_read_mem(uint32_t addr, char *dst, size_t len)
+    void do_read_mem(uint32_t addr, char *dst, size_t len, bool reserved)
     {
-        dcache.read(addr, dst, len);
+        dcache.read(addr, dst, len, reserved);
     }
 
     void do_read_imem(uint32_t addr, char *dst, size_t len)
@@ -268,9 +290,12 @@ public:
         icache.read(addr, dst, len);
     }
 
-    void do_write_mem(uint32_t addr, const char *val, size_t len)
+    bool do_write_mem(uint32_t addr,
+                      const char *val,
+                      size_t len,
+                      bool conditional)
     {
-        dcache.write(addr, val, len);
+        return dcache.write(addr, val, len, conditional);
     }
 
     void do_step();

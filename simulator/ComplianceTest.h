@@ -114,7 +114,7 @@ private:
             return;
         }
 
-        auto signature = sim.template read_mem<uint32_t>(
+        auto signature = sim.template read_mem_vector<uint32_t>(
             begin_signature, (end_signature - begin_signature) / 4);
 
         boost::io::ios_flags_saver ifs(std::cout);

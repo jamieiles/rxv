@@ -63,6 +63,16 @@ public:
                 RXV::Trace::CreateRegister(trace_builder, r, false, v));
     }
 
+    void trace_write_csr(int r, uint32_t v)
+    {
+        if (!enabled)
+            return;
+
+        if (insn_traced)
+            cur_trace_csr_writes.emplace_back(RXV::Trace::CreateCSRValue(
+                trace_builder, static_cast<RXV::Trace::CSRId>(r), v));
+    }
+
     void trace_read_reg(int r, uint32_t v)
     {
         if (!enabled || !trace_reg_reads)
@@ -101,7 +111,9 @@ public:
     {
         if (!insn_traced)
             return;
+
         auto reg_accesses = trace_builder.CreateVector(cur_trace_reg_accesses);
+        auto csr_writes = trace_builder.CreateVector(cur_trace_csr_writes);
         auto mem_accesses = trace_builder.CreateVector(cur_trace_mem_accesses);
         auto insn_builder = RXV::Trace::InstructionTraceBuilder(trace_builder);
 
@@ -110,6 +122,7 @@ public:
         insn_builder.add_exception_raised(trace_exception_raised);
         insn_builder.add_instruction(trace_insn);
         insn_builder.add_gpr_accesses(reg_accesses);
+        insn_builder.add_csr_writes(csr_writes);
         insn_builder.add_mem_accesses(mem_accesses);
         traced_insns.emplace_back(insn_builder.Finish());
         insn_traced = false;
@@ -261,6 +274,12 @@ public:
         tracer.trace_read_reg(r, v);
         return v;
     }
+    void write_csr(int r, uint32_t v)
+    {
+        tracer.trace_write_csr(r, v);
+        do_write_csr(r, v);
+    }
+    virtual void do_write_csr(int r, uint32_t v) = 0;
     virtual void do_step() = 0;
     virtual void raise_timer_irq() = 0;
     virtual void clear_timer_irq() = 0;

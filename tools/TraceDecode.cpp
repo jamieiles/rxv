@@ -274,6 +274,14 @@ int main(int argc, char **argv)
                                      reg_name(reg->id()),
                                      reg->read() ? "==" : ":=", reg->value());
         }
+        for (auto csr : *instr->csr_writes()) {
+            std::string decoding = "";
+            if (csr->id() == RXV::Trace::CSRId_MCAUSE)
+                decoding = decode_mcause(csr->value());
+            std::cout << fmt::format("{:23s}{:<10s} {:08x} {:s}\n", "",
+                                     EnumNameCSRId(csr->id()), csr->value(),
+                                     decoding);
+        }
         for (auto mem : *instr->mem_accesses()) {
             std::cout << fmt::format("{:23s}{:c}{:d} M[{:08x}] {:s} {:08x}\n",
                                      "", mem->read() ? 'R' : 'W',

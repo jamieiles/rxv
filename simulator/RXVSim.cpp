@@ -139,17 +139,22 @@ static T sign_extend(uint32_t u, int bits)
     return s;
 }
 
+void RXVSim::do_write_csr(int r, uint32_t v)
+{
+    csrs[static_cast<CSRID>(r)].val = v;
+}
+
 void RXVSim::do_exception(enum mcause_type type, uint32_t val)
 {
-    csrs[MEPC].val = pc;
-    csrs[MCAUSE].val = type;
+    write_csr(MEPC, pc);
+    write_csr(MCAUSE, type);
     new_pc = csrs[MTVEC].val;
 
     switch (type) {
     case ILLEGAL_INSTRUCTION:
     case LOAD_MISALIGN:
     case STORE_MISALIGN:
-    case INSTR_ALIGN: csrs[MTVAL].val = val; break;
+    case INSTR_ALIGN: write_csr(MTVAL, val); break;
     default: break;
     }
 
@@ -594,7 +599,7 @@ void RXVSim::do_step()
             } else {
                 auto orig = read_reg(rs1);
                 write_reg(rd, csrs[i_immed].val);
-                csrs[i_immed].val = orig & csrs[i_immed].def->wr_mask;
+                write_csr(i_immed, orig & csrs[i_immed].def->wr_mask);
             }
             break;
         case 0x02: // CSRRS
@@ -604,7 +609,8 @@ void RXVSim::do_step()
                 auto orig = read_reg(rs1);
                 write_reg(rd, csrs[i_immed].val);
                 if (rs1 != 0)
-                    csrs[i_immed].val |= orig & csrs[i_immed].def->wr_mask;
+                    write_csr(i_immed, csrs[i_immed].val |
+                                           (orig & csrs[i_immed].def->wr_mask));
             }
             break;
         case 0x03: // CSRRC
@@ -614,7 +620,9 @@ void RXVSim::do_step()
                 auto orig = read_reg(rs1);
                 write_reg(rd, csrs[i_immed].val);
                 if (rs1 != 0)
-                    csrs[i_immed].val &= ~orig & csrs[i_immed].def->wr_mask;
+                    write_csr(i_immed,
+                              csrs[i_immed].val &
+                                  (~orig & csrs[i_immed].def->wr_mask));
             }
             break;
         case 0x05: // CSRRWI
@@ -624,7 +632,7 @@ void RXVSim::do_step()
                 if (rd != 0)
                     write_reg(rd, csrs[i_immed].val);
                 // 5-bit zero extended immediate in the rs1 field
-                csrs[i_immed].val = rs1 & csrs[i_immed].def->wr_mask;
+                write_csr(i_immed, rs1 & csrs[i_immed].def->wr_mask);
             }
             break;
         case 0x06: // CSRRSI
@@ -634,7 +642,8 @@ void RXVSim::do_step()
                 write_reg(rd, csrs[i_immed].val);
                 // 5-bit zero extended immediate in the rs1 field
                 if (rs1 != 0)
-                    csrs[i_immed].val |= rs1 & csrs[i_immed].def->wr_mask;
+                    write_csr(i_immed, csrs[i_immed].val |
+                                           (rs1 & csrs[i_immed].def->wr_mask));
             }
             break;
         case 0x07: // CSRRCI
@@ -643,7 +652,8 @@ void RXVSim::do_step()
             } else {
                 write_reg(rd, csrs[i_immed].val);
                 if (rs1 != 0)
-                    csrs[i_immed].val &= ~rs1 & csrs[i_immed].def->wr_mask;
+                    write_csr(i_immed, csrs[i_immed].val &
+                                           (~rs1 & csrs[i_immed].def->wr_mask));
             }
             break;
         default: illegal_instruction = true; break;

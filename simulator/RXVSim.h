@@ -280,6 +280,8 @@ public:
         return regs[r];
     }
 
+    void do_write_csr(int r, uint32_t v);
+
     void do_read_mem(uint32_t addr, char *dst, size_t len, bool reserved)
     {
         dcache.read(addr, dst, len, reserved);

@@ -357,7 +357,7 @@ void RXVSim::do_step()
         }
         break;
     }
-    case 0x24: { // ATOMICS
+    case 0x2f: { // ATOMICS
         if (funct3 != 0x2) {
             illegal_instruction = true;
             break;

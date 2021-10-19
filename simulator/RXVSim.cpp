@@ -590,6 +590,8 @@ void RXVSim::do_step()
                 do_exception(BREAKPOINT);
             else if (instr == 0x30200073) // MRET
                 new_pc = csrs[MEPC].val;
+            else if (instr == 0x10500073) // WFI
+                ;
             else
                 illegal_instruction = true;
             break;

@@ -11,22 +11,48 @@ double sc_time_stamp()
     return cur_time_stamp;
 }
 
+template <typename T>
+class Simulation
+{
+public:
+    explicit Simulation(const std::string &filename,
+                        const std::optional<std::string> trace_name)
+        : sim(trace_name, 32 * 1024 * 1024, 0x80000000)
+    {
+        RiscVELF elf(filename);
+
+        sim.load_elf(elf);
+    }
+
+    void run()
+    {
+        for (int i = 0; i < 10000000; ++i) {
+            sim.step();
+        }
+
+        std::cout << "[simulation finished]" << std::endl;
+    }
+
+private:
+    T sim;
+};
+
 static boost::program_options::variables_map parse_options(int argc,
                                                            char *argv[])
 {
     boost::program_options::options_description options{"Options"};
     // clang-format off
     options.add_options()
-        ("test", boost::program_options::value<std::string>(), "Test")
+        ("elf", boost::program_options::value<std::string>(), "ELF file")
         ("sim", boost::program_options::value<std::string>(), "Simulator")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
+        ("compliance", "Run compliance test")
         ("help,h", "Help screen");
     // clang-format on
 
     boost::program_options::positional_options_description positional;
     positional.add("sim", 1);
-    positional.add("test", 1);
-    positional.add("trace_file", 1);
+    positional.add("elf", 1);
 
     boost::program_options::command_line_parser parser{argc, argv};
     parser.options(options).positional(positional).allow_unregistered();
@@ -38,7 +64,7 @@ static boost::program_options::variables_map parse_options(int argc,
     if (vm.count("help")) {
         std::cout << options << std::endl;
         exit(0);
-    } else if (vm.count("test") != 1) {
+    } else if (vm.count("elf") != 1) {
         std::cout << "error: one test ELF file must be supplied" << std::endl;
         exit(2);
     } else if (vm.count("sim") != 1) {
@@ -67,9 +93,15 @@ int main(int argc, char *argv[])
                 : std::nullopt;
 
         if (vm["sim"].as<std::string>() == "software") {
-            ComplianceTest<RXVSim> test(vm["test"].as<std::string>(),
+            if (vm.count("compliance")) {
+                ComplianceTest<RXVSim> test(vm["elf"].as<std::string>(),
+                                            trace_name);
+                return test.run() ? 0 : 1;
+            } else {
+                Simulation<RXVSim> test(vm["elf"].as<std::string>(),
                                         trace_name);
-            return test.run() ? 0 : 1;
+                test.run();
+            }
         } else {
             std::cerr << "error: invalid simulator " << vm["sim"].as<std::string>() << std::endl;
             return 3;

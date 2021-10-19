@@ -104,9 +104,12 @@ public:
             auto addr_offset = offset(addr);
             auto byte_offset = addr & 0x3;
 
-            if (reserved && conditional) {
+            if (conditional) {
+                if (!reserved)
+                    return false;
                 if (addr & ~((1 << index_shift) - 1) != reservation_addr)
                     return false;
+                reserved = false;
             }
 
             assert(line != nullptr);

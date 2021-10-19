@@ -166,7 +166,6 @@ private:
 class SimulatorBase
 {
 public:
-    static constexpr char default_trace_name[] = "RXVCore.vcd";
     static constexpr size_t default_mem_size = 1024 * 1024;
     static constexpr uint32_t default_ram_base = 0x0;
     static constexpr uint32_t mtime_base = 0xffff0000;

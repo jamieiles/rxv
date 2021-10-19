@@ -4,11 +4,20 @@ src=$2
 obj=$3
 target_dir=$4
 
+priv_tests="\
+ebreak
+ecall
+misalign-sw-01
+misalign-sh-01
+misalign-lw-01
+misalign-lhu-01
+misalign-lh-01"
+
 find "$obj" -name '*.log' -delete
 find "$obj" -name '*.signature.output' -delete
-for isa in I M; do
+for isa in I M Zifencei privilege; do
 	make -C "$src" WORK="$obj" RISCV_SIMULATOR="$sim" TARGETDIR=$target_dir \
-		RISCV_TARGET="rxv-simulator" RISCV_DEVICE=$isa -j1 simulate
+		RISCV_TARGET="rxv-simulator" RISCV_DEVICE=$isa -j1 simulate rv32i_sc_tests="$priv_tests"
 	make -C "$src" WORK="$obj" RISCV_SIMULATOR="$sim" TARGETDIR=$target_dir \
-		RISCV_TARGET="rxv-simulator" RISCV_DEVICE=$isa -j1 verify
+		RISCV_TARGET="rxv-simulator" RISCV_DEVICE=$isa -j1 verify rv32i_sc_tests="$priv_tests"
 done

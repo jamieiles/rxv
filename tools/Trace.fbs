@@ -43,6 +43,7 @@ table InstructionTrace {
 	gpr_accesses:[Register];
     mem_accesses:[MemAccess];
 	csr_writes:[CSRValue];
+    exception_raised:bool;
 }
 
 table ProcessorTrace {

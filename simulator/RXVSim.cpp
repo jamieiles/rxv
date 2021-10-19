@@ -152,6 +152,8 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
     case INSTR_ALIGN: csrs[MTVAL].val = val; break;
     default: break;
     }
+
+    trace_exception();
 }
 
 void RXVSim::dump_regs() const

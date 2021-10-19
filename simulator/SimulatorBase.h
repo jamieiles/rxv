@@ -86,6 +86,15 @@ public:
         trace_insn = instr;
         insn_traced = true;
         cur_cycle = cycle;
+        trace_exception_raised = false;
+    }
+
+    void trace_exception()
+    {
+        if (!insn_traced)
+            return;
+
+        trace_exception_raised = true;
     }
 
     void trace_end_instruction()
@@ -98,6 +107,7 @@ public:
 
         insn_builder.add_pc(trace_pc);
         insn_builder.add_cycle_num(cur_cycle);
+        insn_builder.add_exception_raised(trace_exception_raised);
         insn_builder.add_instruction(trace_insn);
         insn_builder.add_gpr_accesses(reg_accesses);
         insn_builder.add_mem_accesses(mem_accesses);
@@ -135,6 +145,7 @@ private:
     std::vector<flatbuffers::Offset<RXV::Trace::InstructionTrace>> traced_insns;
     uint32_t trace_insn;
     uint32_t trace_pc;
+    bool trace_exception_raised;
     uint64_t cur_cycle;
     std::string filename;
 };
@@ -226,6 +237,11 @@ public:
     void trace_instruction(uint32_t pc, uint32_t instr)
     {
         tracer.trace_start_instruction(pc, instr, cur_cycle);
+    }
+
+    void trace_exception()
+    {
+        tracer.trace_exception();
     }
 
     std::string read_string(uint32_t addr);

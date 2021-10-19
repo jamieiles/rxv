@@ -116,6 +116,44 @@ static LLVMDisasmContextRef get_disassembler()
     return dcr;
 }
 
+static constexpr uint32_t mcause_interrupt = (1U << 31);
+
+enum mcause_type {
+    M_SWINT = mcause_interrupt | 3,
+    M_TINT = mcause_interrupt | 7,
+    M_EINT = mcause_interrupt | 11,
+    INSTR_ALIGN = 0,
+    ILLEGAL_INSTRUCTION = 2,
+    BREAKPOINT = 3,
+    LOAD_MISALIGN = 4,
+    STORE_MISALIGN = 6,
+    M_ECALL = 11
+};
+
+static std::string decode_mcause(uint32_t v)
+{
+    if (v == M_SWINT)
+        return "M_SWINT";
+    if (v == M_TINT)
+        return "M_TINT";
+    if (v == M_EINT)
+        return "M_EINT";
+    if (v == INSTR_ALIGN)
+        return "INSTR_ALIGN";
+    if (v == ILLEGAL_INSTRUCTION)
+        return "ILLEGAL_INSTRUCTION";
+    if (v == BREAKPOINT)
+        return "BREAKPOINT";
+    if (v == LOAD_MISALIGN)
+        return "LOAD_MISALIGN";
+    if (v == STORE_MISALIGN)
+        return "STORE_MISALIGN";
+    if (v == M_ECALL)
+        return "M_ECALL";
+
+    return "UNKNOWN";
+}
+
 struct Symbol {
     std::string name;
     uint32_t start;
@@ -219,12 +257,16 @@ int main(int argc, char **argv)
         while (strchr(instr_string, '\t'))
             *strchr(instr_string, '\t') = ' ';
 
+        std::string notes;
         std::string symbol = lookup_pc_symbol(instr->pc());
 
+        if (instr->exception_raised())
+            notes += " /EXCEPTION";
+
         std::cout << fmt::format(
-            "@ {:<10d} {:08x} {:32s} # [instr: {:08x}] {:s}\n",
+            "@ {:<10d} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n",
             instr->cycle_num(), instr->pc(), instr_string, converter.instr,
-            symbol);
+            symbol, notes);
         for (auto reg : *instr->gpr_accesses()) {
             if (reg->id() == 0)
                 continue;

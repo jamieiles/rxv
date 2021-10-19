@@ -172,7 +172,8 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
     case ILLEGAL_INSTRUCTION:
     case LOAD_MISALIGN:
     case STORE_MISALIGN:
-    case INSTR_ALIGN: write_csr(MTVAL, val); break;
+    case INSTR_ALIGN:
+    case BREAKPOINT: write_csr(MTVAL, val); break;
     default: break;
     }
 
@@ -605,7 +606,7 @@ void RXVSim::do_step()
             if (instr == 0x00000073) // ECALL
                 do_exception(M_ECALL);
             else if (instr == 0x00100073) // EBREAK
-                do_exception(BREAKPOINT);
+                do_exception(BREAKPOINT, pc);
             else if (instr == 0x30200073) // MRET
                 new_pc = csrs[MEPC].val;
             else if (instr == 0x10500073) // WFI

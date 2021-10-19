@@ -54,7 +54,9 @@ static const struct CSRDef csr_defs[] = {
 };
 // clang-format on
 
-RXVSim::RXVSim(const std::string trace_name, size_t mem_size, uint32_t mem_base)
+RXVSim::RXVSim(const std::optional<std::string> trace_name,
+               size_t mem_size,
+               uint32_t mem_base)
     : SimulatorBase(trace_name)
     , pc(0)
     , new_pc(0)

@@ -61,9 +61,14 @@ int main(int argc, char *argv[])
     }
 
     try {
+        auto trace_name =
+            vm.count("trace_file")
+                ? std::optional<std::string>(vm["trace_file"].as<std::string>())
+                : std::nullopt;
+
         if (vm["sim"].as<std::string>() == "software") {
             ComplianceTest<RXVSim> test(vm["test"].as<std::string>(),
-                                        vm["trace_file"].as<std::string>());
+                                        trace_name);
             return test.run() ? 0 : 1;
         } else {
             std::cerr << "error: invalid simulator " << vm["sim"].as<std::string>() << std::endl;

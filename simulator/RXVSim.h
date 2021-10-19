@@ -255,7 +255,7 @@ private:
 class RXVSim : public SimulatorBase
 {
 public:
-    RXVSim(const std::string trace_name = std::string(default_trace_name),
+    RXVSim(const std::optional<std::string> trace_name,
            size_t mem_size = default_mem_size,
            uint32_t mem_base = default_ram_base);
 

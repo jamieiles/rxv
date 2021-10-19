@@ -14,7 +14,7 @@ class ComplianceTest
 {
 public:
     explicit ComplianceTest(const std::string &filename,
-                            const std::string &trace_name)
+                            const std::optional<std::string> trace_name)
         : elf(filename)
         , sim(trace_name, 32 * 1024 * 1024, 0x80000000)
         , test_status(RUNNING)

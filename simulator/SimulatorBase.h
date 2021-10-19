@@ -19,15 +19,24 @@ struct mtime {
 
 class SimTracer
 {
+    static constexpr bool trace_reg_reads = false;
+
 public:
-    SimTracer(const std::string &filename)
-        : cur_cycle(0), insn_traced(false), filename(filename)
+    SimTracer(const std::optional<std::string> filename)
+        : enabled(false), cur_cycle(0), insn_traced(false)
     {
+        if (filename) {
+            this->enabled = true;
+            this->filename = *filename;
+        }
     }
 
     template <typename T>
     void trace_read_mem(uint32_t addr, T val)
     {
+        if (!enabled)
+            return;
+
         if (insn_traced)
             cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
                 trace_builder, addr, val, sizeof(T), true));
@@ -36,6 +45,9 @@ public:
     template <typename T>
     void trace_write_mem(uint32_t addr, T val)
     {
+        if (!enabled)
+            return;
+
         if (insn_traced)
             cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
                 trace_builder, addr, val, sizeof(T), false));
@@ -43,6 +55,9 @@ public:
 
     void trace_write_reg(int r, uint32_t v)
     {
+        if (!enabled)
+            return;
+
         if (insn_traced)
             cur_trace_reg_accesses.emplace_back(
                 RXV::Trace::CreateRegister(trace_builder, r, false, v));
@@ -50,6 +65,9 @@ public:
 
     void trace_read_reg(int r, uint32_t v)
     {
+        if (!enabled || !trace_reg_reads)
+            return;
+
         if (insn_traced)
             cur_trace_reg_accesses.emplace_back(
                 RXV::Trace::CreateRegister(trace_builder, r, true, v));
@@ -57,6 +75,9 @@ public:
 
     void trace_start_instruction(uint32_t pc, uint32_t instr, uint64_t cycle)
     {
+        if (!enabled)
+            return;
+
         cur_trace_reg_accesses.clear();
         cur_trace_mem_accesses.clear();
         cur_trace_csr_writes.clear();
@@ -86,6 +107,8 @@ public:
 
     virtual ~SimTracer()
     {
+        if (!enabled)
+            return;
         auto insns = trace_builder.CreateVector(traced_insns);
         auto trace = RXV::Trace::CreateProcessorTrace(trace_builder, insns);
         trace_builder.Finish(trace);
@@ -99,6 +122,7 @@ public:
     }
 
 private:
+    bool enabled;
     bool insn_traced;
 
     flatbuffers::FlatBufferBuilder trace_builder;
@@ -123,7 +147,7 @@ public:
     static constexpr uint32_t default_ram_base = 0x0;
     static constexpr uint32_t mtime_base = 0xffff0000;
 
-    SimulatorBase(const std::string trace_name)
+    SimulatorBase(const std::optional<std::string> trace_name)
         : cur_cycle(0), tracer(trace_name)
     {
     }

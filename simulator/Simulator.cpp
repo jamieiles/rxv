@@ -1,14 +1,21 @@
 #include <iostream>
 #include <string>
 #include <boost/program_options.hpp>
+#include <signal.h>
 
 #include "ComplianceTest.h"
 
 double cur_time_stamp = 0;
+static bool sigint_received;
 
 double sc_time_stamp()
 {
     return cur_time_stamp;
+}
+
+static void sigint_handler(int signum)
+{
+    sigint_received = true;
 }
 
 template <typename T>
@@ -26,8 +33,14 @@ public:
 
     void run()
     {
-        for (int i = 0; i < 10000000; ++i) {
-            sim.step();
+        signal(SIGINT, sigint_handler);
+
+        try {
+            for (int i = 0; i < 1000000000 && !sigint_received; ++i) {
+                sim.step();
+            }
+        } catch (std::exception &e) {
+            std::cerr << "ERROR: " << e.what() << std::endl;
         }
 
         std::cout << "[simulation finished]" << std::endl;

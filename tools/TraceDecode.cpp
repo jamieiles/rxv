@@ -60,6 +60,7 @@ static boost::program_options::variables_map parse_options(int argc,
     // clang-format off
     options.add_options()
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
+        ("last", boost::program_options::value<unsigned long>()->default_value(0), "Decode last N cycles")
         ("elf", boost::program_options::value<std::string>(), "ELF file")
         ("help,h", "Help screen");
     // clang-format on
@@ -243,7 +244,15 @@ int main(int argc, char **argv)
     auto dcr = get_disassembler();
     auto proc_trace = get_trace(vm["trace_file"].as<std::string>());
 
-    for (auto instr : *proc_trace->instructions()) {
+    unsigned long start = 0;
+    auto last = vm["last"].as<unsigned long>();
+    auto num_instructions = proc_trace->instructions()->size();
+    if (last != 0) {
+        if (last < num_instructions)
+            start = num_instructions - last;
+    }
+    for (unsigned long idx = start; idx < num_instructions; ++idx) {
+        auto instr = (*proc_trace->instructions())[idx];
         union {
             uint32_t instr;
             uint8_t bytes[4];

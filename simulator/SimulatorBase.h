@@ -13,8 +13,8 @@
 using MemFault = std::runtime_error;
 
 struct mtime {
-    uint64_t time;
     uint64_t cmp;
+    uint64_t time;
 };
 
 class SimTracer
@@ -168,7 +168,8 @@ class SimulatorBase
 public:
     static constexpr size_t default_mem_size = 1024 * 1024;
     static constexpr uint32_t default_ram_base = 0x0;
-    static constexpr uint32_t mtime_base = 0xffff0000;
+    static constexpr uint32_t mtime_base = 0xf0000000;
+    static constexpr uint32_t uart_base = 0xffff1000;
 
     SimulatorBase(const std::optional<std::string> trace_name)
         : cur_cycle(0), tracer(trace_name)

@@ -258,6 +258,31 @@ private:
     bool reserved;
 };
 
+class IOPeripheral
+{
+public:
+    IOPeripheral(uint32_t base, size_t len) : base(base), len(len)
+    {
+    }
+
+    virtual void write(uint32_t offset, const char *v, size_t len) = 0;
+    virtual void read(uint32_t offset, char *v, size_t len) = 0;
+
+    size_t get_len() const
+    {
+        return len;
+    }
+
+    uint32_t get_base() const
+    {
+        return base;
+    }
+
+private:
+    uint32_t base;
+    size_t len;
+};
+
 class RXVSim : public SimulatorBase
 {
 public:
@@ -321,6 +346,11 @@ public:
             raise_timer_irq();
     }
 
+    struct mtime *get_mtime()
+    {
+        return &this->mtime;
+    }
+
 private:
     struct CSR {
         const CSRDef *def;
@@ -346,11 +376,6 @@ private:
     void do_exception(enum mcause_type t, uint32_t val = 0);
     void raw_read_mem(uint32_t addr, char *dst, size_t len)
     {
-        if (addr >= mtime_base && addr < mtime_base + sizeof(mtime)) {
-            size_t offs = addr - mtime_base;
-            memcpy(dst, reinterpret_cast<const char *>(&mtime) + offs, len);
-            return;
-        }
         addr -= ram_base;
         if (addr + len > mem_size)
             throw MemFault("Out of bounds memory access");
@@ -360,18 +385,48 @@ private:
 
     void raw_write_mem(uint32_t addr, const char *val, size_t len)
     {
-        if (addr >= mtime_base && addr < mtime_base + sizeof(mtime)) {
-            size_t offs = addr - mtime_base;
-            memcpy(reinterpret_cast<char *>(&mtime) + offs, val, len);
+        if (addr >= ram_base && addr < ram_base + mem_size) {
+            addr -= ram_base;
+            if (addr + len > mem_size)
+                throw MemFault("Out of bounds memory access");
 
-            if (offs >= sizeof(mtime.time))
-                clear_timer_irq();
+            memcpy(reinterpret_cast<uint8_t *>(mem.get()) + addr, val, len);
+        } else {
+            peripheral_write(addr, val, len);
         }
-        addr -= ram_base;
-        if (addr + len > mem_size)
-            throw MemFault("Out of bounds memory access");
+    }
 
-        memcpy(reinterpret_cast<uint8_t *>(mem.get()) + addr, val, len);
+    void peripheral_write(uint32_t addr, const char *val, size_t len)
+    {
+        assert(len <= sizeof(uint32_t));
+
+        for (auto &p : peripherals) {
+            if (addr < p->get_base() || addr >= p->get_base() + p->get_len())
+                continue;
+
+            p->write(addr - p->get_base(), val, len);
+            return;
+        }
+    }
+
+    void peripheral_read(uint32_t addr, char *val, size_t len)
+    {
+        assert(len <= sizeof(uint32_t));
+
+        for (auto &p : peripherals) {
+            if (addr < p->get_base() || addr >= p->get_base() + p->get_len())
+                continue;
+
+            p->read(addr - p->get_base(), val, len);
+            return;
+        }
+    }
+
+    void add_peripheral(std::unique_ptr<IOPeripheral> p)
+    {
+        dcache.set_noncacheable(p->get_base(),
+                                p->get_base() + p->get_len() - 1);
+        peripherals.push_back(std::move(p));
     }
 
     std::map<uint16_t, CSR> csrs;
@@ -384,4 +439,5 @@ private:
     std::unique_ptr<uint32_t[]> mem;
     Cache dcache;
     Cache icache;
+    std::vector<std::unique_ptr<IOPeripheral>> peripherals;
 };

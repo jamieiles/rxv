@@ -72,6 +72,58 @@ static const struct CSRDef csr_defs[] = {
 };
 // clang-format on
 
+class Mtime : public IOPeripheral
+{
+public:
+    Mtime(RXVSim *sim, uint32_t base, size_t len)
+        : IOPeripheral(base, len), sim(sim)
+    {
+    }
+
+    void write(uint32_t offset, const char *v, size_t len)
+    {
+        if (offset + len > sizeof(mtime))
+            return;
+
+        auto mtime = sim->get_mtime();
+        memcpy(mtime, v, len);
+        sim->clear_timer_irq();
+    }
+
+    void read(uint32_t offset, char *v, size_t len)
+    {
+        if (offset + len > sizeof(mtime)) {
+            memset(v, 0, len);
+            return;
+        }
+
+        auto mtime = sim->get_mtime();
+        memcpy(v, mtime, len);
+    }
+
+private:
+    RXVSim *sim;
+};
+
+class UART : public IOPeripheral
+{
+public:
+    UART(uint32_t base, size_t len) : IOPeripheral(base, len)
+    {
+    }
+
+    void write(uint32_t offset, const char *v, size_t len)
+    {
+        putchar(v[0]);
+        fflush(stdout);
+    }
+
+    void read(uint32_t offset, char *v, size_t len)
+    {
+        memset(v, 0, len);
+    }
+};
+
 RXVSim::RXVSim(const std::optional<std::string> trace_name,
                size_t mem_size,
                uint32_t mem_base)
@@ -116,7 +168,8 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     mem = std::make_unique<uint32_t[]>(mem_size / 4);
     mtime.time = mtime.cmp = 0;
 
-    dcache.set_noncacheable(mtime_base, mtime_base + sizeof(mtime) - 1);
+    add_peripheral(std::make_unique<Mtime>(this, mtime_base, 4096));
+    add_peripheral(std::make_unique<UART>(uart_base, 4096));
 }
 
 static uint32_t i_immediate(uint32_t instr)
@@ -196,6 +249,8 @@ void RXVSim::dump_regs() const
 void RXVSim::do_step()
 {
     uint32_t instr = read_imem<uint32_t>(pc);
+
+    mtime.time++;
 
     trace_instruction(pc, instr);
 

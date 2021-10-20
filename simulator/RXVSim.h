@@ -40,6 +40,7 @@ public:
         , words_per_line(line_size / sizeof(uint32_t))
         , victim(0)
         , reserved(false)
+        , reservation_addr(0)
     {
         lines_per_way = (size / num_ways) / line_size;
 
@@ -125,14 +126,14 @@ public:
     void clean()
     {
         for (int way = 0; way < num_ways; ++way)
-            for (int idx = 0; idx <= (1 << index_bits); ++idx)
+            for (int idx = 0; idx < (1 << index_bits); ++idx)
                 writeback(ways[way].lines[idx], idx);
     }
 
     void invalidate()
     {
         for (int way = 0; way < num_ways; ++way) {
-            for (int idx = 0; idx <= (1 << index_bits); ++idx) {
+            for (int idx = 0; idx < (1 << index_bits); ++idx) {
                 ways[way].lines[idx].valid = false;
                 ways[way].lines[idx].dirty = false;
             }
@@ -150,7 +151,6 @@ private:
     };
 
     struct Way {
-        size_t num_lines;
         std::unique_ptr<Line[]> lines;
     };
 
@@ -165,6 +165,9 @@ private:
                 return line;
             }
         }
+
+        assert(victim < num_ways);
+        assert(addr_index < lines_per_way);
 
         writeback(ways[victim].lines[addr_index], addr_index);
         fill_line(ways[victim].lines[addr_index], addr);
@@ -181,7 +184,7 @@ private:
             return;
 
         auto dst_addr = (victim_line.tag << tag_shift) | (index << index_shift);
-        if (dst_addr == reservation_addr)
+        if (reserved && dst_addr == reservation_addr)
             reserved = false;
         assert(dst_addr == victim_line.line_addr);
 

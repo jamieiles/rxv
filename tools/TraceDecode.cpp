@@ -273,13 +273,13 @@ int main(int argc, char **argv)
             notes += " /EXCEPTION";
 
         std::cout << fmt::format(
-            "@ {:<10d} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n",
-            instr->cycle_num(), instr->pc(), instr_string, converter.instr,
-            symbol, notes);
+            "@ {:<10d} {:s} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n",
+            instr->cycle_num(), EnumNamePrivilege(instr->privilege()),
+            instr->pc(), instr_string, converter.instr, symbol, notes);
         for (auto reg : *instr->gpr_accesses()) {
             if (reg->id() == 0)
                 continue;
-            std::cout << fmt::format("{:23s}{:<3s} {:s} {:08x}\n", "",
+            std::cout << fmt::format("{:25s}{:<3s} {:s} {:08x}\n", "",
                                      reg_name(reg->id()),
                                      reg->read() ? "==" : ":=", reg->value());
         }
@@ -287,12 +287,12 @@ int main(int argc, char **argv)
             std::string decoding = "";
             if (csr->id() == RXV::Trace::CSRId_MCAUSE)
                 decoding = decode_mcause(csr->value());
-            std::cout << fmt::format("{:23s}{:<10s} {:08x} {:s}\n", "",
+            std::cout << fmt::format("{:25s}{:<10s} {:08x} {:s}\n", "",
                                      EnumNameCSRId(csr->id()), csr->value(),
                                      decoding);
         }
         for (auto mem : *instr->mem_accesses()) {
-            std::cout << fmt::format("{:23s}{:c}{:d} M[{:08x}] {:s} {:08x}\n",
+            std::cout << fmt::format("{:25s}{:c}{:d} M[{:08x}] {:s} {:08x}\n",
                                      "", mem->read() ? 'R' : 'W',
                                      mem->size() * 8, mem->addr(),
                                      mem->read() ? "==" : ":=", mem->value());

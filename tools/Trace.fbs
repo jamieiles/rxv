@@ -1,5 +1,11 @@
 namespace RXV.Trace;
 
+enum Privilege : uint8 {
+    U = 0,
+    S = 1,
+    M = 3
+}
+
 enum CSRId : uint16 {
     INVALID	    = 0x0000,
     MSTATUS     = 0x0300,
@@ -52,6 +58,7 @@ table InstructionTrace {
     mem_accesses:[MemAccess];
 	csr_writes:[CSRValue];
     exception_raised:bool;
+    privilege:Privilege;
 }
 
 table ProcessorTrace {

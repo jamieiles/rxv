@@ -184,6 +184,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
                        std::placeholders::_1,
                        std::placeholders::_2,
                        std::placeholders::_3))
+    , privilege_level(M)
 {
     for (int i = 0; i < 32; ++i)
         regs[i] = 0;
@@ -293,7 +294,7 @@ void RXVSim::do_step()
 
     mtime.time++;
 
-    trace_instruction(pc, instr);
+    trace_instruction(pc, instr, privilege_level);
 
     auto opcode = instr & 0x7f;
     auto rd = (instr >> 7) & 0x1f;

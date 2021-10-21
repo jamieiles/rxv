@@ -442,4 +442,5 @@ private:
     Cache dcache;
     Cache icache;
     std::vector<std::unique_ptr<IOPeripheral>> peripherals;
+    PrivilegeLevel privilege_level;
 };

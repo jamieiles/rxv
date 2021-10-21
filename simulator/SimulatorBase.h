@@ -17,6 +17,8 @@ struct mtime {
     uint64_t time;
 };
 
+enum PrivilegeLevel { U = 0, S = 1, M = 3 };
+
 class SimTracer
 {
     static constexpr bool trace_reg_reads = false;
@@ -83,7 +85,10 @@ public:
                 RXV::Trace::CreateRegister(trace_builder, r, true, v));
     }
 
-    void trace_start_instruction(uint32_t pc, uint32_t instr, uint64_t cycle)
+    void trace_start_instruction(uint32_t pc,
+                                 uint32_t instr,
+                                 uint64_t cycle,
+                                 PrivilegeLevel level)
     {
         if (!enabled)
             return;
@@ -96,6 +101,7 @@ public:
         trace_insn = instr;
         insn_traced = true;
         cur_cycle = cycle;
+        privilege_level = level;
         trace_exception_raised = false;
     }
 
@@ -124,6 +130,8 @@ public:
         insn_builder.add_gpr_accesses(reg_accesses);
         insn_builder.add_csr_writes(csr_writes);
         insn_builder.add_mem_accesses(mem_accesses);
+        insn_builder.add_privilege(
+            static_cast<RXV::Trace::Privilege>(privilege_level));
         traced_insns.emplace_back(insn_builder.Finish());
         insn_traced = false;
     }
@@ -161,6 +169,7 @@ private:
     bool trace_exception_raised;
     uint64_t cur_cycle;
     std::string filename;
+    PrivilegeLevel privilege_level;
 };
 
 class SimulatorBase
@@ -247,9 +256,9 @@ public:
         cur_cycle++;
     }
 
-    void trace_instruction(uint32_t pc, uint32_t instr)
+    void trace_instruction(uint32_t pc, uint32_t instr, PrivilegeLevel level)
     {
-        tracer.trace_start_instruction(pc, instr, cur_cycle);
+        tracer.trace_start_instruction(pc, instr, cur_cycle, level);
     }
 
     void trace_exception()

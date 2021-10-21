@@ -8,6 +8,7 @@
 #include <string>
 #include <stdexcept>
 #include <functional>
+#include <optional>
 
 #include "RiscVELF.h"
 #include "SimulatorBase.h"
@@ -312,6 +313,7 @@ public:
     }
 
     void do_write_csr(int r, uint32_t v);
+    uint32_t do_read_csr(int r);
 
     void do_read_mem(uint32_t addr, char *dst, size_t len, bool reserved)
     {

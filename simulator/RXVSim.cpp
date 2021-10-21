@@ -24,6 +24,8 @@ enum CSRID {
     MINSTRETH   = 0x0B82,
     MSTATUS     = 0x0300,
     MISA        = 0x0301,
+    MEDELEG     = 0x0302,
+    MIDELEG     = 0x0303,
     MIE         = 0x0304,
     MTVEC       = 0x0305,
     MCOUNTEREN  = 0x0306,
@@ -32,6 +34,18 @@ enum CSRID {
     MCAUSE      = 0x0342,
     MTVAL       = 0x0343,
     MIP         = 0x0344,
+    SSTATUS     = 0x0100,
+    SEDELEG     = 0x0102,
+    SIDELEG     = 0x0103,
+    SIE         = 0x0104,
+    STVEC       = 0x0105,
+    SCOUNTEREN  = 0x0106,
+    SSCRATCH    = 0x0140,
+    SEPC        = 0x0141,
+    SCAUSE      = 0x0142,
+    STVAL       = 0x0143,
+    SIP         = 0x0144,
+    SATP        = 0x0180,
 };
 
 constexpr uint32_t supported_extensions =
@@ -47,17 +61,29 @@ static const struct CSRDef csr_defs[] = {
     { "mimpid",     0x00000000, 0x00000000, MIMPID },
     { "mhartid",    0x00000000, 0x00000000, MHARTID },
     // Machine trap setup
-    { "mstatus",    0x00000000, 0x00000000, MSTATUS },
+    { "mstatus",    0xffffffff, 3 << 11, MSTATUS },
     { "misa",       0x00000000, supported_extensions, MISA },
     { "mie",        0x00000000, 0x00000000, MIE },
     { "mtvec",      0xffffffff, 0x00000000, MTVEC },
     { "mcounteren", 0x00000000, 0x00000000, MCOUNTEREN },
-    // Machine trap handling
     { "mscratch",   0xffffffff, 0x00000000, MSCRATCH },
     { "mepc",       0xfffffffc, 0x00000000, MEPC },
     { "mcause",     0xffffffff, 0x00000000, MCAUSE },
     { "mtval",      0xffffffff, 0x00000000, MTVAL },
     { "mip",        0x00000000, 0x00000000, MIP },
+    { "medeleg",    0x00000000, 0x00000000, MEDELEG },
+    { "mideleg",    0x00000000, 0x00000000, MIDELEG },
+    // Supervisor trap setup
+    { "sstatus",    0x00000000, 0x00000000, SSTATUS },
+    { "sie",        0x00000000, 0x00000000, SIE },
+    { "stvec",      0xffffffff, 0x00000000, STVEC },
+    { "scounteren", 0x00000000, 0x00000000, SCOUNTEREN },
+    { "sscratch",   0xffffffff, 0x00000000, SSCRATCH },
+    { "sepc",       0xfffffffc, 0x00000000, SEPC },
+    { "scause",     0xffffffff, 0x00000000, SCAUSE },
+    { "stval",      0xffffffff, 0x00000000, STVAL },
+    { "sip",        0x00000000, 0x00000000, SIP },
+    { "satp",       0x00000000, 0x00000000, SATP },
     // Performance counters
     { "mcycle",     0x00000000, 0x00000000, MCYCLE },
     { "mcycleh",    0x00000000, 0x00000000, MCYCLEH },
@@ -212,7 +238,22 @@ static T sign_extend(uint32_t u, int bits)
 
 void RXVSim::do_write_csr(int r, uint32_t v)
 {
-    csrs[static_cast<CSRID>(r)].val = v;
+    auto wr_mask = csrs[static_cast<CSRID>(r)].def->wr_mask;
+    csrs[static_cast<CSRID>(r)].val = v & wr_mask;
+}
+
+uint32_t RXVSim::do_read_csr(int r)
+{
+    auto id = static_cast<CSRID>(r);
+    switch (id) {
+    case MCYCLE:
+    case UCYCLE: return get_cycle();
+    case MCYCLEH:
+    case UCYCLEH: return get_cycle() >> 32;
+    case UTIME: return mtime.time;
+    case UTIMEH: return mtime.time >> 32;
+    default: return csrs[id].val;
+    }
 }
 
 void RXVSim::do_exception(enum mcause_type type, uint32_t val)
@@ -663,7 +704,7 @@ void RXVSim::do_step()
             else if (instr == 0x00100073) // EBREAK
                 do_exception(BREAKPOINT, pc);
             else if (instr == 0x30200073) // MRET
-                new_pc = csrs[MEPC].val;
+                new_pc = read_csr(MEPC);
             else if (instr == 0x10500073) // WFI
                 ;
             else
@@ -674,8 +715,8 @@ void RXVSim::do_step()
                 illegal_instruction = true;
             } else {
                 auto orig = read_reg(rs1);
-                write_reg(rd, csrs[i_immed].val);
-                write_csr(i_immed, orig & csrs[i_immed].def->wr_mask);
+                write_reg(rd, read_csr(i_immed));
+                write_csr(i_immed, orig);
             }
             break;
         case 0x02: // CSRRS
@@ -683,10 +724,9 @@ void RXVSim::do_step()
                 illegal_instruction = true;
             } else {
                 auto orig = read_reg(rs1);
-                write_reg(rd, csrs[i_immed].val);
+                write_reg(rd, read_csr(i_immed));
                 if (rs1 != 0)
-                    write_csr(i_immed, csrs[i_immed].val |
-                                           (orig & csrs[i_immed].def->wr_mask));
+                    write_csr(i_immed, read_csr(i_immed) | orig);
             }
             break;
         case 0x03: // CSRRC
@@ -694,11 +734,9 @@ void RXVSim::do_step()
                 illegal_instruction = true;
             } else {
                 auto orig = read_reg(rs1);
-                write_reg(rd, csrs[i_immed].val);
+                write_reg(rd, read_csr(i_immed));
                 if (rs1 != 0)
-                    write_csr(i_immed,
-                              csrs[i_immed].val &
-                                  (~orig & csrs[i_immed].def->wr_mask));
+                    write_csr(i_immed, read_csr(i_immed) & ~orig);
             }
             break;
         case 0x05: // CSRRWI
@@ -706,30 +744,28 @@ void RXVSim::do_step()
                 illegal_instruction = true;
             } else {
                 if (rd != 0)
-                    write_reg(rd, csrs[i_immed].val);
+                    write_reg(rd, read_csr(i_immed));
                 // 5-bit zero extended immediate in the rs1 field
-                write_csr(i_immed, rs1 & csrs[i_immed].def->wr_mask);
+                write_csr(i_immed, rs1);
             }
             break;
         case 0x06: // CSRRSI
             if (csrs.find(i_immed) == csrs.end()) {
                 illegal_instruction = true;
             } else {
-                write_reg(rd, csrs[i_immed].val);
+                write_reg(rd, read_csr(i_immed));
                 // 5-bit zero extended immediate in the rs1 field
                 if (rs1 != 0)
-                    write_csr(i_immed, csrs[i_immed].val |
-                                           (rs1 & csrs[i_immed].def->wr_mask));
+                    write_csr(i_immed, read_csr(i_immed) | rs1);
             }
             break;
         case 0x07: // CSRRCI
             if (csrs.find(i_immed) == csrs.end()) {
                 illegal_instruction = true;
             } else {
-                write_reg(rd, csrs[i_immed].val);
+                write_reg(rd, read_csr(i_immed));
                 if (rs1 != 0)
-                    write_csr(i_immed, csrs[i_immed].val &
-                                           (~rs1 & csrs[i_immed].def->wr_mask));
+                    write_csr(i_immed, read_csr(i_immed) & ~rs1);
             }
             break;
         default: illegal_instruction = true; break;

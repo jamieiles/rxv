@@ -280,9 +280,21 @@ public:
         do_write_csr(r, v);
     }
     virtual void do_write_csr(int r, uint32_t v) = 0;
+
+    uint32_t read_csr(int r)
+    {
+        return do_read_csr(r);
+    }
+    virtual uint32_t do_read_csr(int r) = 0;
+
     virtual void do_step() = 0;
     virtual void raise_timer_irq() = 0;
     virtual void clear_timer_irq() = 0;
+
+    uint64_t get_cycle() const
+    {
+        return cur_cycle;
+    }
 
 private:
     uint64_t cur_cycle;

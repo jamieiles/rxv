@@ -321,13 +321,16 @@ void RXVSim::do_step()
         break;
     }
     case 0x6f: { // JAL
-        write_reg(rd, pc + 4);
+        auto next_seq_pc = pc + 4;
         new_pc = pc + sign_extend(j_immed, 21);
+        if (!(new_pc & 0x3))
+            write_reg(rd, next_seq_pc);
         break;
     }
     case 0x67: { // JALR
         new_pc = (sign_extend(i_immed, 12) + read_reg(rs1)) & ~1;
-        write_reg(rd, pc + 4);
+        if (!(new_pc & 0x3))
+            write_reg(rd, pc + 4);
         break;
     }
     case 0x63: { // BRANCH

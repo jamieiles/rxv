@@ -23,7 +23,7 @@ ExternalProject_Add(riscv-tests
 		    GIT_TAG origin/master
 		    UPDATE_DISCONNECTED ${UPDATE_DISCONNECTED}
 		    UPDATE_COMMAND ""
-		    CONFIGURE_COMMAND <SOURCE_DIR>/configure --target=riscv64-unknown-elf --with-xlen=32
+		    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env CFLAGS=-ggdb <SOURCE_DIR>/configure --target=riscv64-unknown-elf --with-xlen=32
 		    BUILD_COMMAND make
 		    INSTALL_COMMAND ""
 		    TEST_COMMAND "")

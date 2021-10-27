@@ -8,8 +8,22 @@ enum Privilege : uint8 {
 
 enum CSRId : uint16 {
     INVALID	    = 0x0000,
+    SSTATUS     = 0x0100,
+    SEDELEG     = 0x0102,
+    SIDELEG     = 0x0103,
+    SIE         = 0x0104,
+    STVEC       = 0x0105,
+    SCOUNTEREN  = 0x0106,
+    SSCRATCH    = 0x0140,
+    SEPC        = 0x0141,
+    SCAUSE      = 0x0142,
+    STVAL       = 0x0143,
+    SIP         = 0x0144,
+    SATP        = 0x0180,
     MSTATUS     = 0x0300,
     MISA        = 0x0301,
+    MEDELEG     = 0x0302,
+    MIDELEG     = 0x0303,
     MIE         = 0x0304,
     MTVEC       = 0x0305,
     MCOUNTEREN  = 0x0306,
@@ -18,6 +32,10 @@ enum CSRId : uint16 {
     MCAUSE      = 0x0342,
     MTVAL       = 0x0343,
     MIP         = 0x0344,
+    TSELECT     = 0x07A0,
+    TDATA1      = 0x07A1,
+    TDATA2      = 0x07A2,
+    TDATA3      = 0x07A3,
     MCYCLE      = 0x0B00,
     MINSTRET    = 0x0B02,
     MCYCLEH     = 0x0B80,
@@ -45,6 +63,7 @@ table CSRValue {
 
 table MemAccess {
 	addr:uint32;
+    phys:uint32;
 	value:uint32;
 	size:uint8;
     read:bool;

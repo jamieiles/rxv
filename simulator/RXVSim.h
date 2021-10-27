@@ -23,7 +23,10 @@ struct CSRDef {
 constexpr uint32_t misa_ext_a = 1 << 0;
 constexpr uint32_t misa_ext_i = 1 << 8;
 constexpr uint32_t misa_ext_m = 1 << 12;
+constexpr uint32_t misa_ext_s = 1 << 18;
 constexpr uint32_t misa_xlen32 = 1 << 30;
+
+constexpr uint32_t mcause_interrupt = (1U << 31);
 
 class RXVSim;
 
@@ -94,10 +97,11 @@ public:
         }
     }
 
-    bool write(uint32_t addr,
+    void write(uint32_t addr,
                const char *val,
                size_t len,
-               bool conditional = false)
+               bool conditional = false,
+               bool *reservation_held = nullptr)
     {
         if (is_noncacheable(addr)) {
             mem_write(addr, val, len);
@@ -107,10 +111,14 @@ public:
             auto byte_offset = addr & 0x3;
 
             if (conditional) {
-                if (!reserved)
-                    return false;
-                if (addr & ~((1 << index_shift) - 1) != reservation_addr)
-                    return false;
+                if (!reserved) {
+                    *reservation_held = false;
+                    return;
+                }
+                if (addr & ~((1 << index_shift) - 1) != reservation_addr) {
+                    *reservation_held = false;
+                    return;
+                }
                 reserved = false;
             }
 
@@ -121,7 +129,8 @@ public:
             line->dirty = true;
         }
 
-        return true;
+        if (conditional)
+            *reservation_held = true;
     }
 
     void clean()
@@ -284,6 +293,74 @@ private:
     size_t len;
 };
 
+constexpr uint32_t mstatus_sie_shift = 1;
+constexpr uint32_t mstatus_mie_shift = 3;
+constexpr uint32_t mstatus_spie_shift = 5;
+constexpr uint32_t mstatus_mpie_shift = 7;
+constexpr uint32_t mstatus_spp_shift = 8;
+constexpr uint32_t mstatus_mpp_shift = 11;
+constexpr uint32_t mstatus_mprv_shift = 17;
+constexpr uint32_t mstatus_sum_shift = 18;
+constexpr uint32_t mstatus_mxr_shift = 19;
+constexpr uint32_t mstatus_tvm_shift = 20;
+constexpr uint32_t mstatus_tw_shift = 21;
+constexpr uint32_t mstatus_tsr_shift = 22;
+
+struct status {
+public:
+    PrivilegeLevel mpp;
+    PrivilegeLevel spp;
+    uint32_t sie : 1;
+    uint32_t mie : 1;
+    uint32_t spie : 1;
+    uint32_t mpie : 1;
+    uint32_t mprv : 1;
+    uint32_t mxr : 1;
+    uint32_t tvm : 1;
+    uint32_t tw : 1;
+    uint32_t tsr : 1;
+    uint32_t sum : 1;
+
+    uint32_t value(PrivilegeLevel cur_level) const
+    {
+        uint32_t v = 0;
+
+        if (cur_level == S || cur_level == M)
+            v = (sie << mstatus_sie_shift) | (spie << mstatus_spie_shift) |
+                (sum << mstatus_sum_shift) | (mxr << mstatus_mxr_shift) |
+                ((static_cast<uint32_t>(spp) & 0x1) << mstatus_spp_shift);
+        if (cur_level == M)
+            v |= (mie << mstatus_mie_shift) | (mpie << mstatus_mpie_shift) |
+                 (mprv << mstatus_mprv_shift) | (mxr << mstatus_mxr_shift) |
+                 (tvm << mstatus_tvm_shift) | (tw << mstatus_tw_shift) |
+                 (tsr << mstatus_tsr_shift) |
+                 (static_cast<uint32_t>(mpp) << mstatus_mpp_shift);
+
+        return v;
+    }
+
+    void set(PrivilegeLevel cur_level, uint32_t v)
+    {
+        if (cur_level == M) {
+            mie = (v >> mstatus_mie_shift) & 0x1;
+            mpie = (v >> mstatus_mpie_shift) & 0x1;
+            mprv = (v >> mstatus_mprv_shift) & 0x1;
+            tvm = (v >> mstatus_tvm_shift) & 0x1;
+            tw = (v >> mstatus_tw_shift) & 0x1;
+            tsr = (v >> mstatus_tsr_shift) & 0x1;
+            mpp = static_cast<PrivilegeLevel>((v >> mstatus_mpp_shift) & 0x3);
+        }
+
+        if (cur_level == M || cur_level == S) {
+            sie = (v >> mstatus_sie_shift) & 0x1;
+            spp = static_cast<PrivilegeLevel>((v >> mstatus_spp_shift) & 0x1);
+            spie = (v >> mstatus_spie_shift) & 0x1;
+            mxr = (v >> mstatus_mxr_shift) & 0x1;
+            sum = (v >> mstatus_sum_shift) & 0x1;
+        }
+    }
+};
+
 class RXVSim : public SimulatorBase
 {
 public:
@@ -315,31 +392,95 @@ public:
     void do_write_csr(int r, uint32_t v);
     uint32_t do_read_csr(int r);
 
-    void do_read_mem(uint32_t addr, char *dst, size_t len, bool reserved)
+    struct translation {
+        uint32_t virt;
+        uint32_t phys;
+        uint32_t pte_addr;
+        uint8_t attributes;
+    };
+
+    bool access_valid(const translation &translation,
+                      bool read,
+                      bool write,
+                      bool exec);
+
+    bool do_read_mem(uint32_t addr,
+                     uint32_t *phys,
+                     char *dst,
+                     size_t len,
+                     bool reserved)
+    {
+        struct translation translation;
+        if (!translate(addr, &translation, false, false))
+            return false;
+
+        if (!access_valid(translation, true, false, false))
+            return false;
+
+        *phys = translation.phys;
+        dcache.read(*phys, dst, len, reserved);
+
+        return true;
+    }
+
+    void do_read_phys_mem(uint32_t addr, char *dst, size_t len, bool reserved)
     {
         dcache.read(addr, dst, len, reserved);
     }
 
-    void do_read_imem(uint32_t addr, char *dst, size_t len)
+    bool do_read_imem(uint32_t addr, uint32_t *phys, char *dst, size_t len)
     {
-        icache.read(addr, dst, len);
+        struct translation translation;
+        if (!translate(addr, &translation, false, true))
+            return false;
+
+        if (!access_valid(translation, false, false, true))
+            return false;
+
+        *phys = translation.phys;
+        icache.read(*phys, dst, len);
+
+        return true;
     }
 
     bool do_write_mem(uint32_t addr,
+                      uint32_t *phys,
                       const char *val,
                       size_t len,
-                      bool conditional)
+                      bool conditional,
+                      bool *reservation_held)
     {
-        return dcache.write(addr, val, len, conditional);
+        struct translation translation;
+        if (!translate(addr, &translation, true, false))
+            return false;
+
+        if (!access_valid(translation, false, true, false))
+            return false;
+
+        *phys = translation.phys;
+        dcache.write(*phys, val, len, conditional, reservation_held);
+
+        return true;
+    }
+
+    void do_write_phys_mem(uint32_t addr,
+                           const char *val,
+                           size_t len,
+                           bool conditional,
+                           bool *reservation_held)
+    {
+        dcache.write(addr, val, len, conditional, reservation_held);
+    }
+
+    void fencei()
+    {
+        dcache.clean();
+        icache.invalidate();
     }
 
     void do_step();
-    void raise_timer_irq()
-    {
-    }
-    void clear_timer_irq()
-    {
-    }
+    void raise_timer_irq();
+    void clear_timer_irq();
 
     void timer_tick(void)
     {
@@ -359,7 +500,6 @@ private:
         uint32_t val;
     };
 
-    static constexpr uint32_t mcause_interrupt = (1U << 31);
     // clang-format off
     enum mcause_type {
         M_SWINT                 = mcause_interrupt | 3,
@@ -370,11 +510,20 @@ private:
         BREAKPOINT              = 3,
         LOAD_MISALIGN           = 4,
         STORE_MISALIGN          = 6,
-        M_ECALL                 = 11
+        U_ECALL                 = 8,
+        S_ECALL                 = 9,
+        M_ECALL                 = 11,
+        INSTRUCTION_PAGE_FAULT  = 12,
+        LOAD_PAGE_FAULT         = 13,
+        STORE_PAGE_FAULT        = 15,
     };
     // clang-format on
 
-    void dump_regs() const;
+    bool translate(uint32_t virt,
+                   struct translation *translation,
+                   bool write,
+                   bool ifetch);
+
     void do_exception(enum mcause_type t, uint32_t val = 0);
     void raw_read_mem(uint32_t addr, char *dst, size_t len)
     {
@@ -431,10 +580,15 @@ private:
         peripherals.push_back(std::move(p));
     }
 
+    void check_interrupts();
+    bool csr_access_allowed(int r, bool write);
+    void do_xret(PrivilegeLevel level);
+
     std::map<uint16_t, CSR> csrs;
     uint32_t regs[32];
     uint32_t pc;
     uint32_t new_pc;
+    bool exception_taken;
     struct mtime mtime;
     uint32_t ram_base;
     size_t mem_size;
@@ -443,4 +597,8 @@ private:
     Cache icache;
     std::vector<std::unique_ptr<IOPeripheral>> peripherals;
     PrivilegeLevel privilege_level;
+    PrivilegeLevel new_privilege_level;
+    struct status status;
+    bool mmu_on;
+    uint32_t translation_base;
 };

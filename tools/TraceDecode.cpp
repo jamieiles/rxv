@@ -4,6 +4,11 @@
 #include <fstream>
 #include <fmt/core.h>
 #include <cstring>
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <boost/program_options.hpp>
 
@@ -36,8 +41,8 @@ static std::string reg_name(int id)
     case 16: return "a6";
     case 17: return "a7";
     case 18: return "s2";
-    case 20: return "s3";
-    case 19: return "s4";
+    case 19: return "s3";
+    case 20: return "s4";
     case 21: return "s5";
     case 22: return "s6";
     case 23: return "s7";
@@ -61,7 +66,8 @@ static boost::program_options::variables_map parse_options(int argc,
     options.add_options()
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
         ("last", boost::program_options::value<unsigned long>()->default_value(0), "Decode last N cycles")
-        ("elf", boost::program_options::value<std::string>(), "ELF file")
+        ("m-elf", boost::program_options::value<std::string>(), "M-mode ELF file")
+        ("s-elf", boost::program_options::value<std::string>(), "S-mode ELF file")
         ("help,h", "Help screen");
     // clang-format on
 
@@ -85,16 +91,19 @@ static boost::program_options::variables_map parse_options(int argc,
 
 static const RXV::Trace::ProcessorTrace *get_trace(const std::string &filename)
 {
-    std::ifstream insn_trace_file;
-    insn_trace_file.open(filename, std::ios::in | std::ios::binary);
-    insn_trace_file.seekg(0, std::ios::end);
-    int length = insn_trace_file.tellg();
-    insn_trace_file.seekg(0, std::ios::beg);
-    char *data = new char[length];
-    insn_trace_file.read(data, length);
-    insn_trace_file.close();
+    auto fd = open(filename.c_str(), O_RDONLY);
+    if (fd < 0)
+        err(1, "failed to open %s trace", filename.c_str());
+    struct stat statbuf = {};
+    if (fstat(fd, &statbuf))
+        err(1, "failed to stat %s", filename.c_str());
+    auto pad_size =
+        ((statbuf.st_size + getpagesize() - 1) / getpagesize()) * getpagesize();
+    void *buf = mmap(NULL, pad_size, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (buf == MAP_FAILED)
+        err(1, "failed to map trace file");
 
-    return RXV::Trace::GetProcessorTrace(data);
+    return RXV::Trace::GetProcessorTrace(buf);
 }
 
 static LLVMDisasmContextRef get_disassembler()
@@ -120,15 +129,23 @@ static LLVMDisasmContextRef get_disassembler()
 static constexpr uint32_t mcause_interrupt = (1U << 31);
 
 enum mcause_type {
+    S_SWINT = mcause_interrupt | 1,
     M_SWINT = mcause_interrupt | 3,
+    S_TINT = mcause_interrupt | 5,
     M_TINT = mcause_interrupt | 7,
+    S_EINT = mcause_interrupt | 9,
     M_EINT = mcause_interrupt | 11,
     INSTR_ALIGN = 0,
     ILLEGAL_INSTRUCTION = 2,
     BREAKPOINT = 3,
     LOAD_MISALIGN = 4,
     STORE_MISALIGN = 6,
-    M_ECALL = 11
+    U_ECALL = 8,
+    S_ECALL = 9,
+    M_ECALL = 11,
+    INSTRUCTION_PAGE_FAULT = 12,
+    LOAD_PAGE_FAULT = 13,
+    STORE_PAGE_FAULT = 15,
 };
 
 static std::string decode_mcause(uint32_t v)
@@ -139,6 +156,12 @@ static std::string decode_mcause(uint32_t v)
         return "M_TINT";
     if (v == M_EINT)
         return "M_EINT";
+    if (v == S_SWINT)
+        return "S_SWINT";
+    if (v == S_TINT)
+        return "S_TINT";
+    if (v == S_EINT)
+        return "S_EINT";
     if (v == INSTR_ALIGN)
         return "INSTR_ALIGN";
     if (v == ILLEGAL_INSTRUCTION)
@@ -151,6 +174,16 @@ static std::string decode_mcause(uint32_t v)
         return "STORE_MISALIGN";
     if (v == M_ECALL)
         return "M_ECALL";
+    if (v == S_ECALL)
+        return "S_ECALL";
+    if (v == U_ECALL)
+        return "U_ECALL";
+    if (v == INSTRUCTION_PAGE_FAULT)
+        return "INSTRUCTION_PAGE_FAULT";
+    if (v == LOAD_PAGE_FAULT)
+        return "LOAD_PAGE_FAULT";
+    if (v == STORE_PAGE_FAULT)
+        return "STORE_PAGE_FAULT";
 
     return "UNKNOWN";
 }
@@ -161,19 +194,19 @@ struct Symbol {
     uint32_t end;
 };
 
-static std::vector<Symbol> symbols;
+static std::map<RXV::Trace::Privilege, std::vector<Symbol>> symbols;
 
 static bool symbol_compare(const Symbol &a, const Symbol &b)
 {
     return a.start < b.start;
 }
 
-static std::string lookup_pc_symbol(uint32_t addr)
+static std::string lookup_pc_symbol(RXV::Trace::Privilege level, uint32_t addr)
 {
-    auto s = std::find_if(symbols.rbegin(), symbols.rend(),
+    auto s = std::find_if(symbols[level].rbegin(), symbols[level].rend(),
                           [&](const Symbol &s) { return addr >= s.start; });
 
-    if (s == symbols.rend())
+    if (s == symbols[level].rend())
         return "";
 
     return fmt::format("{:s}+0x{:x}", s->name, addr - s->start);
@@ -191,7 +224,8 @@ static bool is_interesting_symbol(const std::string &name, unsigned char type)
     return true;
 }
 
-static void load_symbols(const std::string &filename)
+static void load_symbols(RXV::Trace::Privilege level,
+                         const std::string &filename)
 {
     ELFIO::elfio reader;
 
@@ -218,13 +252,13 @@ static void load_symbols(const std::string &filename)
             if (!is_interesting_symbol(name, type))
                 continue;
 
-            symbols.emplace_back(
+            symbols[level].emplace_back(
                 Symbol{name, static_cast<uint32_t>(value),
                        static_cast<uint32_t>(value + size - 1)});
         }
     }
 
-    std::sort(symbols.begin(), symbols.end(), symbol_compare);
+    std::sort(symbols[level].begin(), symbols[level].end(), symbol_compare);
 }
 
 int main(int argc, char **argv)
@@ -238,8 +272,12 @@ int main(int argc, char **argv)
         exit(3);
     }
 
-    if (vm.count("elf"))
-        load_symbols(vm["elf"].as<std::string>());
+    if (vm.count("m-elf"))
+        load_symbols(RXV::Trace::Privilege::Privilege_M,
+                     vm["m-elf"].as<std::string>());
+    if (vm.count("s-elf"))
+        load_symbols(RXV::Trace::Privilege::Privilege_S,
+                     vm["s-elf"].as<std::string>());
 
     auto dcr = get_disassembler();
     auto proc_trace = get_trace(vm["trace_file"].as<std::string>());
@@ -259,7 +297,7 @@ int main(int argc, char **argv)
         } converter;
         converter.instr = instr->instruction();
 
-        char instr_string[128];
+        char instr_string[128] = " invalid";
         LLVMDisasmInstruction(dcr, converter.bytes, sizeof(converter), 0,
                               instr_string, sizeof(instr_string) - 1);
 
@@ -267,7 +305,7 @@ int main(int argc, char **argv)
             *strchr(instr_string, '\t') = ' ';
 
         std::string notes;
-        std::string symbol = lookup_pc_symbol(instr->pc());
+        std::string symbol = lookup_pc_symbol(instr->privilege(), instr->pc());
 
         if (instr->exception_raised())
             notes += " /EXCEPTION";
@@ -285,17 +323,20 @@ int main(int argc, char **argv)
         }
         for (auto csr : *instr->csr_writes()) {
             std::string decoding = "";
-            if (csr->id() == RXV::Trace::CSRId_MCAUSE)
+            if (csr->id() == RXV::Trace::CSRId_MCAUSE ||
+                csr->id() == RXV::Trace::CSRId_SCAUSE)
                 decoding = decode_mcause(csr->value());
             std::cout << fmt::format("{:25s}{:<10s} {:08x} {:s}\n", "",
                                      EnumNameCSRId(csr->id()), csr->value(),
                                      decoding);
         }
         for (auto mem : *instr->mem_accesses()) {
-            std::cout << fmt::format("{:25s}{:c}{:d} M[{:08x}] {:s} {:08x}\n",
-                                     "", mem->read() ? 'R' : 'W',
-                                     mem->size() * 8, mem->addr(),
-                                     mem->read() ? "==" : ":=", mem->value());
+            std::cout << fmt::format(
+                "{:25s}{:c}{:<2d} M[{:08x}] {:s} {:08x}     # [v2p({:08x}) == "
+                "{:08x}]\n",
+                "", mem->read() ? 'R' : 'W', mem->size() * 8, mem->addr(),
+                mem->read() ? "==" : ":=", mem->value(), mem->addr(),
+                mem->phys());
         }
     }
 

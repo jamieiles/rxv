@@ -20,6 +20,7 @@ public:
         , test_status(RUNNING)
     {
         sim.load_elf(elf);
+
         load_io_writes();
         load_gpr_assertions();
         to_host_addr = elf.sym_addr("tohost");
@@ -76,7 +77,7 @@ private:
 
     void check_for_completion()
     {
-        auto to_host = sim.template read_mem<uint32_t>(to_host_addr);
+        auto to_host = sim.template read_phys_mem<uint32_t>(to_host_addr);
         if (to_host != 0)
             test_status = to_host == 1 ? PASSED : FAILED;
     }
@@ -114,7 +115,7 @@ private:
             return;
         }
 
-        auto signature = sim.template read_mem_vector<uint32_t>(
+        auto signature = sim.template read_phys_mem_vector<uint32_t>(
             begin_signature, (end_signature - begin_signature) / 4);
 
         boost::io::ios_flags_saver ifs(std::cout);
@@ -129,7 +130,7 @@ private:
     {
         auto iow = elf.read_section<IOWrite>(".rvtest_io_write");
         for (auto &i : iow)
-            io_writes[i.instr_addr] = sim.read_string(i.string_addr);
+            io_writes[i.instr_addr] = sim.read_phys_string(i.string_addr);
     }
 
     void load_gpr_assertions()
@@ -137,8 +138,8 @@ private:
         auto assertions =
             elf.read_section<ELFGPRAssertion>(".rvtest_gpr_assert");
         for (auto &a : assertions) {
-            auto name = sim.read_string(a.regname_addr);
-            auto location = sim.read_string(a.location_addr);
+            auto name = sim.read_phys_string(a.regname_addr);
+            auto location = sim.read_phys_string(a.location_addr);
             auto regnum = static_cast<uint32_t>(std::stoi(name.substr(1)));
 
             gpr_assertions[a.instr_addr] = {regnum, a.expected, location};

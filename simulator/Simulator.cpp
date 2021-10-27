@@ -24,7 +24,7 @@ class Simulation
 public:
     explicit Simulation(const std::string &filename,
                         const std::optional<std::string> trace_name)
-        : sim(trace_name, 32 * 1024 * 1024, 0x80000000)
+        : sim(trace_name, 256 * 1024 * 1024, 0x80000000)
     {
         RiscVELF elf(filename);
 

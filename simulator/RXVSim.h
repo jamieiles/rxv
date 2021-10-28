@@ -527,11 +527,15 @@ private:
     void do_exception(enum mcause_type t, uint32_t val = 0);
     void raw_read_mem(uint32_t addr, char *dst, size_t len)
     {
-        addr -= ram_base;
-        if (addr + len > mem_size)
-            throw MemFault("Out of bounds memory access");
+        if (addr >= ram_base && addr < ram_base + mem_size) {
+            addr -= ram_base;
+            if (addr + len > mem_size)
+                throw MemFault("Out of bounds memory access");
 
-        memcpy(dst, reinterpret_cast<uint8_t *>(mem.get()) + addr, len);
+            memcpy(dst, reinterpret_cast<uint8_t *>(mem.get()) + addr, len);
+        } else {
+            peripheral_read(addr, dst, len);
+        }
     }
 
     void raw_write_mem(uint32_t addr, const char *val, size_t len)

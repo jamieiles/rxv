@@ -68,6 +68,7 @@ static boost::program_options::variables_map parse_options(int argc,
         ("last", boost::program_options::value<unsigned long>()->default_value(0), "Decode last N cycles")
         ("m-elf", boost::program_options::value<std::string>(), "M-mode ELF file")
         ("s-elf", boost::program_options::value<std::string>(), "S-mode ELF file")
+        ("u-elf", boost::program_options::value<std::string>(), "U-mode ELF file")
         ("help,h", "Help screen");
     // clang-format on
 
@@ -278,6 +279,9 @@ int main(int argc, char **argv)
     if (vm.count("s-elf"))
         load_symbols(RXV::Trace::Privilege::Privilege_S,
                      vm["s-elf"].as<std::string>());
+    if (vm.count("u-elf"))
+        load_symbols(RXV::Trace::Privilege::Privilege_U,
+                     vm["u-elf"].as<std::string>());
 
     auto dcr = get_disassembler();
     auto proc_trace = get_trace(vm["trace_file"].as<std::string>());

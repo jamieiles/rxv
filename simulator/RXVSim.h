@@ -275,6 +275,10 @@ public:
     {
     }
 
+    virtual ~IOPeripheral()
+    {
+    }
+
     virtual void write(uint32_t offset, const char *v, size_t len) = 0;
     virtual void read(uint32_t offset, char *v, size_t len) = 0;
 

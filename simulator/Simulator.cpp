@@ -34,16 +34,16 @@ public:
     void run()
     {
         signal(SIGINT, sigint_handler);
+        signal(SIGQUIT, sigint_handler);
 
         try {
-            for (int i = 0; i < 1000000000 && !sigint_received; ++i) {
+            while (!sigint_received)
                 sim.step();
-            }
         } catch (std::exception &e) {
-            std::cerr << "ERROR: " << e.what() << std::endl;
+            std::cerr << "\r\nERROR: " << e.what() << "\r\n" << std::endl;
         }
 
-        std::cout << "[simulation finished]" << std::endl;
+        std::cout << "[simulation finished]\r" << std::endl;
     }
 
 private:

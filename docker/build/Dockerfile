@@ -1,7 +1,7 @@
 FROM ubuntu:20.04
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
-ARG VERILATOR_VERSION=4.034
+ARG VERILATOR_VERSION=4.214
 RUN apt-get update && apt-get install --no-install-recommends -y \
 	autoconf \
         bison \
@@ -57,14 +57,15 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         wget \
 	xdot
 RUN cd /tmp && \
-        wget https://www.veripool.org/ftp/verilator-$VERILATOR_VERSION.tgz && \
-        tar xf verilator-$VERILATOR_VERSION.tgz && \
+	wget https://github.com/verilator/verilator/archive/refs/tags/v$VERILATOR_VERSION.tar.gz && \
+        tar xf v$VERILATOR_VERSION.tar.gz && \
         cd verilator-$VERILATOR_VERSION && \
+	autoconf && \
         ./configure --prefix=/usr && \
-        make -j4 && \
+        make -j$(nproc) && \
         make install && \
         cd /tmp && \
-        rm verilator* -rf
+        rm verilator-$VERILATOR_VERSION -rf
 RUN cd /tmp && \
 	git clone https://github.com/YosysHQ/yosys.git yosys && \
 	cd yosys && \

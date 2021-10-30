@@ -171,6 +171,9 @@ public:
         if (tcgetattr(STDIN_FILENO, &old_termios))
             throw std::runtime_error("Failed to get termios");
 
+        if (!isatty(STDOUT_FILENO))
+            return;
+
         auto termios = old_termios;
         cfmakeraw(&termios);
         termios.c_cc[VMIN] = 0;

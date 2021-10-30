@@ -28,6 +28,21 @@ constexpr uint32_t misa_xlen32 = 1 << 30;
 
 constexpr uint32_t mcause_interrupt = (1U << 31);
 
+static constexpr int sv32_levels = 2;
+static constexpr int sv32_page_offset_bits = 12;
+static constexpr int sv32_vpn_bits = 10;
+static constexpr uint32_t sv32_page_mask = (1 << sv32_page_offset_bits) - 1;
+static constexpr uint32_t sv32_megapage_mask =
+    (1 << (sv32_page_offset_bits + sv32_vpn_bits)) - 1;
+static constexpr uint32_t pte_valid = (1 << 0);
+static constexpr uint32_t pte_read = (1 << 1);
+static constexpr uint32_t pte_write = (1 << 2);
+static constexpr uint32_t pte_exec = (1 << 3);
+static constexpr uint32_t pte_user = (1 << 4);
+static constexpr uint32_t pte_global = (1 << 5);
+static constexpr uint32_t pte_accessed = (1 << 6);
+static constexpr uint32_t pte_dirty = (1 << 7);
+
 class RXVSim;
 
 class Cache
@@ -402,7 +417,9 @@ public:
         uint32_t virt;
         uint32_t phys;
         uint32_t pte_addr;
+        uint32_t asid;
         uint8_t attributes;
+        bool valid;
     };
 
     bool access_valid(const translation &translation,
@@ -501,6 +518,7 @@ public:
     }
 
 private:
+    static const int num_tlb_entries = 16;
     struct CSR {
         const CSRDef *def;
         uint32_t val;
@@ -590,6 +608,15 @@ private:
         peripherals.push_back(std::move(p));
     }
 
+    static bool ad_fault(struct translation *t, bool write)
+    {
+        if (!(t->attributes & pte_accessed))
+            return true;
+        if (write && !(t->attributes & pte_dirty))
+            return true;
+        return false;
+    }
+
     void check_interrupts();
     bool csr_access_allowed(int r, bool write);
     void do_xret(PrivilegeLevel level);
@@ -611,4 +638,8 @@ private:
     struct status status;
     bool mmu_on;
     uint32_t translation_base;
+    struct translation tlb[num_tlb_entries];
+    int next_tlb_replacement;
+    int last_tlb_hit;
+    uint32_t asid;
 };

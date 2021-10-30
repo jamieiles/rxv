@@ -256,6 +256,9 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , privilege_level(M)
     , mmu_on(false)
     , translation_base(0)
+    , next_tlb_replacement(0)
+    , last_tlb_hit(0)
+    , asid(0)
 {
     status.set(M, 0);
     status.mpp = M;
@@ -322,6 +325,7 @@ void RXVSim::do_write_csr(int r, uint32_t v)
     case SATP:
         mmu_on = !!(v & 0x80000000);
         translation_base = (v & 0x3fffff) << 12;
+        asid = (v >> 22) & 0x1ff;
         csrs[SATP].val = v;
         break;
     case SIE:
@@ -504,21 +508,6 @@ bool RXVSim::csr_access_allowed(int r, bool write)
     return true;
 }
 
-static constexpr int sv32_levels = 2;
-static constexpr int sv32_page_offset_bits = 12;
-static constexpr int sv32_vpn_bits = 10;
-static constexpr uint32_t sv32_page_mask = (1 << sv32_page_offset_bits) - 1;
-static constexpr uint32_t sv32_megapage_mask =
-    (1 << (sv32_page_offset_bits + sv32_vpn_bits)) - 1;
-static constexpr uint32_t pte_valid = (1 << 0);
-static constexpr uint32_t pte_read = (1 << 1);
-static constexpr uint32_t pte_write = (1 << 2);
-static constexpr uint32_t pte_exec = (1 << 3);
-static constexpr uint32_t pte_user = (1 << 4);
-static constexpr uint32_t pte_global = (1 << 5);
-static constexpr uint32_t pte_accessed = (1 << 6);
-static constexpr uint32_t pte_dirty = (1 << 7);
-
 bool RXVSim::access_valid(const translation &translation,
                           bool read,
                           bool write,
@@ -555,10 +544,22 @@ bool RXVSim::translate(uint32_t virt,
 {
     translation->virt = translation->phys = virt;
     translation->attributes = 0xff;
+    translation->valid = false;
+    translation->asid = asid;
 
     if (!mmu_on || (privilege_level == M && !status.mprv) ||
         (privilege_level == M && ifetch) || (status.mprv && status.mpp == M))
         return true;
+
+    for (auto i = 0, idx = last_tlb_hit; i < num_tlb_entries; ++i) {
+        if (tlb[i].valid && virt == tlb[i].virt &&
+            (tlb[i].asid == asid || (tlb[i].attributes & pte_global))) {
+            *translation = tlb[i];
+            last_tlb_hit = idx;
+            return !ad_fault(translation, write);
+        }
+        idx = (idx + 1) % num_tlb_entries;
+    }
 
     uint32_t base = translation_base;
     uint32_t pte = 0;
@@ -593,12 +594,11 @@ bool RXVSim::translate(uint32_t virt,
     translation->attributes = pte & 0xff;
     translation->pte_addr = pte_addr;
 
-    if (!(pte & pte_accessed))
-        return false;
-    if (write && !(pte & pte_dirty))
-        return false;
+    translation->valid = true;
+    tlb[next_tlb_replacement] = *translation;
+    next_tlb_replacement = (next_tlb_replacement + 1) % num_tlb_entries;
 
-    return true;
+    return !ad_fault(translation, write);
 }
 
 void RXVSim::do_step()
@@ -1162,6 +1162,8 @@ void RXVSim::do_step()
                            rd == 0) { // SFENCE.VMA
                     if (status.tvm)
                         illegal_instruction = true;
+                    else
+                        memset(tlb, 0, sizeof(tlb));
                 }
                 break;
             case 0x01: // CSRRW

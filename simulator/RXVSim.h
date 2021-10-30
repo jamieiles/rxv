@@ -352,7 +352,9 @@ public:
             tvm = (v >> mstatus_tvm_shift) & 0x1;
             tw = (v >> mstatus_tw_shift) & 0x1;
             tsr = (v >> mstatus_tsr_shift) & 0x1;
-            mpp = static_cast<PrivilegeLevel>((v >> mstatus_mpp_shift) & 0x3);
+            auto new_mpp = static_cast<PrivilegeLevel>((v >> mstatus_mpp_shift) & 0x3);
+            if (new_mpp != RESERVED)
+                mpp = new_mpp;
         }
 
         if (cur_level == M || cur_level == S) {

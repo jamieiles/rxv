@@ -17,7 +17,7 @@ struct mtime {
     uint64_t time;
 };
 
-enum PrivilegeLevel { U = 0, S = 1, M = 3 };
+enum PrivilegeLevel { U = 0, S = 1, RESERVED = 2, M = 3 };
 
 class SimTracer
 {

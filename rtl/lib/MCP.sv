@@ -19,8 +19,8 @@ logic tx_busy;
 logic b_ack;
 logic tx_busy_next;
 
-logic a_load = a_send & a_ready;
-logic a_en_next = a_en ^ a_load;
+wire a_load = a_send & a_ready;
+wire a_en_next = a_en ^ a_load;
 
 assign a_ready = a_ack | ~tx_busy;
 

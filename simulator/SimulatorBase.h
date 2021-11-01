@@ -9,8 +9,7 @@
 #include "RiscVELF.h"
 
 #include "Trace_generated.h"
-
-using MemFault = std::runtime_error;
+#include "MemoryDevice.h"
 
 struct mtime {
     uint64_t cmp;

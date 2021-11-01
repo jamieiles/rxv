@@ -12,6 +12,7 @@
 
 #include "RiscVELF.h"
 #include "SimulatorBase.h"
+#include "MemoryDevice.h"
 
 struct CSRDef {
     const char *name;
@@ -48,11 +49,7 @@ class RXVSim;
 class Cache
 {
 public:
-    Cache(size_t size,
-          unsigned num_ways,
-          unsigned line_size,
-          std::function<void(uint32_t, char *, size_t)> mem_read,
-          std::function<void(uint32_t, const char *, size_t)> mem_write)
+    Cache(size_t size, unsigned num_ways, unsigned line_size, MemoryBus *bus)
         : mem_read(mem_read)
         , mem_write(mem_write)
         , num_ways(num_ways)
@@ -60,6 +57,7 @@ public:
         , victim(0)
         , reserved(false)
         , reservation_addr(0)
+        , bus(bus)
     {
         lines_per_way = (size / num_ways) / line_size;
 
@@ -93,7 +91,7 @@ public:
     void read(uint32_t addr, char *dst, size_t len, bool reserve = false)
     {
         if (is_noncacheable(addr)) {
-            mem_read(addr, dst, len);
+            bus->read(addr, dst, len);
         } else {
             auto line = lookup(addr);
             auto addr_offset = offset(addr);
@@ -119,7 +117,7 @@ public:
                bool *reservation_held = nullptr)
     {
         if (is_noncacheable(addr)) {
-            mem_write(addr, val, len);
+            bus->write(addr, val, len);
         } else {
             auto line = lookup(addr);
             auto addr_offset = offset(addr);
@@ -214,9 +212,9 @@ private:
         assert(dst_addr == victim_line.line_addr);
 
         for (int i = 0; i < words_per_line; ++i, dst_addr += sizeof(uint32_t))
-            mem_write(dst_addr,
-                      reinterpret_cast<const char *>(&victim_line.words[i]),
-                      sizeof(uint32_t));
+            bus->write(dst_addr,
+                       reinterpret_cast<const char *>(&victim_line.words[i]),
+                       sizeof(uint32_t));
 
         victim_line.dirty = false;
     }
@@ -230,8 +228,8 @@ private:
         victim_line.tag = tag(addr);
 
         for (int i = 0; i < words_per_line; ++i, addr += sizeof(uint32_t))
-            mem_read(addr, reinterpret_cast<char *>(&victim_line.words[i]),
-                     sizeof(uint32_t));
+            bus->read(addr, reinterpret_cast<char *>(&victim_line.words[i]),
+                      sizeof(uint32_t));
 
         victim_line.valid = true;
         victim_line.dirty = false;
@@ -281,35 +279,8 @@ private:
 
     uint32_t reservation_addr;
     bool reserved;
-};
 
-class IOPeripheral
-{
-public:
-    IOPeripheral(uint32_t base, size_t len) : base(base), len(len)
-    {
-    }
-
-    virtual ~IOPeripheral()
-    {
-    }
-
-    virtual void write(uint32_t offset, const char *v, size_t len) = 0;
-    virtual void read(uint32_t offset, char *v, size_t len) = 0;
-
-    size_t get_len() const
-    {
-        return len;
-    }
-
-    uint32_t get_base() const
-    {
-        return base;
-    }
-
-private:
-    uint32_t base;
-    size_t len;
+    MemoryBus *bus;
 };
 
 constexpr uint32_t mstatus_sie_shift = 1;
@@ -574,64 +545,6 @@ private:
     }
 
     void do_exception(enum mcause_type t, uint32_t val = 0);
-    void raw_read_mem(uint32_t addr, char *dst, size_t len)
-    {
-        if (addr >= ram_base && addr < ram_base + mem_size) {
-            addr -= ram_base;
-            if (addr + len > mem_size)
-                throw MemFault("Out of bounds memory access");
-
-            memcpy(dst, reinterpret_cast<uint8_t *>(mem.get()) + addr, len);
-        } else {
-            peripheral_read(addr, dst, len);
-        }
-    }
-
-    void raw_write_mem(uint32_t addr, const char *val, size_t len)
-    {
-        if (addr >= ram_base && addr < ram_base + mem_size) {
-            addr -= ram_base;
-            if (addr + len > mem_size)
-                throw MemFault("Out of bounds memory access");
-
-            memcpy(reinterpret_cast<uint8_t *>(mem.get()) + addr, val, len);
-        } else {
-            peripheral_write(addr, val, len);
-        }
-    }
-
-    void peripheral_write(uint32_t addr, const char *val, size_t len)
-    {
-        assert(len <= sizeof(uint32_t));
-
-        for (auto &p : peripherals) {
-            if (addr < p->get_base() || addr >= p->get_base() + p->get_len())
-                continue;
-
-            p->write(addr - p->get_base(), val, len);
-            return;
-        }
-    }
-
-    void peripheral_read(uint32_t addr, char *val, size_t len)
-    {
-        assert(len <= sizeof(uint32_t));
-
-        for (auto &p : peripherals) {
-            if (addr < p->get_base() || addr >= p->get_base() + p->get_len())
-                continue;
-
-            p->read(addr - p->get_base(), val, len);
-            return;
-        }
-    }
-
-    void add_peripheral(std::unique_ptr<IOPeripheral> p)
-    {
-        dcache.set_noncacheable(p->get_base(),
-                                p->get_base() + p->get_len() - 1);
-        peripherals.push_back(std::move(p));
-    }
 
     static bool ad_fault(struct translation *t, bool write)
     {
@@ -654,10 +567,8 @@ private:
     struct mtime mtime;
     uint32_t ram_base;
     size_t mem_size;
-    std::unique_ptr<uint32_t[]> mem;
     Cache dcache;
     Cache icache;
-    std::vector<std::unique_ptr<IOPeripheral>> peripherals;
     PrivilegeLevel privilege_level;
     PrivilegeLevel new_privilege_level;
     struct status status;
@@ -667,4 +578,5 @@ private:
     int next_tlb_replacement;
     int last_tlb_hit;
     uint32_t asid;
+    MemoryBus bus;
 };

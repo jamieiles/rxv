@@ -3,6 +3,7 @@ set(Boost_USE_MULTITHREADED TRUE)
 find_package(Boost 1.71.0 COMPONENTS program_options REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../tools)
+include_directories(include)
 
 add_executable(rxv-simulator
                Simulator.cpp

@@ -230,38 +230,15 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , exception_taken(false)
     , ram_base(mem_base)
     , mem_size(mem_size)
-    , dcache(8192,
-             4,
-             32,
-             std::bind(&RXVSim::raw_read_mem,
-                       this,
-                       std::placeholders::_1,
-                       std::placeholders::_2,
-                       std::placeholders::_3),
-             std::bind(&RXVSim::raw_write_mem,
-                       this,
-                       std::placeholders::_1,
-                       std::placeholders::_2,
-                       std::placeholders::_3))
-    , icache(8192,
-             4,
-             32,
-             std::bind(&RXVSim::raw_read_mem,
-                       this,
-                       std::placeholders::_1,
-                       std::placeholders::_2,
-                       std::placeholders::_3),
-             std::bind(&RXVSim::raw_write_mem,
-                       this,
-                       std::placeholders::_1,
-                       std::placeholders::_2,
-                       std::placeholders::_3))
+    , dcache(8192, 4, 32, &bus)
+    , icache(8192, 4, 32, &bus)
     , privilege_level(M)
     , mmu_on(false)
     , translation_base(0)
     , next_tlb_replacement(0)
     , last_tlb_hit(0)
     , asid(0)
+    , bus(ram_base, mem_size)
 {
     status.set(M, 0);
     status.mpp = M;
@@ -272,11 +249,12 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     for (auto *def = csr_defs; def->name; ++def)
         csrs[def->number] = CSR{def, def->default_val};
 
-    mem = std::make_unique<uint32_t[]>(mem_size / 4);
     mtime.time = mtime.cmp = 0;
 
-    add_peripheral(std::make_unique<Mtime>(this, mtime_base, 4096));
-    add_peripheral(std::make_unique<UART>(uart_base, 4096));
+    bus.add_peripheral(std::make_unique<Mtime>(this, mtime_base, 4096));
+    dcache.set_noncacheable(mtime_base, mtime_base + 4096 - 1);
+    bus.add_peripheral(std::make_unique<UART>(uart_base, 4096));
+    dcache.set_noncacheable(uart_base, uart_base + 4096 - 1);
 }
 
 static uint32_t i_immediate(uint32_t instr)

@@ -511,7 +511,7 @@ bool RXVSim::csr_access_allowed(int r, bool write)
     return true;
 }
 
-bool RXVSim::access_valid(const translation &translation,
+bool RXVSim::access_valid(const translation *translation,
                           bool read,
                           bool write,
                           bool exec)
@@ -523,17 +523,17 @@ bool RXVSim::access_valid(const translation &translation,
     if (effective_level == M && (status.mpp == M || !status.mprv))
         return true;
 
-    if (read && !(translation.attributes & pte_read))
+    if (read && !(translation->attributes & pte_read))
         return false;
-    if (write && !(translation.attributes & pte_write))
+    if (write && !(translation->attributes & pte_write))
         return false;
-    if (exec && !(translation.attributes & pte_exec) &&
-        !((translation.attributes & pte_read) && status.mxr))
+    if (exec && !(translation->attributes & pte_exec) &&
+        !((translation->attributes & pte_read) && status.mxr))
         return false;
-    if (effective_level == U && !(translation.attributes & pte_user))
+    if (effective_level == U && !(translation->attributes & pte_user))
         return false;
     if (effective_level != U && (read || write)) {
-        if (!status.sum && (translation.attributes & pte_user))
+        if (!status.sum && (translation->attributes & pte_user))
             return false;
     }
 
@@ -541,25 +541,16 @@ bool RXVSim::access_valid(const translation &translation,
 }
 
 bool RXVSim::translate(uint32_t virt,
-                       struct translation *translation,
+                       struct translation **translation,
                        bool write,
                        bool ifetch)
 {
-    translation->virt = translation->phys = virt;
-    translation->attributes = 0xff;
-    translation->valid = false;
-    translation->asid = asid;
-
-    if (!mmu_on || (privilege_level == M && !status.mprv) ||
-        (privilege_level == M && ifetch) || (status.mprv && status.mpp == M))
-        return true;
-
     for (auto i = 0, idx = last_tlb_hit; i < num_tlb_entries; ++i) {
-        if (tlb[i].valid && virt == tlb[i].virt &&
-            (tlb[i].asid == asid || (tlb[i].attributes & pte_global))) {
-            *translation = tlb[i];
+        if (tlb[idx].valid && virt == tlb[idx].virt &&
+            (tlb[idx].asid == asid || (tlb[idx].attributes & pte_global))) {
+            *translation = &tlb[idx];
             last_tlb_hit = idx;
-            return !ad_fault(translation, write);
+            return !ad_fault(*translation, write);
         }
         idx = (idx + 1) % num_tlb_entries;
     }
@@ -589,19 +580,20 @@ bool RXVSim::translate(uint32_t virt,
             return false;
     }
 
-    translation->phys = ((pte << 2) & 0xfffff000);
-    if (!megapage)
-        translation->phys |= (virt & sv32_page_mask);
-    else
-        translation->phys |= (virt & sv32_megapage_mask);
-    translation->attributes = pte & 0xff;
-    translation->pte_addr = pte_addr;
+    *translation = &tlb[next_tlb_replacement];
 
-    translation->valid = true;
-    tlb[next_tlb_replacement] = *translation;
+    (*translation)->phys = ((pte << 2) & 0xfffff000);
+    if (!megapage)
+        (*translation)->phys |= (virt & sv32_page_mask);
+    else
+        (*translation)->phys |= (virt & sv32_megapage_mask);
+    (*translation)->attributes = pte & 0xff;
+    (*translation)->pte_addr = pte_addr;
+
+    (*translation)->valid = true;
     next_tlb_replacement = (next_tlb_replacement + 1) % num_tlb_entries;
 
-    return !ad_fault(translation, write);
+    return !ad_fault(*translation, write);
 }
 
 void RXVSim::do_step()

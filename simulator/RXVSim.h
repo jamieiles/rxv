@@ -422,7 +422,7 @@ public:
         bool valid;
     };
 
-    bool access_valid(const translation &translation,
+    bool access_valid(const translation *translation,
                       bool read,
                       bool write,
                       bool exec);
@@ -433,14 +433,19 @@ public:
                      size_t len,
                      bool reserved)
     {
-        struct translation translation;
-        if (!translate(addr, &translation, false, false))
-            return false;
+        struct translation *translation;
 
-        if (!access_valid(translation, true, false, false))
-            return false;
+        if (need_translation(false)) {
+            if (!translate(addr, &translation, false, false))
+                return false;
 
-        *phys = translation.phys;
+            if (!access_valid(translation, true, false, false))
+                return false;
+            *phys = translation->phys;
+        } else {
+            *phys = addr;
+        }
+
         dcache.read(*phys, dst, len, reserved);
 
         return true;
@@ -453,14 +458,19 @@ public:
 
     bool do_read_imem(uint32_t addr, uint32_t *phys, char *dst, size_t len)
     {
-        struct translation translation;
-        if (!translate(addr, &translation, false, true))
-            return false;
+        struct translation *translation;
 
-        if (!access_valid(translation, false, false, true))
-            return false;
+        if (need_translation(true)) {
+            if (!translate(addr, &translation, false, true))
+                return false;
 
-        *phys = translation.phys;
+            if (!access_valid(translation, false, false, true))
+                return false;
+
+            *phys = translation->phys;
+        } else {
+            *phys = addr;
+        }
         icache.read(*phys, dst, len);
 
         return true;
@@ -473,14 +483,19 @@ public:
                       bool conditional,
                       bool *reservation_held)
     {
-        struct translation translation;
-        if (!translate(addr, &translation, true, false))
-            return false;
+        struct translation *translation;
 
-        if (!access_valid(translation, false, true, false))
-            return false;
+        if (need_translation(false)) {
+            if (!translate(addr, &translation, true, false))
+                return false;
 
-        *phys = translation.phys;
+            if (!access_valid(translation, false, true, false))
+                return false;
+
+            *phys = translation->phys;
+        } else {
+            *phys = addr;
+        }
         dcache.write(*phys, val, len, conditional, reservation_held);
 
         return true;
@@ -518,7 +533,7 @@ public:
     }
 
 private:
-    static const int num_tlb_entries = 16;
+    static const int num_tlb_entries = 4;
     struct CSR {
         const CSRDef *def;
         uint32_t val;
@@ -544,9 +559,19 @@ private:
     // clang-format on
 
     bool translate(uint32_t virt,
-                   struct translation *translation,
+                   struct translation **translation,
                    bool write,
                    bool ifetch);
+
+    bool need_translation(bool ifetch)
+    {
+        if (!mmu_on || (privilege_level == M && !status.mprv) ||
+            (privilege_level == M && ifetch) ||
+            (status.mprv && status.mpp == M))
+            return false;
+
+        return true;
+    }
 
     void do_exception(enum mcause_type t, uint32_t val = 0);
     void raw_read_mem(uint32_t addr, char *dst, size_t len)

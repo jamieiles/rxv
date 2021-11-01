@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y runit \
         gdb \
         sudo \
         code \
-        fzf
+        fzf \
+        less
 ADD docker/dev/rxv-dev /usr/bin/rxv-dev
 ENV CTEST_OUTPUT_ON_FAILURE=1
 ENV GTEST_COLOR=1

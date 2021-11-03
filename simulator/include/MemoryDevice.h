@@ -34,7 +34,17 @@ private:
     size_t len;
 };
 
-class MemoryBus
+class AbstractMemoryBus
+{
+public:
+    virtual void read(uint32_t addr, char *dst, size_t len) = 0;
+    virtual void write(uint32_t addr, const char *val, size_t len) = 0;
+    virtual void write(uint32_t addr, uint32_t val, uint8_t wstb) = 0;
+    virtual uint32_t read(uint32_t addr) = 0;
+    virtual void add_peripheral(std::unique_ptr<IOPeripheral> p) = 0;
+};
+
+class MemoryBus : public AbstractMemoryBus
 {
 public:
     MemoryBus(uint32_t ram_base, size_t ram_size)
@@ -67,6 +77,24 @@ public:
         } else {
             peripheral_write(addr, val, len);
         }
+    }
+
+    void write(uint32_t addr, uint32_t val, uint8_t wstb)
+    {
+        auto byte_offs = __builtin_ffs(wstb) - 1;
+        auto nbytes = __builtin_popcount(wstb);
+        auto byte_ptr = reinterpret_cast<const char *>(&val) + byte_offs;
+
+        write(addr, byte_ptr, nbytes);
+    }
+
+    uint32_t read(uint32_t addr)
+    {
+        uint32_t v;
+
+        read(addr, reinterpret_cast<char *>(&v), sizeof(v));
+
+        return v;
     }
 
     void add_peripheral(std::unique_ptr<IOPeripheral> p)

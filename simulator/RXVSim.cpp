@@ -423,6 +423,9 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
             target_level = S;
     }
 
+    if (target_level < privilege_level)
+        return;
+
     switch (target_level) {
     case M:
         xEPC = MEPC;

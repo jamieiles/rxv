@@ -168,11 +168,11 @@ class RawTTY
 public:
     RawTTY()
     {
-        if (tcgetattr(STDIN_FILENO, &old_termios))
-            throw std::runtime_error("Failed to get termios");
-
         if (!isatty(STDOUT_FILENO))
             return;
+
+        if (tcgetattr(STDIN_FILENO, &old_termios))
+            throw std::runtime_error("Failed to get termios");
 
         auto termios = old_termios;
         cfmakeraw(&termios);

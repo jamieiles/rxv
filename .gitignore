@@ -7,3 +7,4 @@
 *.tar.xz
 .vscode/ipch
 *.vcd
+.vscode/svlangserver

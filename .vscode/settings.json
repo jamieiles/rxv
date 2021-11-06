@@ -110,5 +110,15 @@
         "regex": "cpp",
         "mutex": "cpp",
         "shared_mutex": "cpp"
-    }
+    },
+    "systemverilog.includeIndexing": [
+        "rtl/lib/*",
+        "**/*.{sv,svh,v,vh}"
+    ],
+    "systemverilog.excludeIndexing": [
+        "verif/rtl/fixtures/BusTransactorCPP.sv"
+    ],
+    "systemverilog.formatCommand": "verible-verilog-format --named_port_alignment align --port_declarations_alignment align --distribution_items_alignment flush-left --module_net_variable_alignment align --indentation_spaces 4",
+    "systemverilog.launchConfiguration": "verilator -sv --lint-only --Wall --top-module DummyTop verif/rtl/DummyTop.v",
+    "editor.formatOnSave": true
 }

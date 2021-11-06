@@ -31,6 +31,7 @@ verilate(rtl-unittest
          fixtures/BusTransactorWrapper.sv
          fixtures/BusTransactor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          TOP_MODULE BusTransactorWrapper
          TRACE_FST COVERAGE)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir

@@ -2,32 +2,31 @@
 module RAMBE #(
     parameter depth = 32,
     parameter byte_width = 4
-)(
-    input logic clk,
-    input logic [addr_bits-1:0] addr,
-    input logic wren,
-    input logic [data_bits-1:0] din,
-    input logic [byte_width-1:0] byte_en,
-    output logic [data_bits-1:0] dout
+) (
+    input  logic                  clk,
+    input  logic [ addr_bits-1:0] addr,
+    input  logic                  wren,
+    input  logic [ data_bits-1:0] din,
+    input  logic [byte_width-1:0] byte_en,
+    output logic [ data_bits-1:0] dout
 );
 
-localparam addr_bits = $clog2(depth);
-localparam data_bits = 8 * byte_width;
+    localparam addr_bits = $clog2(depth);
+    localparam data_bits = 8 * byte_width;
 
-logic [data_bits-1:0] mem[0:depth-1];
+    logic   [data_bits-1:0] mem[0:depth-1];
 
-integer a;
+    integer                 a;
 
-always_ff @(posedge clk) begin
-    if (wren) begin
-        for (a = 0; a < byte_width; a++) begin
-            if (byte_en[a])
-                mem[addr][a*8+:8] <= din[a*8+:8];
+    always_ff @(posedge clk) begin
+        if (wren) begin
+            for (a = 0; a < byte_width; a++) begin
+                if (byte_en[a]) mem[addr][a*8+:8] <= din[a*8+:8];
+            end
         end
+        dout <= mem[addr];
     end
-    dout <= mem[addr];
-end
 
-`include "RAMBE_formal.sv"
+    `include "RAMBE_formal.sv"
 
 endmodule

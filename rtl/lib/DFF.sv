@@ -1,22 +1,21 @@
 `default_nettype none
 module DFF #(
-    parameter width=1,
-    parameter reset_val=0
-)(
-    input logic clk,
-    input logic reset,
-    input logic en,
-    input logic [width-1:0] d,
+    parameter width = 1,
+    parameter reset_val = 0
+) (
+    input  logic             clk,
+    input  logic             reset,
+    input  logic             en,
+    input  logic [width-1:0] d,
     output logic [width-1:0] q
 );
 
-always @(posedge clk or posedge reset) begin
-    if (reset)
-        q <= reset_val;
-    else begin
-        if (en)
-            q <= d;
+    always @(posedge clk or posedge reset) begin
+        if (reset) begin
+            q <= reset_val;
+        end else begin
+            if (en) q <= d;
+        end
     end
-end
 
 endmodule

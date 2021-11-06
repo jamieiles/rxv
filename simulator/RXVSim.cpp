@@ -186,6 +186,8 @@ public:
 
     virtual ~RawTTY()
     {
+        if (!isatty(STDOUT_FILENO))
+            return;
         tcsetattr(STDIN_FILENO, TCSANOW, &old_termios);
     }
 

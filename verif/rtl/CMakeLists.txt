@@ -18,9 +18,16 @@ ys_formal(TOP RAM
           DEFINES "FORMAL_RAM"
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv)
 
+ys_formal(TOP DPRAM
+          DEPTH 5
+          SKIP 0
+          DEFINES "FORMAL_DPRAM"
+          SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv)
+
 add_executable(rtl-unittest
                main.cpp
-               TestBusTransactor.cpp)
+               TestBusTransactor.cpp
+               TestRXVICache.cpp)
 target_link_libraries(rtl-unittest
                       PRIVATE gtest gmock)
 add_test(rtl-unittest rtl-unittest)
@@ -34,5 +41,29 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          TOP_MODULE BusTransactorWrapper
          TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE BitPLRU
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall
+         SOURCES
+         fixtures/RXVICacheWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVICacheWrapper
+         TRACE_FST COVERAGE)
+
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../simulator/include)

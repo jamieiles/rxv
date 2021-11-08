@@ -1,13 +1,10 @@
-// verilator lint_off UNDRIVEN
 module RXVICacheWrapper #(
     parameter nr_lines        = 4,
     parameter nr_ways         = 4,
     parameter line_size_bytes = 16
 ) (
     input  logic        clk,
-    // verilator lint_off UNUSED
     input  logic        reset,
-    // verilator lint_off UNUSED
     // CPU
     input  logic [31:2] address,
     input  logic        valid,

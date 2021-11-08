@@ -118,7 +118,8 @@
     "systemverilog.excludeIndexing": [
         "verif/rtl/fixtures/BusTransactorCPP.sv"
     ],
-    "systemverilog.formatCommand": "verible-verilog-format --named_port_alignment align --port_declarations_alignment align --distribution_items_alignment flush-left --module_net_variable_alignment align --indentation_spaces 4",
+    "systemverilog.formatCommand": "verible-verilog-format --formal_parameters_alignment align --assignment_statement_alignment align --named_parameter_alignment align --named_port_alignment align --port_declarations_alignment align --distribution_items_alignment flush-left --module_net_variable_alignment align --indentation_spaces 4",
     "systemverilog.launchConfiguration": "verilator -sv --lint-only --Wall --top-module DummyTop verif/rtl/DummyTop.v",
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.tabSize": 4
 }

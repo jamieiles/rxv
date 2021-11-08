@@ -1,5 +1,5 @@
 module BusTransactor #(
-    integer latency = 4,
+    integer latency = 2,
     integer words   = 512
 ) (
     input logic                    clk,
@@ -86,7 +86,7 @@ module BusTransactor #(
     end
 
     always_ff @(posedge clk) begin
-        if (next_read_state == READ_STATE_DATA) begin
+        if (read_state == READ_STATE_LATENCY_WAIT && next_read_state == READ_STATE_DATA) begin
             read_beats <= 'b1;
         end else if (read_state == READ_STATE_DATA) begin
             read_beats <= bus.rvalid & bus.rready ? read_beats + 1'b1 : read_beats;

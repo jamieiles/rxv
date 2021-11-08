@@ -1,0 +1,41 @@
+// verilator lint_off UNDRIVEN
+module RXVICacheWrapper #(
+    parameter nr_lines        = 4,
+    parameter nr_ways         = 4,
+    parameter line_size_bytes = 16
+) (
+    input  logic        clk,
+    // verilator lint_off UNUSED
+    input  logic        reset,
+    // verilator lint_off UNUSED
+    // CPU
+    input  logic [31:2] address,
+    input  logic        valid,
+    output logic        busy,
+    output logic [31:0] dout,
+    input  logic        invalidate
+);
+
+    MemInterface mem_bus ();
+
+    BusTransactor BusTransactor (
+        .clk(clk),
+        .bus(mem_bus.Subordinate)
+    );
+
+    RXVICache #(
+        .nr_lines       (nr_lines),
+        .nr_ways        (nr_ways),
+        .line_size_bytes(line_size_bytes)
+    ) RXVICache (
+        .clk       (clk),
+        .reset     (reset),
+        .address   (address),
+        .valid     (valid),
+        .busy      (busy),
+        .dout      (dout),
+        .invalidate(invalidate),
+        .bus       (mem_bus.Manager)
+    );
+
+endmodule

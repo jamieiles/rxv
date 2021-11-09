@@ -72,7 +72,8 @@ module BitPLRU #(
         if (valid) begin
             new_plru[access_way] = 1'b1;
             if (&new_plru) begin
-                new_plru = width'(1'b1) << access_way;
+                new_plru             = 'b0;
+                new_plru[access_way] = 1'b1;
             end
         end
     end
@@ -83,7 +84,6 @@ module BitPLRU #(
         for (i = 0; i < width; i = i + 1) begin : lru_lookup
             if (!read_plru[i]) begin
                 lru_out = way_bits'(i);
-                disable lru_lookup;
             end
         end
     end

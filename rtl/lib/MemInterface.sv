@@ -41,7 +41,12 @@ interface MemInterface;
         input rdata,
         input rlast,
         output bready,
-        input bvalid
+        input bvalid,
+        import ar_ack,
+        import aw_ack,
+        import read_beat_ack,
+        import write_beat_ack,
+        import write_ack
     );
 
     modport Subordinate(
@@ -63,7 +68,32 @@ interface MemInterface;
         output rdata,
         output rlast,
         input bready,
-        output bvalid
+        output bvalid,
+        import ar_ack,
+        import aw_ack,
+        import read_beat_ack,
+        import write_beat_ack,
+        import write_ack
     );
+
+    function read_beat_ack;
+        read_beat_ack = rready & rvalid;
+    endfunction
+
+    function write_beat_ack;
+        write_beat_ack = wready & wvalid;
+    endfunction
+
+    function ar_ack;
+        ar_ack = arready & arvalid;
+    endfunction
+
+    function aw_ack;
+        aw_ack = awready & awvalid;
+    endfunction
+
+    function write_ack;
+        write_ack = bready & bvalid;
+    endfunction
 
 endinterface

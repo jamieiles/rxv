@@ -79,9 +79,7 @@ module RXVICache #(
     logic                   need_fill;
     logic                   invalidating_update;
     logic [ index_bits-1:0] invalidate_index_next;
-    logic                   offset_update;
     logic [offset_bits-1:0] offset_next;
-    logic                   filling_update;
     logic                   filling_next;
 
     generate
@@ -138,7 +136,7 @@ module RXVICache #(
 
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             tag_write_en[i] = invalidating || (bus.rlast && way_bits'(i) == lru);
-            way_write_en[i] = way_bits'(i) == lru && (bus.rready & bus.rvalid);
+            way_write_en[i] = way_bits'(i) == lru && (bus.read_beat_ack());
             way_hit[i]      = way_valid[i] && way_tag[i] == addr_tag(lookup_address);
         end
 
@@ -159,15 +157,13 @@ module RXVICache #(
     end
 
     always_comb begin
-        offset_update  = 1'b0;
-        offset_next    = offset;
-        filling_update = 1'b0;
-        filling_next   = filling;
+        offset_next  = offset;
+        filling_next = filling;
 
-        start_access   = valid && !miss && !filling && !(invalidate || invalidating);
-        need_fill      = miss && !filling;
+        start_access = valid && !miss && !filling && !(invalidate || invalidating);
+        need_fill    = miss && !filling;
 
-        if (bus.arready & bus.arvalid) begin
+        if (bus.ar_ack()) begin
             arvalid_next = 1'b0;
         end else if (bus.arvalid) begin
             arvalid_next = 1'b1;
@@ -175,14 +171,12 @@ module RXVICache #(
             arvalid_next = need_fill;
         end
 
-        if (bus.rready & bus.rvalid) begin
-            offset_update = 1'b1;
-            offset_next   = offset + 1'b1;
+        if (bus.read_beat_ack()) begin
+            offset_next = offset + 1'b1;
         end
 
         if (need_fill || fill_complete) begin
-            filling_next   = need_fill;
-            filling_update = 1'b1;
+            filling_next = need_fill;
         end
 
         invalidating_update   = invalidate || &invalidate_index;
@@ -202,7 +196,7 @@ module RXVICache #(
     ) offset_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (offset_update),
+        .en   (1'b1),
         .d    (offset_next),
         .q    (offset)
     );
@@ -210,7 +204,7 @@ module RXVICache #(
     DFF filling_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (filling_update),
+        .en   (1'b1),
         .d    (filling_next),
         .q    (filling)
     );

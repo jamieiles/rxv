@@ -20,6 +20,7 @@ module RXVICache #(
     localparam index_bits = $clog2(nr_lines);
     localparam tag_bits = 30 - index_bits - offset_bits;
     localparam way_bits = $clog2(nr_ways);
+    localparam fill_beats = 4'((line_size_bytes / 4) - 'b1);
     initial assert (offset_bits + index_bits + tag_bits == 30);
 
     // verilator lint_off UNUSED
@@ -38,18 +39,6 @@ module RXVICache #(
         addr_offset = address_in[2+:offset_bits];
     endfunction
     // verilator lint_on UNUSED
-
-    // Read-only bus, always ready to read a full cache line
-    assign bus.waddr   = 32'b0;
-    assign bus.awvalid = 1'b0;
-    assign bus.wlen    = 'b0;
-    assign bus.wvalid  = 1'b0;
-    assign bus.wdata   = 32'b0;
-    assign bus.wstb    = 4'b0;
-    assign bus.wlast   = 1'b0;
-    assign bus.bready  = 1'b0;
-    assign bus.rready  = 1'b1;
-    assign bus.rlen    = 4'((line_size_bytes / 4) - 'b1);
 
     logic [ index_bits-1:0] index;
     logic [offset_bits-1:0] data_offset;
@@ -74,13 +63,37 @@ module RXVICache #(
     logic [    nr_ways-1:0] tag_write_en;
     logic                   invalidating;
     logic [    nr_ways-1:0] way_write_en;
-    logic                   arvalid_next;
     logic                   start_access;
     logic                   need_fill;
     logic                   invalidating_update;
     logic [ index_bits-1:0] invalidate_index_next;
-    logic [offset_bits-1:0] offset_next;
     logic                   filling_next;
+    logic [           31:2] bus_address;
+    logic                   bus_valid;
+    logic                   bus_complete;
+    logic [           31:0] bus_rdata;
+    logic [            3:0] bus_beat_num;
+    logic [            3:0] bus_beat_num_next;
+    logic                   bus_beat_ack;
+
+    BusAdapter BusAdapter (
+        .clk          (clk),
+        .reset        (reset),
+        .bus          (bus),
+        .valid        (bus_valid),
+        .complete     (bus_complete),
+        .address      (bus_address),
+        .wren         (1'b0),
+        // verilator lint_off PINCONNECTEMPTY
+        .wdata        (),
+        .bytesel      (),
+        // verilator lint_on PINCONNECTEMPTY
+        .rdata        (bus_rdata),
+        .len          (fill_beats),
+        .beat_num     (bus_beat_num),
+        .beat_num_next(bus_beat_num_next),
+        .beat_ack     (bus_beat_ack)
+    );
 
     generate
         genvar way;
@@ -92,7 +105,7 @@ module RXVICache #(
                 .clk (clk),
                 .addr({index, data_offset}),
                 .wren(way_write_en[way]),
-                .din (bus.rdata),
+                .din (bus_rdata),
                 .dout(way_dout[way])
             );
 
@@ -130,13 +143,13 @@ module RXVICache #(
     always_comb begin
         integer i;
 
-        tag_write_val = invalidating ? 'b0 : {1'b1, addr_tag(lookup_address)};
+        tag_write_val = {~invalidating, addr_tag(lookup_address)};
         tag_ram_index = invalidating ? invalidate_index :
             busy ? addr_index(lookup_address) : addr_index(address);
 
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            tag_write_en[i] = invalidating || (bus.rlast && way_bits'(i) == lru);
-            way_write_en[i] = way_bits'(i) == lru && (bus.read_beat_ack());
+            tag_write_en[i] = invalidating || (filling && bus_complete && way_bits'(i) == lru);
+            way_write_en[i] = way_bits'(i) == lru && (bus_beat_ack);
             way_hit[i]      = way_valid[i] && way_tag[i] == addr_tag(lookup_address);
         end
 
@@ -153,27 +166,14 @@ module RXVICache #(
         miss        = tag_compare_valid && ~|way_hit;
         busy        = miss || filling || invalidating;
         dout        = !miss ? way_dout[hit_way] : 32'b0;
-        data_offset = filling ? offset : addr_offset(address);
+        data_offset = filling ? offset_bits'(bus_beat_num) : addr_offset(address);
     end
 
     always_comb begin
-        offset_next  = offset;
         filling_next = filling;
 
         start_access = valid && !miss && !filling && !(invalidate || invalidating);
         need_fill    = miss && !filling;
-
-        if (bus.ar_ack()) begin
-            arvalid_next = 1'b0;
-        end else if (bus.arvalid) begin
-            arvalid_next = 1'b1;
-        end else begin
-            arvalid_next = need_fill;
-        end
-
-        if (bus.read_beat_ack()) begin
-            offset_next = offset + 1'b1;
-        end
 
         if (need_fill || fill_complete) begin
             filling_next = need_fill;
@@ -181,6 +181,8 @@ module RXVICache #(
 
         invalidating_update   = invalidate || &invalidate_index;
         invalidate_index_next = invalidate_index + 1'b1;
+        bus_address           = lookup_address;
+        bus_valid             = need_fill;
     end
 
     DFF invalidating_dff (
@@ -189,16 +191,6 @@ module RXVICache #(
         .en   (invalidating_update),
         .d    (invalidate),
         .q    (invalidating)
-    );
-
-    DFF #(
-        .width(offset_bits)
-    ) offset_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (offset_next),
-        .q    (offset)
     );
 
     DFF filling_dff (
@@ -219,30 +211,12 @@ module RXVICache #(
         .q    (invalidate_index)
     );
 
-    DFF arvalid_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (arvalid_next),
-        .q    (bus.arvalid)
-    );
-
     DFF fill_complete_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (bus.rlast),
+        .d    (bus_complete),
         .q    (fill_complete)
-    );
-
-    DFF #(
-        .width(32)
-    ) raddr_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (need_fill),
-        .d    ({lookup_address, 2'b0}),
-        .q    (bus.raddr)
     );
 
     DFF tag_compare_valid_dff (

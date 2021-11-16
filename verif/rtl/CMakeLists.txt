@@ -27,6 +27,7 @@ ys_formal(TOP DPRAM
 add_executable(rtl-unittest
                main.cpp
                TestBusTransactor.cpp
+               TestRXVRegisterFile.cpp
                TestRXVDCache.cpp
                TestRXVICache.cpp)
 target_link_libraries(rtl-unittest
@@ -34,7 +35,7 @@ target_link_libraries(rtl-unittest
 add_test(rtl-unittest rtl-unittest)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic -O3
+         VERILATOR_ARGS -Wall -Wpedantic --assert
          SOURCES
          fixtures/BusTransactorWrapper.sv
          fixtures/BusTransactor.sv
@@ -44,7 +45,7 @@ verilate(rtl-unittest
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic -O3
+         VERILATOR_ARGS -Wall -Wpedantic --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
@@ -53,7 +54,17 @@ verilate(rtl-unittest
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic -O3
+         VERILATOR_ARGS -Wall -Wpedantic --assert
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVRegisterFile
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --assert
          SOURCES
          fixtures/RXVICacheWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
@@ -68,7 +79,7 @@ verilate(rtl-unittest
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat -O3
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          fixtures/RXVDCacheWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv

@@ -1,8 +1,8 @@
 #include "VerilogTestbench.h"
-#include "VRegFile.h"
+#include "VRXVRegisterFile.h"
 
 class RegFileTestbench
-    : public VerilogTestbench<VRegFile>
+    : public VerilogTestbench<VRXVRegisterFile>
     , public ::testing::Test
 {
 public:

@@ -138,8 +138,7 @@ module BusTransactor #(
             end
             WRITE_STATE_DATA: begin
                 bus.wready <= 1'b1;
-                if (bus.wlen == 'b0 ||
-                    ((bus.wvalid & bus.wready) && write_beats == bus.wlen - 1'b1)) begin
+                if (bus.wlen == 'b0 || ((bus.wvalid & bus.wready) && write_beats == bus.wlen)) begin
                     assert (bus.wlast);
                 end
             end

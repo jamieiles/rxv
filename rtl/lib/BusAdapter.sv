@@ -31,6 +31,19 @@ module BusAdapter (
     logic        bus_active_next;
     logic        bus_active;
     logic [ 3:0] len_f;
+    logic        bus_ar_ack;
+    logic        bus_aw_ack;
+    logic        bus_write_ack;
+    logic        bus_write_beat_ack;
+    logic        bus_read_beat_ack;
+
+    always_comb begin
+        bus_ar_ack         = bus.arready & bus.arvalid;
+        bus_aw_ack         = bus.awready & bus.awvalid;
+        bus_write_ack      = bus.bready & bus.bvalid;
+        bus_write_beat_ack = bus.wready & bus.wvalid;
+        bus_read_beat_ack  = bus.rready & bus.rvalid;
+    end
 
     assign bus.rlen  = len_f;
     assign bus.wlen  = len_f;
@@ -40,7 +53,7 @@ module BusAdapter (
     always_comb begin
         wvalid_next = bus.wvalid;
 
-        if (bus.ar_ack()) begin
+        if (bus_ar_ack) begin
             arvalid_next = 1'b0;
         end else if (bus.arvalid) begin
             arvalid_next = 1'b1;
@@ -48,7 +61,7 @@ module BusAdapter (
             arvalid_next = ~wren & valid & ~bus_active;
         end
 
-        if (bus.aw_ack()) begin
+        if (bus_aw_ack) begin
             awvalid_next = 1'b0;
             wvalid_next  = 1'b1;
         end else if (bus.awvalid) begin
@@ -57,13 +70,13 @@ module BusAdapter (
             awvalid_next = wren & valid & ~bus_active;
         end
 
-        if (bus.write_beat_ack() & bus.wlast) begin
+        if (bus_write_beat_ack & bus.wlast) begin
             wvalid_next = 1'b0;
         end
 
-        beat_num_next = bus.read_beat_ack() || bus.write_beat_ack() ? beat_num + 1'b1 : beat_num;
-        wlast_next = beat_num_next == len_f ? wvalid_next : bus.write_beat_ack() ? 1'b0 : bus.wlast;
-        beat_ack = bus.read_beat_ack() | bus.write_beat_ack();
+        beat_num_next = bus_read_beat_ack || bus_write_beat_ack ? beat_num + 1'b1 : beat_num;
+        wlast_next = beat_num_next == len_f ? wvalid_next : bus_write_beat_ack ? 1'b0 : bus.wlast;
+        beat_ack = bus_read_beat_ack | bus_write_beat_ack;
         bus_active_next = complete ? 1'b0 : valid | bus_active;
 
         rdata = bus.rdata;
@@ -71,7 +84,7 @@ module BusAdapter (
     end
 
     always_comb begin
-        complete = (bus.bvalid & bus.bready) | (bus.rlast & bus.read_beat_ack());
+        complete = bus_write_ack | (bus.rlast & bus_read_beat_ack);
     end
 
     DFF bus_active_dff (

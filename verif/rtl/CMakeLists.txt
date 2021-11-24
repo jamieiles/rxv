@@ -33,7 +33,8 @@ add_executable(rtl-unittest
                TestRXVRenameFile.cpp
                TestRXVFetch.cpp
                TestRXVDCache.cpp
-               TestRXVICache.cpp)
+               TestRXVICache.cpp
+               TestRXVCoreEmulWrapper.cpp)
 target_link_libraries(rtl-unittest
                       PRIVATE gtest gmock)
 add_test(rtl-unittest rtl-unittest)
@@ -143,6 +144,33 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVFetch
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVCoreEmulWrapper
          TRACE_FST COVERAGE)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir

@@ -31,6 +31,7 @@ add_executable(rtl-unittest
                TestRXVRegisterAllocator.cpp
                TestRXVRegisterFile.cpp
                TestRXVRenameFile.cpp
+               TestRXVFetch.cpp
                TestRXVDCache.cpp
                TestRXVICache.cpp)
 target_link_libraries(rtl-unittest
@@ -132,6 +133,16 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVBranchPredictor
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVFetch
          TRACE_FST COVERAGE)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir

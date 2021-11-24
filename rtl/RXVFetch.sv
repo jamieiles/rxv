@@ -1,72 +1,176 @@
-module RXVFetch(
-    input logic clk,
-    input logic reset,
-    output logic [31:0] i_addr,
-    input logic [31:0] i_data,
-    output logic [31:0] instruction,
-`ifdef RXV_RVFI
-    output logic fd_intr,
-`endif
-    output logic [31:0] fd_pc,
-    output logic fd_valid,
-    input logic wf_finish_flush,
-    input logic w_exception,
-    input logic df_flush,
-    input logic f_write_pc,
-    input logic [31:0] f_write_pc_val,
-    input logic w_take_interrupt,
-    input logic d_load_delay
+module RXVFetch #(
+    parameter logic [31:0] reset_address = 32'h80000000
+) (
+    input  logic        clk,
+    input  logic        reset,
+    // To instruction cache
+    output logic [31:2] icache_address,
+    output logic        icache_valid,
+    input  logic        icache_busy,
+    input  logic [31:0] icache_instr,
+    // To branch predictor
+    input  logic        branch_predict_valid,
+    input  logic [31:2] branch_prediction,
+    input  logic        branch_predict_taken,
+    input  logic [ 1:0] branch_predict_strength,
+    // Decode resteer
+    input  logic        decode_resteer,
+    input  logic [31:2] decode_resteer_tgt,
+    // Decode stall
+    input  logic        decode_stall,
+    input  logic [31:2] decode_resume_tgt,
+    // To decode
+    output logic        decode_valid,
+    output logic [31:2] decode_pc,
+    output logic [31:2] decode_next_pc,
+    output logic [31:0] decode_instr,
+    output logic        decode_predicted,
+    output logic        decode_predict_taken,
+    output logic [ 1:0] decode_predict_strength,
+    // Exec branch resolution
+    input  logic        exec_resteer,
+    input  logic [31:2] exec_resteer_tgt
 );
 
-reg [31:0] reset_vector = 32'b0;
-// verilator lint_off BLKANDNBLK
-reg [31:0] pc;
-reg [31:0] next_seq_pc;
-// verilator lint_on BLKANDNBLK
-reg delay_slot;
-reg flushing_pipeline;
+    /*
+     * icache_address is a combinational output from a variety of sources,
+     * when not stalling icache_valid is high, the fetched address is passed to
+     * the next stage and the PC updated.
+     *
+     * On the next cycle we get an instruction back if !icache_busy, otherwise
+     * we need to resteer the fetch address to retry the fetch until !busy.
+     * Once !busy we can take pc+4 and the fetched address and write them to the
+     * decode stage along with valid+instruction data and prediction state.
+     */
 
-wire insert_nop         = flushing_pipeline | delay_slot;
-wire f_flush_pipeline   = df_flush & fd_valid & ~w_exception;
-wire stall              = d_load_delay || f_flush_pipeline || (flushing_pipeline && !wf_finish_flush);
-wire [31:0] next_pc     = f_write_pc ? f_write_pc_val :
-                          stall ? pc :
-                          next_seq_pc;
+    logic [31:2] pc;
+    logic [31:2] next_pc;
+    logic [31:2] fetched_pc;
+    logic [31:2] next_seq_pc;
+    logic        stalling;
+    logic        fetched;
+    logic        decode_valid_next;
+    logic        resteer;
 
-assign i_addr           = next_pc;
-assign instruction = insert_nop || 1'b0 ? 32'h00000013 : i_data;
-
-always_ff @(posedge clk or posedge reset) begin
-    if (reset) begin
-        flushing_pipeline <= 1'b0;
-        delay_slot <= 1'b0;
-        fd_pc <= reset_vector;
-        fd_valid <= 1'b0;
-`ifdef RXV_RVFI
-        fd_intr <= 1'b0;
-`endif
-    end else begin
-        if (wf_finish_flush)
-            flushing_pipeline <= 1'b0;
-        if (f_flush_pipeline)
-            flushing_pipeline <= 1'b1;
-
-        delay_slot <= d_load_delay && !w_exception;
-        fd_pc <= next_pc;
-        fd_valid <= !stall || f_write_pc;
-`ifdef RXV_RVFI
-        fd_intr <= w_take_interrupt;
-`endif
+    always_comb begin
+        stalling = decode_stall | icache_busy;
     end
-end
 
-always_ff @(posedge clk or posedge reset)
-    if (reset) begin
-        pc <= reset_vector - 32'd4;
-        next_seq_pc <= reset_vector;
-    end else begin
-        pc <= next_pc;
-        next_seq_pc <= next_pc + 32'd4;
+    always_comb begin
+        decode_valid_next = fetched & ~stalling & ~resteer;
     end
+
+    always_comb begin
+        resteer = exec_resteer | decode_resteer;
+    end
+
+    always_comb begin
+        next_seq_pc = pc + 1'b1;
+        next_pc     = fetched ? next_seq_pc : pc;
+
+        if (icache_busy) next_pc = fetched_pc;
+        if (branch_predict_valid && branch_predict_taken) next_pc = branch_prediction;
+        if (decode_resteer) next_pc = decode_resteer_tgt;
+        if (exec_resteer) next_pc = exec_resteer_tgt;
+        if (decode_stall) next_pc = decode_resume_tgt;
+    end
+
+    always_comb begin
+        icache_address = next_pc;
+        icache_valid   = ~decode_stall;
+    end
+
+    DFF #(
+        .width    (30),
+        .reset_val(reset_address[31:2])
+    ) pc_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (next_pc),
+        .q    (pc)
+    );
+
+    DFF #(
+        .width(30)
+    ) fetched_pc_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (icache_address),
+        .q    (fetched_pc)
+    );
+
+    DFF decode_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_valid_next),
+        .q    (decode_valid)
+    );
+
+    DFF #(
+        .width(30)
+    ) decode_pc_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (decode_valid_next),
+        .d    (fetched_pc),
+        .q    (decode_pc)
+    );
+
+    DFF #(
+        .width(30)
+    ) decode_next_pc_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (decode_valid_next),
+        .d    (next_seq_pc),
+        .q    (decode_next_pc)
+    );
+
+    DFF #(
+        .width(32)
+    ) decode_instr_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (decode_valid_next),
+        .d    (icache_instr),
+        .q    (decode_instr)
+    );
+
+    DFF decode_predicted_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (decode_valid_next),
+        .d    (branch_predict_valid),
+        .q    (decode_predicted)
+    );
+
+    DFF decode_predict_taken_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (decode_valid_next),
+        .d    (branch_predict_taken),
+        .q    (decode_predict_taken)
+    );
+
+    DFF #(
+        .width(2)
+    ) decode_predict_strength_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (decode_valid_next),
+        .d    (branch_predict_strength),
+        .q    (decode_predict_strength)
+    );
+
+    DFF fetched_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (~stalling & ~resteer),
+        .q    (fetched)
+    );
 
 endmodule

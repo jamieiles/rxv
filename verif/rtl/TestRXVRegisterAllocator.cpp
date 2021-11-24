@@ -54,9 +54,9 @@ TEST_F(RXVRegisterAllocatorTest, AllocOne)
     EXPECT_EQ(0, reg.second);
 }
 
-TEST_F(RXVRegisterAllocatorTest, Alloc32)
+TEST_F(RXVRegisterAllocatorTest, Alloc48)
 {
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < 48; ++i) {
         auto reg = alloc();
 
         EXPECT_FALSE(reg.first);
@@ -68,7 +68,7 @@ TEST_F(RXVRegisterAllocatorTest, Alloc32)
 
 TEST_F(RXVRegisterAllocatorTest, AllocDealloc)
 {
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < 48; ++i) {
         auto reg = alloc();
 
         EXPECT_FALSE(reg.first);
@@ -77,7 +77,7 @@ TEST_F(RXVRegisterAllocatorTest, AllocDealloc)
     cycle();
     EXPECT_TRUE(this->dut.empty);
 
-    for (int i = 31; i >= 0; --i)
+    for (int i = 47; i >= 0; --i)
         dealloc(i);
 
     cycle();
@@ -86,7 +86,7 @@ TEST_F(RXVRegisterAllocatorTest, AllocDealloc)
 
 TEST_F(RXVRegisterAllocatorTest, AllocDeallocReverse)
 {
-    for (int i = 0; i < 32; ++i) {
+    for (int i = 0; i < 48; ++i) {
         auto reg = alloc();
 
         EXPECT_FALSE(reg.first);
@@ -95,7 +95,7 @@ TEST_F(RXVRegisterAllocatorTest, AllocDeallocReverse)
     cycle();
     EXPECT_TRUE(this->dut.empty);
 
-    for (int i = 0; i < 32; ++i)
+    for (int i = 0; i < 48; ++i)
         dealloc(i);
 
     cycle();

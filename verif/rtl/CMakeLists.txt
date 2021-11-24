@@ -59,11 +59,13 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterFile
+         PREFIX VRXVRegisterFile
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
@@ -100,11 +102,13 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterAllocator
+         PREFIX VRXVRegisterAllocator
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest

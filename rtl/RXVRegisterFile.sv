@@ -1,24 +1,27 @@
+import RXVTypes::phys_reg_tag;
+import RXVTypes::num_phys_regs;
+
 module RXVRegisterFile (
-    input  logic        clk,
-    input  logic        reset,
-    input  logic [ 4:0] rd_addr_a,
-    output logic [31:0] rd_data_a,
-    input  logic [ 4:0] rd_addr_b,
-    output logic [31:0] rd_data_b,
-    input  logic        wr_en,
-    input  logic [ 4:0] wr_addr,
-    input  logic [31:0] wr_data
+    input  logic               clk,
+    input  logic               reset,
+    input  phys_reg_tag        rd_addr_a,
+    output logic        [31:0] rd_data_a,
+    input  phys_reg_tag        rd_addr_b,
+    output logic        [31:0] rd_data_b,
+    input  logic               wr_en,
+    input  phys_reg_tag        wr_addr,
+    input  logic        [31:0] wr_data
 );
 
-    logic [31:0] reg_out          [0:31];
-    logic [31:0] reg_wren_encoded;
-    logic [31:0] reg_wren;
+    logic [             31:0] reg_out          [0:num_phys_regs-1];
+    logic [num_phys_regs-1:0] reg_wren_encoded;
+    logic [num_phys_regs-1:0] reg_wren;
 
-    logic [31:0] data_a_next;
-    logic [31:0] data_b_next;
+    logic [             31:0] data_a_next;
+    logic [             31:0] data_b_next;
 
     OneHotEncode #(
-        .width(32)
+        .width(num_phys_regs)
     ) reg_wren_decode (
         .d(wr_addr),
         .q(reg_wren_encoded)
@@ -27,7 +30,7 @@ module RXVRegisterFile (
     generate
         genvar i;
 
-        for (i = 0; i < 32; i = i + 1) begin : gen_reg
+        for (i = 0; i < num_phys_regs; i = i + 1) begin : gen_reg
             DFF #(
                 .width(32)
             ) reg_f (
@@ -41,7 +44,7 @@ module RXVRegisterFile (
     endgenerate
 
     always_comb begin
-        reg_wren = {{31{1'b1}}, 1'b0} & reg_wren_encoded;
+        reg_wren = {{(num_phys_regs - 1) {1'b1}}, 1'b0} & reg_wren_encoded;
     end
 
     always_comb begin

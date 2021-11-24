@@ -1,16 +1,19 @@
+import RXVTypes::num_phys_regs;
+import RXVTypes::phys_reg_tag;
+
 module RXVRegisterAllocator #(
-    parameter  num_regs  = 32,
+    parameter  num_regs  = num_phys_regs,
     localparam addr_bits = $clog2(num_regs)
 ) (
-    input  logic                 clk,
-    input  logic                 reset,
+    input  logic        clk,
+    input  logic        reset,
     // Consumer
-    output logic                 empty,
-    input  logic                 pop,
-    output logic [addr_bits-1:0] pop_reg,
+    output logic        empty,
+    input  logic        pop,
+    output phys_reg_tag pop_reg,
     // Producer
-    input  logic                 push,
-    input  logic [addr_bits-1:0] push_reg
+    input  logic        push,
+    input  phys_reg_tag push_reg
 );
 
     logic [ num_regs-1:0] free_map;

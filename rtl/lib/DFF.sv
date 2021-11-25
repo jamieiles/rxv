@@ -10,7 +10,7 @@ module DFF #(
     output logic [width-1:0] q
 );
 
-    always @(posedge clk or posedge reset) begin
+    always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
             q <= reset_val;
         end else begin

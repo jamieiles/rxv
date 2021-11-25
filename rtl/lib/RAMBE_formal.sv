@@ -16,7 +16,7 @@ initial
         mem[i] = 'b0;
     end
 
-always @(*) assert (mem[f_addr] == f_data);
+always_comb assert (mem[f_addr] == f_data);
 
 initial assume (f_data == mem[f_addr]);
 

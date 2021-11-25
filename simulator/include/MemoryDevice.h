@@ -2,6 +2,7 @@
 
 #include <stdint.h>
 #include <cstddef>
+#include <vector>
 
 using MemFault = std::runtime_error;
 

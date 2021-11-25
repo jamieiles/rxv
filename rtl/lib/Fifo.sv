@@ -8,9 +8,11 @@ module Fifo #(
     // Write port
     input  logic                  wr_en,
     input  logic [data_width-1:0] wr_data,
+    output logic [  ptr_bits-1:0] wr_ptr,
     // Read port
     input  logic                  rd_en,
     output logic [data_width-1:0] rd_data,
+    output logic [  ptr_bits-1:0] rd_ptr,
     output logic                  empty,
     output logic                  full
 );
@@ -19,9 +21,7 @@ module Fifo #(
     localparam ptr_bits = $clog2(depth);
 
     logic [data_width-1:0] mem         [depth-1:0];
-    logic [  ptr_bits-1:0] rd_ptr;
     logic [  ptr_bits-1:0] rd_ptr_next;
-    logic [  ptr_bits-1:0] wr_ptr;
     logic [  ptr_bits-1:0] wr_ptr_next;
     logic                  empty_next;
     logic                  full_next;

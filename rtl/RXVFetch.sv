@@ -9,6 +9,7 @@ module RXVFetch #(
     input  logic        icache_busy,
     input  logic [31:0] icache_instr,
     // To branch predictor
+    output logic [31:2] branch_predict_address,
     input  logic        branch_predict_valid,
     input  logic [31:2] branch_prediction,
     input  logic        branch_predict_taken,
@@ -47,10 +48,19 @@ module RXVFetch #(
     logic [31:2] next_pc;
     logic [31:2] fetched_pc;
     logic [31:2] next_seq_pc;
+    logic [31:2] next_seq_pc_reg;
     logic        stalling;
     logic        fetched;
     logic        decode_valid_next;
     logic        resteer;
+    logic        icache_busy_start;
+
+    PosedgeDetect ICacheBusyStart (
+        .clk  (clk),
+        .reset(reset),
+        .d    (icache_busy),
+        .q    (icache_busy_start)
+    );
 
     always_comb begin
         stalling = decode_stall | icache_busy;
@@ -65,30 +75,48 @@ module RXVFetch #(
     end
 
     always_comb begin
-        next_seq_pc = pc + 1'b1;
-        next_pc     = fetched ? next_seq_pc : pc;
+        branch_predict_address = next_pc;
+    end
 
-        if (icache_busy) next_pc = fetched_pc;
+    always_comb begin
+        next_seq_pc = pc + 1'b1;
+        next_pc     = !stalling && icache_valid ? next_seq_pc : pc;
+
+        if (icache_busy) next_pc = icache_address;
+        if (icache_busy_start) next_pc = fetched_pc;
         if (branch_predict_valid && branch_predict_taken) next_pc = branch_prediction;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
         if (decode_stall) next_pc = decode_resume_tgt;
     end
 
-    always_comb begin
-        icache_address = next_pc;
-        icache_valid   = ~decode_stall;
-    end
-
     RXVDFF #(
         .width    (30),
-        .reset_val(reset_address[31:2])
+        .reset_val(reset_address[31:2] - 1'b1)
     ) pc_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
         .d    (next_pc),
         .q    (pc)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) icache_address_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (next_pc),
+        .q    (icache_address)
+    );
+
+    RXVDFF icache_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (~decode_stall),
+        .q    (icache_valid)
     );
 
     RXVDFF #(
@@ -121,11 +149,21 @@ module RXVFetch #(
 
     RXVDFF #(
         .width(30)
+    ) next_seq_pc_reg_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (next_seq_pc),
+        .q    (next_seq_pc_reg)
+    );
+
+    RXVDFF #(
+        .width(30)
     ) decode_next_pc_dff (
         .clk  (clk),
         .reset(reset),
         .en   (decode_valid_next),
-        .d    (next_seq_pc),
+        .d    (next_seq_pc_reg),
         .q    (decode_next_pc)
     );
 
@@ -169,7 +207,7 @@ module RXVFetch #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (~stalling & ~resteer),
+        .d    (icache_valid & ~icache_busy & ~resteer),
         .q    (fetched)
     );
 

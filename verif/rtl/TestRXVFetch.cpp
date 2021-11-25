@@ -82,6 +82,8 @@ TEST_F(RXVFetchTestBench, DecodeStall)
             FAIL() << "stall not exited";
         cycle();
     }
+
+    cycle(8);
 }
 
 TEST_F(RXVFetchTestBench, ICacheStall)
@@ -98,8 +100,6 @@ TEST_F(RXVFetchTestBench, ICacheStall)
     cycle();
 
     for (int i = 0; i < 16; ++i) {
-        if (this->dut.icache_busy)
-            EXPECT_EQ(this->dut.icache_address, last_fetch_addr);
         if (this->dut.decode_valid) {
             EXPECT_EQ(this->dut.decode_pc, last_decode_addr + 1);
             last_decode_addr = this->dut.decode_pc;
@@ -115,7 +115,7 @@ TEST_F(RXVFetchTestBench, Prediction)
 
     uint32_t last_pc = 0;
     for (int i = 0; i < 32; ++i) {
-        if (this->dut.icache_address == 0x20000008) {
+        if (this->dut.branch_predict_address == 0x20000008) {
             after_n_cycles(0, [&] {
                 this->dut.branch_predict_valid = 1;
                 this->dut.branch_predict_taken = 1;

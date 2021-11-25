@@ -26,6 +26,7 @@ module RXVCore #(
     logic        [31:0] icache_dout;
     logic               icache_invalidate;
 
+    logic        [31:2] fetch_predict_address;
     logic               fetch_predict_valid;
     logic        [31:2] fetch_prediction;
     logic               fetch_predict_taken;
@@ -109,7 +110,7 @@ module RXVCore #(
     ) RXVBranchPredictor (
         .clk                       (clk),
         .reset                     (reset),
-        .fetch_address             (icache_address),
+        .fetch_address             (fetch_predict_address),
         .fetch_prediction_valid    (fetch_predict_valid),
         .fetch_prediction          (fetch_prediction),
         .fetch_predict_taken       (fetch_predict_taken),
@@ -132,6 +133,7 @@ module RXVCore #(
         .icache_valid           (icache_valid),
         .icache_busy            (icache_busy),
         .icache_instr           (icache_dout),
+        .branch_predict_address (fetch_predict_address),
         .branch_predict_valid   (fetch_predict_valid),
         .branch_prediction      (fetch_prediction),
         .branch_predict_taken   (fetch_predict_taken),

@@ -1,0 +1,45 @@
+FROM ubuntu:20.04
+MAINTAINER Jamie Iles <jamie@jamieiles.com>
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG MIRROR=http://download.altera.com/akdlm/software/acdsinst/
+ARG QUARTUS=21.1std/842/ib_installers/QuartusLiteSetup-21.1.0.842-linux.run
+ARG QUARTUS_UPDATE=""
+ARG DEVICE_FILES="21.1std/842/ib_installers/cyclone-21.1.0.842.qdz 21.1std/842/ib_installers/cyclonev-21.1.0.842.qdz 21.1std/842/ib_installers/max10-21.1.0.842.qdz"
+
+RUN dpkg --add-architecture i386
+RUN apt-get update && apt-get install --no-install-recommends -y \
+        ca-certificates \
+        openjdk-8-jdk \
+        libfontconfig1 \
+        libglib2.0-0 \
+        libsm6 \
+        libxrender1 \
+        locales \
+        make \
+        xauth \
+        xvfb \
+        pkg-config \
+        wget \
+        libxft2:i386 \
+        libxext6:i386 \
+        libncurses5:i386 \
+        libc6:i386 \
+        libstdc++6:i386 \
+        unixodbc-dev \
+        lib32ncurses5-dev \
+        libzmq3-dev \
+        libssl-dev \
+        libcrypto++-dev \
+        libcrypto++6
+
+RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && locale-gen
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
+
+RUN cd /tmp && wget -q $MIRROR$QUARTUS && \
+        for DEV_FILE in $DEVICE_FILES; do wget -q $MIRROR$DEV_FILE; done && \
+        chmod +x $(basename $QUARTUS) && \
+        ./$(basename $QUARTUS) --accept_eula 1 --mode unattended --installdir /opt/altera/ && \
+        rm /tmp/* /opt/altera/uninstall -rf

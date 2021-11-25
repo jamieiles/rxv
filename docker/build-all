@@ -3,5 +3,6 @@ set -e
 if [ "$MIRROR" != "" ]; then
     MIRROR_ARG="--build-arg MIRROR=$MIRROR"
 fi
+docker build $MIRROR_ARG -t rxv-build-quartus docker/build-quartus/
 docker build $MIRROR_ARG -t rxv-build docker/build/
 docker build -t rxv-dev -f docker/dev/Dockerfile .

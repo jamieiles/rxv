@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM rxv-build-quartus:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
 ARG VERILATOR_VERSION=4.214

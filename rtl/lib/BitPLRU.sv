@@ -37,7 +37,7 @@ module BitPLRU #(
         // verilator lint_on PINCONNECTEMPTY
     );
 
-    DFF #(
+    RXVDFF #(
         .width(addr_bits)
     ) write_index_ff (
         .clk  (clk),
@@ -47,7 +47,7 @@ module BitPLRU #(
         .q    (write_index)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(width)
     ) new_plru_dff (
         .clk  (clk),
@@ -57,7 +57,7 @@ module BitPLRU #(
         .q    (new_plru_reg)
     );
 
-    DFF update_dff (
+    RXVDFF update_dff (
         .clk  (clk),
         .reset(1'b0),
         .en   (1'b1),

@@ -1,5 +1,5 @@
 `default_nettype none
-module DFF #(
+module RXVDFF #(
     parameter width = 1,
     parameter reset_val = 0
 ) (

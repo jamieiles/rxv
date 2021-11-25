@@ -80,7 +80,7 @@ module RXVFetch #(
         icache_valid   = ~decode_stall;
     end
 
-    DFF #(
+    RXVDFF #(
         .width    (30),
         .reset_val(reset_address[31:2])
     ) pc_dff (
@@ -91,7 +91,7 @@ module RXVFetch #(
         .q    (pc)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) fetched_pc_dff (
         .clk  (clk),
@@ -101,7 +101,7 @@ module RXVFetch #(
         .q    (fetched_pc)
     );
 
-    DFF decode_valid_dff (
+    RXVDFF decode_valid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -109,7 +109,7 @@ module RXVFetch #(
         .q    (decode_valid)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) decode_pc_dff (
         .clk  (clk),
@@ -119,7 +119,7 @@ module RXVFetch #(
         .q    (decode_pc)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) decode_next_pc_dff (
         .clk  (clk),
@@ -129,7 +129,7 @@ module RXVFetch #(
         .q    (decode_next_pc)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(32)
     ) decode_instr_dff (
         .clk  (clk),
@@ -139,7 +139,7 @@ module RXVFetch #(
         .q    (decode_instr)
     );
 
-    DFF decode_predicted_dff (
+    RXVDFF decode_predicted_dff (
         .clk  (clk),
         .reset(reset),
         .en   (decode_valid_next),
@@ -147,7 +147,7 @@ module RXVFetch #(
         .q    (decode_predicted)
     );
 
-    DFF decode_predict_taken_dff (
+    RXVDFF decode_predict_taken_dff (
         .clk  (clk),
         .reset(reset),
         .en   (decode_valid_next),
@@ -155,7 +155,7 @@ module RXVFetch #(
         .q    (decode_predict_taken)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(2)
     ) decode_predict_strength_dff (
         .clk  (clk),
@@ -165,7 +165,7 @@ module RXVFetch #(
         .q    (decode_predict_strength)
     );
 
-    DFF fetched_dff (
+    RXVDFF fetched_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),

@@ -36,7 +36,7 @@ module RXVRegisterAllocator #(
             if (free_map_next[i]) pop_reg_next = addr_bits'(i);
     end
 
-    DFF empty_dff (
+    RXVDFF empty_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -44,7 +44,7 @@ module RXVRegisterAllocator #(
         .q    (empty)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(addr_bits)
     ) pop_reg_dff (
         .clk  (clk),
@@ -54,7 +54,7 @@ module RXVRegisterAllocator #(
         .q    (pop_reg)
     );
 
-    DFF #(
+    RXVDFF #(
         .width    (num_regs),
         .reset_val({num_regs{1'b1}})
     ) free_map_dff (

@@ -114,7 +114,7 @@ module RXVBranchPredictor #(
         update_target = exec_predict_target;
     end
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) last_fetch_address_dff (
         .clk  (clk),

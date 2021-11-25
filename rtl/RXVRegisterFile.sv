@@ -31,7 +31,7 @@ module RXVRegisterFile (
         genvar i;
 
         for (i = 0; i < num_phys_regs; i = i + 1) begin : gen_reg
-            DFF #(
+            RXVDFF #(
                 .width(32)
             ) reg_f (
                 .clk  (clk),
@@ -52,7 +52,7 @@ module RXVRegisterFile (
         data_b_next = wr_en && wr_addr == rd_addr_b && |rd_addr_b ? wr_data : reg_out[rd_addr_b];
     end
 
-    DFF #(
+    RXVDFF #(
         .width(32)
     ) data_a_dff (
         .clk  (clk),
@@ -61,7 +61,7 @@ module RXVRegisterFile (
         .d    (data_a_next),
         .q    (rd_data_a)
     );
-    DFF #(
+    RXVDFF #(
         .width(32)
     ) data_b_dff (
         .clk  (clk),

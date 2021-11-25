@@ -87,7 +87,7 @@ module BusAdapter (
         complete = bus_write_ack | (bus.rlast & bus_read_beat_ack);
     end
 
-    DFF bus_active_dff (
+    RXVDFF bus_active_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -95,7 +95,7 @@ module BusAdapter (
         .q    (bus_active)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(4)
     ) beat_num_dff (
         .clk  (clk),
@@ -105,7 +105,7 @@ module BusAdapter (
         .q    (beat_num)
     );
 
-    DFF arvalid_dff (
+    RXVDFF arvalid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -113,7 +113,7 @@ module BusAdapter (
         .q    (bus.arvalid)
     );
 
-    DFF awvalid_dff (
+    RXVDFF awvalid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -121,7 +121,7 @@ module BusAdapter (
         .q    (bus.awvalid)
     );
 
-    DFF wvalid_dff (
+    RXVDFF wvalid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -129,7 +129,7 @@ module BusAdapter (
         .q    (bus.wvalid)
     );
 
-    DFF wlast_dff (
+    RXVDFF wlast_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -137,7 +137,7 @@ module BusAdapter (
         .q    (bus.wlast)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) addr_dff (
         .clk  (clk),
@@ -147,7 +147,7 @@ module BusAdapter (
         .q    (address_f)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(4)
     ) len_dff (
         .clk  (clk),
@@ -157,7 +157,7 @@ module BusAdapter (
         .q    (len_f)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(4)
     ) wstb_dff (
         .clk  (clk),

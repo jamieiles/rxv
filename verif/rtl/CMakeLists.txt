@@ -53,7 +53,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE BitPLRU
          TRACE_FST COVERAGE)
@@ -63,7 +63,7 @@ verilate(rtl-unittest
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterFile
@@ -78,7 +78,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
@@ -94,7 +94,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
@@ -106,7 +106,7 @@ verilate(rtl-unittest
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterAllocator
@@ -120,7 +120,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVRenameFileWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRenameFileWrapper
@@ -130,7 +130,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVBranchPredictor
@@ -140,7 +140,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVFetch
@@ -159,7 +159,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv

@@ -313,7 +313,7 @@ module RXVDCache #(
         data_ram_addr = {data_way_sel, index, data_offset};
     end
 
-    DFF invalidating_dff (
+    RXVDFF invalidating_dff (
         .clk  (clk),
         .reset(reset),
         .en   (invalidating_update),
@@ -321,7 +321,7 @@ module RXVDCache #(
         .q    (invalidating)
     );
 
-    DFF cleaning_dff (
+    RXVDFF cleaning_dff (
         .clk  (clk),
         .reset(reset),
         .en   (cleaning_update),
@@ -329,7 +329,7 @@ module RXVDCache #(
         .q    (cleaning)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(way_bits)
     ) cmo_way_dff (
         .clk  (clk),
@@ -339,7 +339,7 @@ module RXVDCache #(
         .q    (cmo_way)
     );
 
-    DFF filling_dff (
+    RXVDFF filling_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -347,7 +347,7 @@ module RXVDCache #(
         .q    (filling)
     );
 
-    DFF writing_back_dff (
+    RXVDFF writing_back_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -355,7 +355,7 @@ module RXVDCache #(
         .q    (writing_back)
     );
 
-    DFF uncached_access_dff (
+    RXVDFF uncached_access_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -363,7 +363,7 @@ module RXVDCache #(
         .q    (uncached_access)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(index_bits)
     ) cmo_index_dff (
         .clk  (clk),
@@ -373,7 +373,7 @@ module RXVDCache #(
         .q    (cmo_index)
     );
 
-    DFF fill_complete_dff (
+    RXVDFF fill_complete_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -381,7 +381,7 @@ module RXVDCache #(
         .q    (fill_complete)
     );
 
-    DFF writeback_complete_dff (
+    RXVDFF writeback_complete_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -389,7 +389,7 @@ module RXVDCache #(
         .q    (writeback_complete)
     );
 
-    DFF tag_compare_valid_dff (
+    RXVDFF tag_compare_valid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (~busy),
@@ -397,7 +397,7 @@ module RXVDCache #(
         .q    (tag_compare_valid)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) lookup_address_dff (
         .clk  (clk),
@@ -407,7 +407,7 @@ module RXVDCache #(
         .q    (lookup_address)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(4)
     ) write_bytesel_dff (
         .clk  (clk),
@@ -417,7 +417,7 @@ module RXVDCache #(
         .q    (write_bytesel)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(32)
     ) write_din_dff (
         .clk  (clk),
@@ -427,7 +427,7 @@ module RXVDCache #(
         .q    (write_din)
     );
 
-    DFF write_wren_dff (
+    RXVDFF write_wren_dff (
         .clk  (clk),
         .reset(reset),
         .en   (write_wren_update),
@@ -435,7 +435,7 @@ module RXVDCache #(
         .q    (write_wren)
     );
 
-    DFF bus_active_dff (
+    RXVDFF bus_active_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -443,7 +443,7 @@ module RXVDCache #(
         .q    (bus_active)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(2)
     ) dout_use_uncached_dff (
         .clk  (clk),
@@ -453,7 +453,7 @@ module RXVDCache #(
         .q    (dout_use_uncached)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(32)
     ) dout_uncached_dff (
         .clk  (clk),

@@ -49,7 +49,7 @@ module RXVRenameFile (
     genvar i;
     generate
         for (i = 0; i < num_arch_regs; i = i + 1) begin : gen_reg_map
-            DFF #(
+            RXVDFF #(
                 .width(phys_reg_bits)
             ) commit_map_dff (
                 .clk  (clk),
@@ -59,7 +59,7 @@ module RXVRenameFile (
                 .q    (commit_map[i])
             );
 
-            DFF #(
+            RXVDFF #(
                 .width(phys_reg_bits)
             ) latest_map_dff (
                 .clk  (clk),

@@ -185,7 +185,7 @@ module RXVICache #(
         bus_valid             = need_fill;
     end
 
-    DFF invalidating_dff (
+    RXVDFF invalidating_dff (
         .clk  (clk),
         .reset(reset),
         .en   (invalidating_update),
@@ -193,7 +193,7 @@ module RXVICache #(
         .q    (invalidating)
     );
 
-    DFF filling_dff (
+    RXVDFF filling_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -201,7 +201,7 @@ module RXVICache #(
         .q    (filling)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(index_bits)
     ) invalidate_index_dff (
         .clk  (clk),
@@ -211,7 +211,7 @@ module RXVICache #(
         .q    (invalidate_index)
     );
 
-    DFF fill_complete_dff (
+    RXVDFF fill_complete_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -219,7 +219,7 @@ module RXVICache #(
         .q    (fill_complete)
     );
 
-    DFF tag_compare_valid_dff (
+    RXVDFF tag_compare_valid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -227,7 +227,7 @@ module RXVICache #(
         .q    (tag_compare_valid)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(30)
     ) lookup_address_dff (
         .clk  (clk),

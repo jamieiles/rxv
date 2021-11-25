@@ -52,7 +52,7 @@ module MCP #(
         // verilator lint_on PINCONNECTEMPTY
     );
 
-    DFF a_en_next_reg (
+    RXVDFF a_en_next_reg (
         .clk  (clk_a),
         .reset(reset),
         .en   (1'b1),
@@ -60,7 +60,7 @@ module MCP #(
         .q    (a_en)
     );
 
-    DFF tx_busy_reg (
+    RXVDFF tx_busy_reg (
         .clk  (clk_a),
         .reset(reset),
         .en   (1'b1),
@@ -68,7 +68,7 @@ module MCP #(
         .q    (tx_busy)
     );
 
-    DFF #(
+    RXVDFF #(
         .width(width),
         .reset_val(reset_val)
     ) tx_sample_reg (

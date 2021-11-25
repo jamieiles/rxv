@@ -13,7 +13,7 @@ module SyncPulse (
     assign p = synced ^ last_val;
     assign q = last_val;
 
-    DFF last_val_reg (
+    RXVDFF last_val_reg (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),

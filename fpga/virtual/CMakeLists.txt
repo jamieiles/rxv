@@ -24,16 +24,18 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/PosedgeDetect.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv)
 set(FPGA_SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/SysPLL.v
     ${CMAKE_CURRENT_SOURCE_DIR}/RXVCoreSynthTop.sv)
 
 set(ALL_SOURCES ${CORE_SOURCES} ${FPGA_SOURCES})
 
 add_fpga(PROJECT RXVCoreSynthTop
-         FAMILY "Cyclone IV E"
-         PART "EP4CE22F17C6"
+         FAMILY "Cyclone V"
+         PART "5CEBA4F23C7"
          SOURCES ${ALL_SOURCES})
 
 add_custom_target(virtual-fpga DEPENDS RXVCoreSynthTop.sta.rpt)

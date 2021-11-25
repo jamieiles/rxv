@@ -1,5 +1,5 @@
 module RXVCoreSynthTop (
-    input  logic        clk,
+    input  logic        refclk,
     input  logic        reset,
     // verilator lint_off UNUSED
     output logic [31:0] i_waddr,
@@ -45,6 +45,7 @@ module RXVCoreSynthTop (
 
     MemInterface i_mem_bus ();
     MemInterface d_mem_bus ();
+    logic clk;
 
     assign i_waddr           = i_mem_bus.waddr;
     assign i_raddr           = i_mem_bus.raddr;
@@ -86,7 +87,14 @@ module RXVCoreSynthTop (
     assign d_mem_bus.rlast   = d_rlast;
     assign d_mem_bus.bvalid  = d_bvalid;
 
-    RXVCore RXVCore (
+    SysPLL SysPLL (.refclk(refclk), .reset(reset), .clk(clk), .locked());
+
+    RXVCore #(
+        .icache_nr_ways (2),
+        .icache_nr_lines(16),
+        .dcache_nr_ways (2),
+        .dcache_nr_lines(16)
+    ) RXVCore (
         .clk            (clk),
         .reset          (reset),
         .instruction_bus(i_mem_bus.Manager),

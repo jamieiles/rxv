@@ -29,8 +29,8 @@ set_global_assignment -name CYCLONEII_OPTIMIZATION_TECHNIQUE AREA
 
 set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "3.3-V LVCMOS"
 
-set_location_assignment PIN_R8 -to clk
-set_location_assignment PIN_J15 -to reset
+set_location_assignment PIN_M9 -to refclk
+set_location_assignment PIN_N9 -to reset
 
 set_instance_assignment -to i_* -name VIRTUAL_PIN ON
 set_instance_assignment -to d_* -name VIRTUAL_PIN ON

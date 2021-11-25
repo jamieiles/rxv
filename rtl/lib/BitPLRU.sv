@@ -27,7 +27,7 @@ module BitPLRU #(
         .clk   (clk),
         .addr_a(read_index),
         .wren_a(1'b0),
-        .din_a ('b0),
+        .din_a (width'('b0)),
         .dout_a(read_plru_ram_out),
         .addr_b(write_index),
         .wren_b(update),

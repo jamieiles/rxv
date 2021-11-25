@@ -74,7 +74,7 @@ module RXVBranchPredictor #(
         .clk   (clk),
         .addr_a(addr_index(fetch_address)),
         .wren_a(1'b0),
-        .din_a ('b0),
+        .din_a (btb_width'('b0)),
         .dout_a({btb_lookup_tag, btb_lookup_strength, fetch_prediction, btb_lookup_valid}),
         .addr_b(update_addr),
         .wren_b(update),
@@ -109,7 +109,7 @@ module RXVBranchPredictor #(
             addr_index(decode_kill_address);
         update_strength = exec_predict_update ?
             strength(exec_predict_prev_strength, exec_predict_taken) : 2'b10;
-        update_tag = exec_predict_update ? addr_tag(exec_predict_address) : 'b0;
+        update_tag = exec_predict_update ? addr_tag(exec_predict_address) : tag_bits'('b0);
         update_valid = exec_predict_update;
         update_target = exec_predict_target;
     end

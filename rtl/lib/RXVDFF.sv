@@ -12,7 +12,7 @@ module RXVDFF #(
 
     always_ff @(posedge clk or posedge reset) begin
         if (reset) begin
-            q <= reset_val;
+            q <= width'(reset_val);
         end else begin
             if (en) q <= d;
         end

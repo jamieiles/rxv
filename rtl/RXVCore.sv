@@ -6,6 +6,9 @@ module RXVCore #(
     parameter int          icache_nr_lines        = 16,
     parameter int          icache_nr_ways         = 4,
     parameter int          icache_line_size_bytes = 32,
+    parameter int          dcache_nr_lines        = 16,
+    parameter int          dcache_nr_ways         = 4,
+    parameter int          dcache_line_size_bytes = 32,
     parameter int          btb_num_entries        = 256,
     parameter int          btb_tag_bits           = 10,
     parameter logic [31:0] reset_address          = 32'h80000000
@@ -13,7 +16,8 @@ module RXVCore #(
     input logic                clk,
     input logic                reset,
     // Instruction bus
-          MemInterface.Manager instruction_bus
+          MemInterface.Manager instruction_bus,
+          MemInterface.Manager data_bus
 );
 
     logic        [31:2] icache_address;
@@ -71,6 +75,18 @@ module RXVCore #(
     logic               reg_free;
     phys_reg_tag        reg_alloc_phys;
     phys_reg_tag        reg_free_phys;
+
+    logic        [31:2] dcache_address;
+    logic               dcache_valid;
+    logic               dcache_busy;
+    logic        [31:0] dcache_din;
+    logic               dcache_wren;
+    logic        [ 3:0] dcache_bytesel;
+    logic        [31:0] dcache_dout;
+    logic               dcache_invalidate;
+    logic               dcache_clean;
+    logic        [31:0] dcache_phys_out;
+    logic               dcache_device_memory;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -172,6 +188,27 @@ module RXVCore #(
         .push_reg(reg_free_phys)
     );
 
+    RXVDCache #(
+        .nr_lines       (dcache_nr_lines),
+        .nr_ways        (dcache_nr_ways),
+        .line_size_bytes(dcache_line_size_bytes)
+    ) RXVDCache (
+        .clk          (clk),
+        .reset        (reset),
+        .bus          (data_bus),
+        .address      (dcache_address),
+        .valid        (dcache_valid),
+        .busy         (dcache_busy),
+        .din          (dcache_din),
+        .wren         (dcache_wren),
+        .bytesel      (dcache_bytesel),
+        .clean        (dcache_clean),
+        .phys_out     (dcache_phys_out),
+        .device_memory(dcache_device_memory),
+        .dout         (dcache_dout),
+        .invalidate   (dcache_invalidate)
+    );
+
     always_comb begin
         icache_invalidate          = 'b0;
         decode_resteer             = 'b0;
@@ -200,6 +237,14 @@ module RXVCore #(
         reg_alloc                  = 'b0;
         reg_free                   = 'b0;
         reg_free_phys              = 'b0;
+        dcache_address             = 'b0;
+        dcache_wren                = 'b0;
+        dcache_bytesel             = 'b0;
+        dcache_invalidate          = 'b0;
+        dcache_clean               = 'b0;
+        dcache_device_memory       = 'b0;
+        dcache_valid               = 'b0;
+        dcache_din                 = 'b0;
     end
 
     always_comb begin

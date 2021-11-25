@@ -14,7 +14,8 @@ public:
     {
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
-        this->dut.RXVCoreEmulWrapper->BusTransactor->set_bus(bus);
+        this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
+        this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
     }
 
     std::shared_ptr<MemoryBus> bus;

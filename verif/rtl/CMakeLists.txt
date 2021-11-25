@@ -27,6 +27,7 @@ ys_formal(TOP DPRAM
 add_executable(rtl-unittest
                main.cpp
                TestBusTransactor.cpp
+               TestFifo.cpp
                TestRXVBranchPredictor.cpp
                TestRXVRegisterAllocator.cpp
                TestRXVRegisterFile.cpp
@@ -150,6 +151,17 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE Fifo
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
@@ -164,6 +176,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv

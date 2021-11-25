@@ -21,6 +21,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv

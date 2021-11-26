@@ -1,3 +1,5 @@
+`default_nettype none
+
 import RXVTypes::commit_entry;
 
 module RXVCommitBuffer #(

@@ -1,3 +1,5 @@
+`default_nettype none
+
 module RXVExec(
     input logic clk,
     input logic reset,

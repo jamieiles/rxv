@@ -1,3 +1,5 @@
+`default_nettype none
+
 module RXVFetch #(
     parameter logic [31:0] reset_address = 32'h80000000
 ) (

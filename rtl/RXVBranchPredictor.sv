@@ -1,3 +1,5 @@
+`default_nettype none
+
 module RXVBranchPredictor #(
     parameter int num_entries = 256,
     parameter int tag_bits    = 20

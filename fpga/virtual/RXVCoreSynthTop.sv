@@ -1,3 +1,5 @@
+`default_nettype none
+
 module RXVCoreSynthTop (
     input  logic        refclk,
     input  logic        reset,

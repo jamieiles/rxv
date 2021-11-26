@@ -1,3 +1,5 @@
+`default_nettype none
+
 module Fifo #(
     parameter int data_width = 32,
     parameter int order      = 3

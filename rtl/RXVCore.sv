@@ -1,3 +1,5 @@
+`default_nettype none
+
 import RXVTypes::arch_reg_tag;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;

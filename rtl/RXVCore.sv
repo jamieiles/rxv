@@ -1,6 +1,7 @@
 import RXVTypes::arch_reg_tag;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
+import RXVTypes::commit_entry;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -88,6 +89,22 @@ module RXVCore #(
     logic               dcache_clean;
     logic        [31:0] dcache_phys_out;
     logic               dcache_device_memory;
+
+    logic               commit_full;
+    commit_entry        dispatch_in;
+    logic               dispatch_valid;
+    logic        [ 2:0] dispatch_id;
+    logic        [ 2:0] kill_id;
+    logic               kill_valid;
+    logic        [ 2:0] complete_id;
+    logic               complete_valid;
+    logic        [ 2:0] except_id;
+    logic               except_valid;
+    logic               commit_empty;
+    commit_entry        commit_out;
+    logic               commit_complete_out;
+    logic               commit_killed_out;
+    logic               commit_excepted_out;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -211,6 +228,27 @@ module RXVCore #(
         .invalidate   (dcache_invalidate)
     );
 
+    RXVCommitBuffer RXVCommitBuffer (
+        .clk                (clk),
+        .reset              (reset),
+        .full               (commit_full),
+        .dispatch_in        (dispatch_in),
+        .dispatch_valid     (dispatch_valid),
+        .dispatch_id        (dispatch_id),
+        .kill_id            (kill_id),
+        .kill_valid         (kill_valid),
+        .complete_id        (complete_id),
+        .complete_valid     (complete_valid),
+        .except_id          (except_id),
+        .except_valid       (except_valid),
+        .empty              (commit_empty),
+        .commit_out         (commit_out),
+        .commit_complete_out(commit_complete_out),
+        .commit_killed_out  (commit_killed_out),
+        .commit_excepted_out(commit_excepted_out),
+        .commit_valid       (commit_valid)
+    );
+
     always_comb begin
         icache_invalidate          = 'b0;
         decode_resteer             = 'b0;
@@ -247,6 +285,14 @@ module RXVCore #(
         dcache_device_memory       = 'b0;
         dcache_valid               = 'b0;
         dcache_din                 = 'b0;
+        dispatch_in                = 'b0;
+        dispatch_valid             = 'b0;
+        kill_id                    = 'b0;
+        kill_valid                 = 'b0;
+        complete_id                = 'b0;
+        complete_valid             = 'b0;
+        except_id                  = 'b0;
+        except_valid               = 'b0;
     end
 
     always_comb begin

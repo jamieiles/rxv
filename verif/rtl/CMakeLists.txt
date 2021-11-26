@@ -29,6 +29,7 @@ add_executable(rtl-unittest
                TestBusTransactor.cpp
                TestFifo.cpp
                TestRXVBranchPredictor.cpp
+               TestRXVCommitBuffer.cpp
                TestRXVRegisterAllocator.cpp
                TestRXVRegisterFile.cpp
                TestRXVRenameFile.cpp
@@ -162,11 +163,26 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVCommitBuffer
+         PREFIX VRXVCommitBuffer
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv

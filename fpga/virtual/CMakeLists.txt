@@ -18,6 +18,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScoreboard.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv

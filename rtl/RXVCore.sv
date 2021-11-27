@@ -4,6 +4,7 @@ import RXVTypes::arch_reg_tag;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTypes::commit_entry;
+import RXVTypes::num_phys_regs;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -23,90 +24,98 @@ module RXVCore #(
           MemInterface.Manager data_bus
 );
 
-    logic        [31:2] icache_address;
-    logic               icache_valid;
-    logic               icache_busy;
-    logic        [31:0] icache_dout;
-    logic               icache_invalidate;
+    logic        [             31:2] icache_address;
+    logic                            icache_valid;
+    logic                            icache_busy;
+    logic        [             31:0] icache_dout;
+    logic                            icache_invalidate;
 
-    logic        [31:2] fetch_predict_address;
-    logic               fetch_predict_valid;
-    logic        [31:2] fetch_prediction;
-    logic               fetch_predict_taken;
-    logic        [ 1:0] fetch_predict_strength;
+    logic        [             31:2] fetch_predict_address;
+    logic                            fetch_predict_valid;
+    logic        [             31:2] fetch_prediction;
+    logic                            fetch_predict_taken;
+    logic        [              1:0] fetch_predict_strength;
 
-    logic               decode_resteer;
-    logic        [31:2] decode_resteer_tgt;
-    logic               decode_stall;
-    logic        [31:2] decode_resume_tgt;
-    logic               decode_valid;
-    logic        [31:2] decode_pc;
-    logic        [31:2] decode_next_pc;
-    logic        [31:0] decode_instr;
-    logic               decode_predicted;
-    logic               decode_predict_taken;
-    logic        [ 1:0] decode_predict_strength;
-    logic               decode_predict_kill;
-    logic        [31:2] decode_kill_address;
+    logic                            decode_resteer;
+    logic        [             31:2] decode_resteer_tgt;
+    logic                            decode_stall;
+    logic        [             31:2] decode_resume_tgt;
+    logic                            decode_valid;
+    logic        [             31:2] decode_pc;
+    logic        [             31:2] decode_next_pc;
+    logic        [             31:0] decode_instr;
+    logic                            decode_predicted;
+    logic                            decode_predict_taken;
+    logic        [              1:0] decode_predict_strength;
+    logic                            decode_predict_kill;
+    logic        [             31:2] decode_kill_address;
 
-    logic               exec_resteer;
-    logic        [31:2] exec_resteer_tgt;
-    logic               exec_predict_update;
-    logic        [ 1:0] exec_predict_prev_strength;
-    logic               exec_predict_taken;
-    logic        [31:2] exec_predict_address;
-    logic        [31:2] exec_predict_target;
+    logic                            exec_resteer;
+    logic        [             31:2] exec_resteer_tgt;
+    logic                            exec_predict_update;
+    logic        [              1:0] exec_predict_prev_strength;
+    logic                            exec_predict_taken;
+    logic        [             31:2] exec_predict_address;
+    logic        [             31:2] exec_predict_target;
 
-    phys_reg_tag        rd_addr_a;
-    phys_reg_tag        rd_addr_b;
-    logic        [31:0] rd_data_a;
-    logic        [31:0] rd_data_b;
-    logic               reg_wr_en;
-    phys_reg_tag        reg_wr_addr;
-    logic        [31:0] reg_wr_data;
+    phys_reg_tag                     rd_addr_a;
+    phys_reg_tag                     rd_addr_b;
+    logic        [             31:0] rd_data_a;
+    logic        [             31:0] rd_data_b;
+    logic                            reg_wr_en;
+    phys_reg_tag                     reg_wr_addr;
+    logic        [             31:0] reg_wr_data;
 
-    renamed_reg         rename_in;
-    logic               rename_valid;
-    phys_reg_tag        stale_phys_reg;
-    renamed_reg         commit_in;
-    logic               commit_valid;
-    logic               rename_rollback;
-    arch_reg_tag        lookup_tag_in              [1:0];
-    phys_reg_tag        lookup_tag_out             [1:0];
+    renamed_reg                      rename_in;
+    logic                            rename_valid;
+    phys_reg_tag                     stale_phys_reg;
+    renamed_reg                      commit_in;
+    logic                            commit_valid;
+    logic                            rename_rollback;
+    arch_reg_tag                     lookup_tag_in              [1:0];
+    phys_reg_tag                     lookup_tag_out             [1:0];
 
-    logic               reg_alloc_empty;
-    logic               reg_alloc;
-    logic               reg_free;
-    phys_reg_tag        reg_alloc_phys;
-    phys_reg_tag        reg_free_phys;
+    logic                            reg_alloc_empty;
+    logic                            reg_alloc;
+    logic                            reg_free;
+    phys_reg_tag                     reg_alloc_phys;
+    phys_reg_tag                     reg_free_phys;
 
-    logic        [31:2] dcache_address;
-    logic               dcache_valid;
-    logic               dcache_busy;
-    logic        [31:0] dcache_din;
-    logic               dcache_wren;
-    logic        [ 3:0] dcache_bytesel;
-    logic        [31:0] dcache_dout;
-    logic               dcache_invalidate;
-    logic               dcache_clean;
-    logic        [31:0] dcache_phys_out;
-    logic               dcache_device_memory;
+    logic        [             31:2] dcache_address;
+    logic                            dcache_valid;
+    logic                            dcache_busy;
+    logic        [             31:0] dcache_din;
+    logic                            dcache_wren;
+    logic        [              3:0] dcache_bytesel;
+    logic        [             31:0] dcache_dout;
+    logic                            dcache_invalidate;
+    logic                            dcache_clean;
+    logic        [             31:0] dcache_phys_out;
+    logic                            dcache_device_memory;
 
-    logic               commit_full;
-    commit_entry        dispatch_in;
-    logic               dispatch_valid;
-    logic        [ 2:0] dispatch_id;
-    logic        [ 2:0] kill_id;
-    logic               kill_valid;
-    logic        [ 2:0] complete_id;
-    logic               complete_valid;
-    logic        [ 2:0] except_id;
-    logic               except_valid;
-    logic               commit_empty;
-    commit_entry        commit_out;
-    logic               commit_complete_out;
-    logic               commit_killed_out;
-    logic               commit_excepted_out;
+    logic                            commit_full;
+    commit_entry                     dispatch_in;
+    logic                            dispatch_valid;
+    logic        [              2:0] dispatch_id;
+    logic        [              2:0] kill_id;
+    logic                            kill_valid;
+    logic        [              2:0] complete_id;
+    logic                            complete_valid;
+    logic        [              2:0] except_id;
+    logic                            except_valid;
+    logic                            commit_empty;
+    commit_entry                     commit_out;
+    logic                            commit_complete_out;
+    logic                            commit_killed_out;
+    logic                            commit_excepted_out;
+
+    phys_reg_tag                     busy_reg_in;
+    logic                            busy_valid_in;
+    phys_reg_tag                     kill_reg_in;
+    logic                            kill_valid_in;
+    phys_reg_tag                     writeback_reg_in;
+    logic                            writeback_valid_in;
+    logic        [num_phys_regs-1:0] scoreboard_busy;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -251,6 +260,18 @@ module RXVCore #(
         .commit_valid       (commit_valid)
     );
 
+    RXVScoreboard RXVScoreboard (
+        .clk               (clk),
+        .reset             (reset),
+        .busy_reg_in       (busy_reg_in),
+        .busy_valid_in     (busy_valid_in),
+        .kill_reg_in       (kill_reg_in),
+        .kill_valid_in     (kill_valid_in),
+        .writeback_reg_in  (writeback_reg_in),
+        .writeback_valid_in(writeback_valid_in),
+        .busy_out          (scoreboard_busy)
+    );
+
     always_comb begin
         icache_invalidate          = 'b0;
         decode_resteer             = 'b0;
@@ -295,6 +316,12 @@ module RXVCore #(
         complete_valid             = 'b0;
         except_id                  = 'b0;
         except_valid               = 'b0;
+        busy_reg_in                = 'b0;
+        busy_valid_in              = 'b0;
+        kill_reg_in                = 'b0;
+        kill_valid_in              = 'b0;
+        writeback_reg_in           = 'b0;
+        writeback_valid_in         = 'b0;
     end
 
     always_comb begin

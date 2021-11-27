@@ -156,6 +156,29 @@ TEST_F(RXVCommitBufferTest, Kill)
     cycle();
 }
 
+TEST_F(RXVCommitBufferTest, KillWithoutExcept)
+{
+    for (int i = 0; i < 7; ++i) {
+        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        EXPECT_EQ(id, i);
+    }
+
+    kill(4);
+
+    for (int i = 0; i < 7; ++i) {
+        auto ce = commit();
+
+        EXPECT_FALSE(ce.excepted);
+
+        if (i == 4)
+            EXPECT_TRUE(ce.killed);
+        else
+            EXPECT_FALSE(ce.killed);
+    }
+
+    cycle();
+}
+
 TEST_F(RXVCommitBufferTest, EmptyDrainsException)
 {
     for (int i = 0; i < 7; ++i) {

@@ -69,7 +69,6 @@ module RXVCore #(
     renamed_reg                      rename_in;
     logic                            rename_valid;
     phys_reg_tag                     stale_phys_reg;
-    renamed_reg                      commit_in;
     logic                            commit_valid;
     logic                            rename_rollback;
     arch_reg_tag                     lookup_tag_in              [1:0];
@@ -108,13 +107,12 @@ module RXVCore #(
     logic                            commit_complete_out;
     logic                            commit_killed_out;
     logic                            commit_excepted_out;
+    renamed_reg commit_rename_out;
 
     phys_reg_tag                     busy_reg_in;
     logic                            busy_valid_in;
     phys_reg_tag                     kill_reg_in;
     logic                            kill_valid_in;
-    phys_reg_tag                     writeback_reg_in;
-    logic                            writeback_valid_in;
     logic        [num_phys_regs-1:0] scoreboard_busy;
 
     RXVICache #(
@@ -201,7 +199,7 @@ module RXVCore #(
         .stale_phys_reg(stale_phys_reg),
         .lookup_tag_in (lookup_tag_in),
         .lookup_tag_out(lookup_tag_out),
-        .commit_in     (commit_in),
+        .commit_in     (commit_rename_out),
         .commit_valid  (commit_valid),
         .rollback      (rename_rollback)
     );
@@ -267,9 +265,24 @@ module RXVCore #(
         .busy_valid_in     (busy_valid_in),
         .kill_reg_in       (kill_reg_in),
         .kill_valid_in     (kill_valid_in),
-        .writeback_reg_in  (writeback_reg_in),
-        .writeback_valid_in(writeback_valid_in),
+        .writeback_reg_in  (reg_wr_addr),
+        .writeback_valid_in(reg_wr_en),
         .busy_out          (scoreboard_busy)
+    );
+
+    RXVCommitter RXVCommitter (
+        .clk                   (clk),
+        .commit_empty          (commit_empty),
+        .commit_in             (commit_out),
+        .commit_complete       (commit_complete_out),
+        .commit_killed         (commit_killed_out),
+        .commit_excepted       (commit_excepted_out),
+        .commit_valid          (commit_valid),
+        .commit_rename_out     (commit_rename_out),
+        .commit_rename_valid   (commit_valid),
+        .commit_rename_rollback(rename_rollback),
+        .commit_reg_push       (reg_free),
+        .commit_reg_reg        (reg_free_phys)
     );
 
     always_comb begin
@@ -292,14 +305,9 @@ module RXVCore #(
         reg_wr_en                  = 'b0;
         rename_in                  = 'b0;
         rename_valid               = 'b0;
-        commit_in                  = 'b0;
-        commit_valid               = 'b0;
-        rename_rollback            = 'b0;
         lookup_tag_in[0]           = 'b0;
         lookup_tag_in[1]           = 'b0;
         reg_alloc                  = 'b0;
-        reg_free                   = 'b0;
-        reg_free_phys              = 'b0;
         dcache_address             = 'b0;
         dcache_wren                = 'b0;
         dcache_bytesel             = 'b0;
@@ -320,8 +328,6 @@ module RXVCore #(
         busy_valid_in              = 'b0;
         kill_reg_in                = 'b0;
         kill_valid_in              = 'b0;
-        writeback_reg_in           = 'b0;
-        writeback_valid_in         = 'b0;
     end
 
     always_comb begin

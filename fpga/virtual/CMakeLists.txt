@@ -13,6 +13,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitter.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv

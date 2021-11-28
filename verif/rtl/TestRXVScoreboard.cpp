@@ -78,3 +78,10 @@ TEST_F(RXVScoreboardTest, WritebackClears)
     writeback(4);
     EXPECT_EQ(this->dut.busy_out, 0);
 }
+
+TEST_F(RXVScoreboardTest, X0NeverBusy)
+{
+    EXPECT_EQ(this->dut.busy_out, 0);
+    mark_busy(0);
+    EXPECT_EQ(this->dut.busy_out, 0);
+}

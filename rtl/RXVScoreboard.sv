@@ -22,7 +22,7 @@ module RXVScoreboard (
     always_comb begin
         busy_next = busy_out;
 
-        if (busy_valid_in) busy_next[busy_reg_in] = 1'b1;
+        if (busy_valid_in && |busy_reg_in) busy_next[busy_reg_in] = 1'b1;
         if (kill_valid_in) busy_next[kill_reg_in] = 1'b0;
         if (writeback_valid_in) busy_next[writeback_reg_in] = 1'b0;
     end

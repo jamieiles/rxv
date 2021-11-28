@@ -60,10 +60,10 @@ TEST_F(RXVRenameFileTest, ResetAllRegsMappedZero)
 
 TEST_F(RXVRenameFileTest, RenameAll)
 {
-    for (auto i = 0; i < 32; ++i)
+    for (auto i = 1; i < 32; ++i)
         EXPECT_EQ(rename(i, i + 1), 0);
 
-    for (auto i = 0; i < 16; ++i) {
+    for (auto i = 1; i < 16; ++i) {
         this->dut.lookup_tag_in[0] = i * 2;
         this->dut.lookup_tag_in[1] = i * 2 + 1;
         this->dut.eval();
@@ -74,12 +74,12 @@ TEST_F(RXVRenameFileTest, RenameAll)
 
 TEST_F(RXVRenameFileTest, Rollback)
 {
-    for (auto i = 0; i < 32; ++i)
+    for (auto i = 1; i < 32; ++i)
         EXPECT_EQ(rename(i, i + 1), 0);
 
     rollback();
 
-    for (auto i = 0; i < 16; ++i) {
+    for (auto i = 1; i < 16; ++i) {
         this->dut.lookup_tag_in[0] = i * 2;
         this->dut.lookup_tag_in[1] = i * 2 + 1;
         this->dut.eval();
@@ -90,18 +90,18 @@ TEST_F(RXVRenameFileTest, Rollback)
 
 TEST_F(RXVRenameFileTest, CommitRollback)
 {
-    for (auto i = 0; i < 32; ++i)
+    for (auto i = 1; i < 32; ++i)
         EXPECT_EQ(rename(i, i + 1), 0);
 
-    for (auto i = 0; i < 32; ++i)
+    for (auto i = 1; i < 32; ++i)
         commit(i, i + 1);
 
-    for (auto i = 0; i < 32; ++i)
+    for (auto i = 1; i < 32; ++i)
         EXPECT_EQ(rename(i, i + 3), i + 1);
 
     rollback();
 
-    for (auto i = 0; i < 16; ++i) {
+    for (auto i = 1; i < 16; ++i) {
         this->dut.lookup_tag_in[0] = i * 2;
         this->dut.lookup_tag_in[1] = i * 2 + 1;
         this->dut.eval();

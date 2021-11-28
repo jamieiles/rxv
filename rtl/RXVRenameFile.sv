@@ -73,7 +73,6 @@ module RXVRenameFile (
         end
     endgenerate
 
-
     always_comb begin
         commit_masked = commit_encoded & {num_arch_regs{commit_valid}};
     end
@@ -99,5 +98,11 @@ module RXVRenameFile (
     always_comb begin
         stale_phys_reg = latest_map[rename_in.arch];
     end
+
+`ifdef verilator
+    always_ff @(posedge clk) begin
+        if (rename_valid) assert (rename_in.arch != 0);
+    end
+`endif
 
 endmodule

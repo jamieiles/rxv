@@ -335,4 +335,8 @@ module RXVCore #(
         rd_addr_b = lookup_tag_out[1];
     end
 
+`ifdef verilator
+    `include "RXVTrace_cpp.svh"
+`endif  // verilator
+
 endmodule

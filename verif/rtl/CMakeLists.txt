@@ -4,7 +4,9 @@ include(Yosys)
 include_directories(../../vendor/googletest/googletest/include)
 include_directories(../../vendor/googletest/googlemock/include)
 include_directories(../../simulator)
+include_directories(../../simulator/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../simulator)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../tools)
 
 ys_formal(TOP RAMBE
           DEPTH 5
@@ -189,10 +191,11 @@ verilate(rtl-unittest
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
@@ -216,6 +219,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVCoreEmulWrapper
          TRACE_FST COVERAGE)

@@ -14,7 +14,7 @@ smtbmc boolector
 
 [script]
 @ys_formal_DEFINE_LINES@
-read -formal @ys_formal_SOURCE_LIST@
+read_verilog -sv -formal @ys_formal_SOURCE_LIST@
 prep -top @ys_formal_TOP@
 memory
 async2sync

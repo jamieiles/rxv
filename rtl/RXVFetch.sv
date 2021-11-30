@@ -94,7 +94,7 @@ module RXVFetch #(
 
     RXVDFF #(
         .width    (30),
-        .reset_val(reset_address[31:2] - 1'b1)
+        .reset_val(reset_address[31:2])
     ) pc_dff (
         .clk  (clk),
         .reset(reset),

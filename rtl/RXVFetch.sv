@@ -36,7 +36,7 @@ module RXVFetch #(
 );
 
     /*
-     * icache_address is a combinational output from a variety of sources,
+     * icache_address is a registered output from a variety of sources,
      * when not stalling icache_valid is high, the fetched address is passed to
      * the next stage and the PC updated.
      *
@@ -44,6 +44,9 @@ module RXVFetch #(
      * we need to resteer the fetch address to retry the fetch until !busy.
      * Once !busy we can take pc+4 and the fetched address and write them to the
      * decode stage along with valid+instruction data and prediction state.
+     *
+     * Splitting the PC generation and cache lookup into separate stages adds
+     * an additional cycle on branch mispredict but increases Fmax by ~40%.
      */
 
     logic [31:2] pc;
@@ -56,6 +59,7 @@ module RXVFetch #(
     logic        decode_valid_next;
     logic        resteer;
     logic        icache_busy_start;
+    logic        fetch_flush;
 
     PosedgeDetect ICacheBusyStart (
         .clk  (clk),
@@ -63,6 +67,10 @@ module RXVFetch #(
         .d    (icache_busy),
         .q    (icache_busy_start)
     );
+
+    always_comb begin
+        fetch_flush = icache_valid & ~icache_busy & ~resteer & ~decode_stall;
+    end
 
     always_comb begin
         stalling = decode_stall | icache_busy;
@@ -209,7 +217,7 @@ module RXVFetch #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (icache_valid & ~icache_busy & ~resteer),
+        .d    (fetch_flush),
         .q    (fetched)
     );
 

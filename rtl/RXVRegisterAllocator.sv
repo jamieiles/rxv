@@ -4,7 +4,7 @@ import RXVTypes::num_phys_regs;
 import RXVTypes::phys_reg_tag;
 
 module RXVRegisterAllocator #(
-    parameter  num_regs  = num_phys_regs
+    parameter num_regs = num_phys_regs
 ) (
     input  logic        clk,
     input  logic        reset,
@@ -59,7 +59,8 @@ module RXVRegisterAllocator #(
 
     RXVDFF #(
         .width    (num_regs),
-        .reset_val({num_regs{1'b1}})
+        // Register 0 is never allocated as it is the zero register
+        .reset_val({{num_regs - 1{1'b1}}, 1'b0})
     ) free_map_dff (
         .clk  (clk),
         .reset(reset),
@@ -74,8 +75,14 @@ module RXVRegisterAllocator #(
      * already allocated.
      */
     always_ff @(posedge clk) begin
-        if (push) assert (!free_map[push_reg]);
-        if (pop) assert (free_map[pop_reg]);
+        if (push) begin
+            assert (!free_map[push_reg]);
+            assert (|push_reg);
+        end
+        if (pop) begin
+            assert (free_map[pop_reg]);
+            assert (|pop_reg);
+        end
     end
 `endif  // verilator
 

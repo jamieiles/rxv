@@ -26,10 +26,19 @@ ys_formal(TOP DPRAM
           DEFINES "FORMAL_DPRAM"
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv)
 
+ys_formal(TOP RXVIntExec
+          DEPTH 2
+          SKIP 0
+          DEFINES "FORMAL_RXVINTEXEC"
+          SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv)
+
 add_executable(rtl-unittest
                main.cpp
                TestBusTransactor.cpp
                TestFifo.cpp
+               TestRXVALU.cpp
                TestRXVBranchPredictor.cpp
                TestRXVCommitBuffer.cpp
                TestRXVRegisterAllocator.cpp
@@ -191,12 +200,25 @@ verilate(rtl-unittest
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVALU
+         PREFIX VRXVALU
+         TRACE_FST COVERAGE)
+
+verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDecode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv

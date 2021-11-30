@@ -20,6 +20,50 @@ package RXVTypes;
         logic have_writeback;
     } commit_entry;
 
+    typedef enum logic [3:0] {
+        ALU_ADD,
+        ALU_SUB,
+        ALU_SLL,
+        ALU_SLR,
+        ALU_SRA,
+        ALU_XOR,
+        ALU_OR,
+        ALU_AND,
+        ALU_SLT,
+        ALU_SLTU
+    } rxv_alu_op  /* verilator public */;
+
+    typedef enum logic [4:0] {
+        OPC_LOAD     = 5'b00000,
+        OPC_LOAD_FP  = 5'b00001,
+        OPC_CUSTOM_0 = 5'b00010,
+        OPC_MISC_MEM = 5'b00011,
+        OPC_IMM      = 5'b00100,
+        OPC_AUIPC    = 5'b00101,
+        OPC_IMM32    = 5'b00111,
+
+        OPC_STORE    = 5'b01000,
+        OPC_STORE_FP = 5'b01001,
+        OPC_CUSTOM_1 = 5'b01010,
+        OPC_AMO      = 5'b01011,
+        OPC_OP       = 5'b01100,
+        OPC_LUI      = 5'b01101,
+        OPC_OP32     = 5'b01110,
+
+        OPC_MADD     = 5'b10000,
+        OPC_MSUB     = 5'b10001,
+        OPC_NMSUB    = 5'b10010,
+        OPC_NMADD    = 5'b10011,
+        OPC_FP       = 5'b10100,
+        OPC_CUSTOM_2 = 5'b10110,
+
+        OPC_BRANCH   = 5'b11000,
+        OPC_JALR     = 5'b11001,
+        OPC_JAL      = 5'b11011,
+        OPC_SYSTEM   = 5'b11100,
+        OPC_CUSTOM_3 = 5'b11110
+    } rxv_opcode_map;
+
 `ifdef verilator
     function commit_entry make_commit_entry;
         // verilator public

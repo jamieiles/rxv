@@ -27,7 +27,8 @@ module RXVCommitBuffer #(
     output logic                         commit_complete_out,
     output logic                         commit_killed_out,
     output logic                         commit_excepted_out,
-    input  logic                         commit_valid
+    input  logic                         commit_valid,
+    output logic        [addr_width-1:0] commit_id
 );
 
     localparam int num_entries = (1 << order);
@@ -45,14 +46,13 @@ module RXVCommitBuffer #(
         .wr_ptr (dispatch_id),
         .rd_en  (commit_valid),
         .rd_data(commit_out),
-        .rd_ptr (rd_ptr),
+        .rd_ptr (commit_id),
         .empty  (empty),
         .full   (full)
     );
 
     logic [num_entries-1:0] completed;
     logic [num_entries-1:0] completed_next;
-    logic [ addr_width-1:0] rd_ptr;
 
     logic [ addr_width-1:0] excepted_id;
     logic                   excepted;
@@ -65,20 +65,20 @@ module RXVCommitBuffer #(
 
     always_comb begin
         killed_next = killed;
-        if (excepted && rd_ptr == excepted_id) killed_next = 1'b1;
-        if (killed_id_valid && rd_ptr == killed_id) killed_next = 1'b1;
-        if ((commit_valid && rd_ptr == killed_id && killed) || empty) killed_next = 1'b0;
+        if (excepted && commit_id == excepted_id) killed_next = 1'b1;
+        if (killed_id_valid && commit_id == killed_id) killed_next = 1'b1;
+        if ((commit_valid && commit_id == killed_id && killed) || empty) killed_next = 1'b0;
     end
 
     always_comb begin
         killed_id_valid_next = killed_id_valid;
-        if (rd_ptr == killed_id) killed_id_valid_next = 1'b0;
+        if (commit_id == killed_id) killed_id_valid_next = 1'b0;
         if (kill_valid) killed_id_valid_next = 1'b1;
     end
 
     always_comb begin
         excepted_next = excepted;
-        if ((commit_valid && rd_ptr == killed_id && killed) || empty) excepted_next = 1'b0;
+        if ((commit_valid && commit_id == killed_id && killed) || empty) excepted_next = 1'b0;
         if (except_valid) excepted_next = 1'b1;
     end
 
@@ -88,14 +88,14 @@ module RXVCommitBuffer #(
             completed_next[i] = completed[i];
             if (dispatch_id == addr_width'(i) && dispatch_valid) completed_next[i] = 1'b0;
             if (complete_id == addr_width'(i) && complete_valid) completed_next[i] = 1'b1;
-            if (rd_ptr == addr_width'(i) && commit_valid) completed_next[i] = 1'b0;
+            if (commit_id == addr_width'(i) && commit_valid) completed_next[i] = 1'b0;
         end
     end
 
     always_comb begin
-        commit_complete_out = completed[rd_ptr];
-        commit_killed_out   = killed || (killed_id_valid && killed_id == rd_ptr);
-        commit_excepted_out = excepted && excepted_id == rd_ptr;
+        commit_complete_out = completed[commit_id];
+        commit_killed_out   = killed || (killed_id_valid && killed_id == commit_id);
+        commit_excepted_out = excepted && excepted_id == commit_id;
     end
 
 `ifdef verilator

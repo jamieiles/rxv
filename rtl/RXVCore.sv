@@ -5,6 +5,7 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTypes::commit_entry;
 import RXVTypes::num_phys_regs;
+import RXVTrace::trace_write_reg;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -58,6 +59,12 @@ module RXVCore #(
     logic        [             31:2] exec_predict_address;
     logic        [             31:2] exec_predict_target;
 
+    rxv_alu_op                       exec_alu_op;
+    logic                            exec_valid;
+    logic                            exec_have_writeback;
+    phys_reg_tag                     exec_rd;
+    logic        [              2:0] exec_id;
+
     phys_reg_tag                     rd_addr_a;
     phys_reg_tag                     rd_addr_b;
     logic        [             31:0] rd_data_a;
@@ -107,7 +114,9 @@ module RXVCore #(
     logic                            commit_complete_out;
     logic                            commit_killed_out;
     logic                            commit_excepted_out;
-    renamed_reg commit_rename_out;
+    renamed_reg                      commit_rename_out;
+    logic                            commit_rename_valid;
+    logic        [              2:0] commit_id;
 
     phys_reg_tag                     busy_reg_in;
     logic                            busy_valid_in;
@@ -179,6 +188,59 @@ module RXVCore #(
         .exec_resteer_tgt       (exec_resteer_tgt)
     );
 
+    RXVDecode RXVDecode (
+        .clk                    (clk),
+        .reset                  (reset),
+        .decode_valid           (decode_valid),
+        .decode_pc              (decode_pc),
+        .decode_next_pc         (decode_next_pc),
+        .decode_instr           (decode_instr),
+        .decode_predicted       (decode_predicted),
+        .decode_predict_taken   (decode_predict_taken),
+        .decode_predict_strength(decode_predict_strength),
+        .decode_stall           (decode_stall),
+        .decode_resume_tgt      (decode_resume_tgt),
+        .reg_alloc_empty        (reg_alloc_empty),
+        .reg_alloc_valid        (reg_alloc),
+        .allocated_reg          (reg_alloc_phys),
+        .commit_buffer_full     (commit_full),
+        .commit_dispatch        (dispatch_in),
+        .commit_dispatch_valid  (dispatch_valid),
+        .dispatch_id            (dispatch_id),
+        .busy_reg_out           (busy_reg_in),
+        .busy_valid_out         (busy_valid_in),
+        .busy_status            (scoreboard_busy),
+        .rename_out             (rename_in),
+        .rename_out_valid       (rename_valid),
+        .stale_phys_reg         (stale_phys_reg),
+        .rename_lookup_arch     (lookup_tag_in),
+        .rename_lookup_phys     (lookup_tag_out),
+        .ra_phys                (rd_addr_a),
+        .rb_phys                (rd_addr_b),
+        .exec_alu_op            (exec_alu_op),
+        .exec_valid             (exec_valid),
+        .exec_have_writeback    (exec_have_writeback),
+        .exec_rd                (exec_rd),
+        .exec_id                (exec_id)
+    );
+
+    RXVIntExec RXVIntExec (
+        .clk                (clk),
+        .reset              (reset),
+        .exec_valid         (exec_valid),
+        .exec_alu_op        (exec_alu_op),
+        .exec_have_writeback(exec_have_writeback),
+        .exec_rd            (exec_rd),
+        .exec_id            (exec_id),
+        .op1                (rd_data_a),
+        .op2                (rd_data_b),
+        .exec_reg_addr      (reg_wr_addr),
+        .exec_reg_wr_en     (reg_wr_en),
+        .exec_reg_wr_data   (reg_wr_data),
+        .exec_complete      (complete_valid),
+        .exec_complete_id   (complete_id)
+    );
+
     RXVRegisterFile RXVRegisterFile (
         .clk      (clk),
         .reset    (reset),
@@ -200,7 +262,7 @@ module RXVCore #(
         .lookup_tag_in (lookup_tag_in),
         .lookup_tag_out(lookup_tag_out),
         .commit_in     (commit_rename_out),
-        .commit_valid  (commit_valid),
+        .commit_valid  (commit_rename_valid),
         .rollback      (rename_rollback)
     );
 
@@ -255,7 +317,8 @@ module RXVCore #(
         .commit_complete_out(commit_complete_out),
         .commit_killed_out  (commit_killed_out),
         .commit_excepted_out(commit_excepted_out),
-        .commit_valid       (commit_valid)
+        .commit_valid       (commit_valid),
+        .commit_id          (commit_id)
     );
 
     RXVScoreboard RXVScoreboard (
@@ -278,8 +341,9 @@ module RXVCore #(
         .commit_killed         (commit_killed_out),
         .commit_excepted       (commit_excepted_out),
         .commit_valid          (commit_valid),
+        .commit_id             (commit_id),
         .commit_rename_out     (commit_rename_out),
-        .commit_rename_valid   (commit_valid),
+        .commit_rename_valid   (commit_rename_valid),
         .commit_rename_rollback(rename_rollback),
         .commit_reg_push       (reg_free),
         .commit_reg_reg        (reg_free_phys)
@@ -289,8 +353,6 @@ module RXVCore #(
         icache_invalidate          = 'b0;
         decode_resteer             = 'b0;
         decode_resteer_tgt         = 'b0;
-        decode_stall               = 'b0;
-        decode_resume_tgt          = 'b0;
         decode_predict_kill        = 'b0;
         decode_kill_address        = 'b0;
         exec_resteer               = 'b0;
@@ -300,14 +362,6 @@ module RXVCore #(
         exec_predict_taken         = 'b0;
         exec_predict_address       = 'b0;
         exec_predict_target        = 'b0;
-        reg_wr_addr                = 'b0;
-        reg_wr_data                = 'b0;
-        reg_wr_en                  = 'b0;
-        rename_in                  = 'b0;
-        rename_valid               = 'b0;
-        lookup_tag_in[0]           = 'b0;
-        lookup_tag_in[1]           = 'b0;
-        reg_alloc                  = 'b0;
         dcache_address             = 'b0;
         dcache_wren                = 'b0;
         dcache_bytesel             = 'b0;
@@ -316,27 +370,25 @@ module RXVCore #(
         dcache_device_memory       = 'b0;
         dcache_valid               = 'b0;
         dcache_din                 = 'b0;
-        dispatch_in                = 'b0;
-        dispatch_valid             = 'b0;
         kill_id                    = 'b0;
         kill_valid                 = 'b0;
-        complete_id                = 'b0;
-        complete_valid             = 'b0;
         except_id                  = 'b0;
         except_valid               = 'b0;
-        busy_reg_in                = 'b0;
-        busy_valid_in              = 'b0;
         kill_reg_in                = 'b0;
         kill_valid_in              = 'b0;
     end
 
-    always_comb begin
-        rd_addr_a = lookup_tag_out[0];
-        rd_addr_b = lookup_tag_out[1];
-    end
-
 `ifdef verilator
     `include "RXVTrace_cpp.svh"
+
+    always_ff @(posedge clk) begin
+        if (reg_wr_en && |reg_wr_addr) begin
+            // verilator lint_off UNUSED
+            commit_entry ce = RXVCommitBuffer.commit_fifo.mem[complete_id];
+            // verilator lint_on UNUSED
+            trace_write_reg(32'(complete_id), ce.dest_reg.arch, reg_wr_data);
+        end
+    end
 `endif  // verilator
 
 endmodule

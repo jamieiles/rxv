@@ -5,21 +5,22 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 
 module RXVCommitter (
-    input  logic        clk,
+    input  logic              clk,
     // Commit buffer
-    input  logic        commit_empty,
-    input  commit_entry commit_in,
-    input  logic        commit_complete,
-    input  logic        commit_killed,
-    input  logic        commit_excepted,
-    output logic        commit_valid,
+    input  logic              commit_empty,
+    input  commit_entry       commit_in,
+    input  logic              commit_complete,
+    input  logic              commit_killed,
+    input  logic              commit_excepted,
+    output logic              commit_valid,
+    input  logic        [2:0] commit_id,
     // To rename file
-    output renamed_reg  commit_rename_out,
-    output logic        commit_rename_valid,
-    output logic        commit_rename_rollback,
+    output renamed_reg        commit_rename_out,
+    output logic              commit_rename_valid,
+    output logic              commit_rename_rollback,
     // To register allocator
-    output logic        commit_reg_push,
-    output phys_reg_tag commit_reg_reg
+    output logic              commit_reg_push,
+    output phys_reg_tag       commit_reg_reg
 );
 
     logic commit_ready;
@@ -54,6 +55,12 @@ module RXVCommitter (
 
     always_comb begin
         commit_valid = !commit_empty && commit_ready;
+    end
+
+    always_ff @(posedge clk) begin
+        if (commit_valid) begin
+            trace_end_instruction(32'(commit_id));
+        end
     end
 
 endmodule

@@ -66,7 +66,7 @@ public:
         if (do_read_mem(addr, &phys, reinterpret_cast<char *>(&val),
                         sizeof(val), reserved)) {
             ret.emplace(val);
-            tracer.trace_read_mem<T>(addr, phys, val);
+            tracer.trace_read_mem<T>(0, addr, phys, val);
         }
 
         return ret;
@@ -93,7 +93,7 @@ public:
         if (do_read_imem(addr, &phys, reinterpret_cast<char *>(&val),
                          sizeof(val))) {
             ret.emplace(val);
-            tracer.trace_read_mem<T>(addr, phys, val);
+            tracer.trace_read_mem<T>(0, addr, phys, val);
         }
 
         return ret;
@@ -112,7 +112,7 @@ public:
                          sizeof(val), conditional, reservation_held);
 
         if (ret)
-            tracer.trace_write_mem<T>(addr, phys, val);
+            tracer.trace_write_mem<T>(0, addr, phys, val);
 
         return ret;
     }
@@ -146,18 +146,18 @@ public:
     void step()
     {
         do_step();
-        tracer.trace_end_instruction();
+        tracer.trace_end_instruction(0);
         cur_cycle++;
     }
 
     void trace_instruction(uint32_t pc, uint32_t instr, PrivilegeLevel level)
     {
-        tracer.trace_start_instruction(pc, instr, cur_cycle, level);
+        tracer.trace_start_instruction(0, pc, instr, cur_cycle, level);
     }
 
     void trace_exception()
     {
-        tracer.trace_exception();
+        tracer.trace_exception(0);
     }
 
     std::string read_string(uint32_t addr);
@@ -168,19 +168,19 @@ public:
     virtual void do_write_reg(int r, uint32_t v) = 0;
     void write_reg(int r, uint32_t v)
     {
-        tracer.trace_write_reg(r, v);
+        tracer.trace_write_reg(0, r, v);
         do_write_reg(r, v);
     }
     virtual uint32_t do_read_reg(int r) = 0;
     uint32_t read_reg(int r)
     {
         auto v = do_read_reg(r);
-        tracer.trace_read_reg(r, v);
+        tracer.trace_read_reg(0, r, v);
         return v;
     }
     void write_csr(int r, uint32_t v)
     {
-        tracer.trace_write_csr(r, v);
+        tracer.trace_write_csr(0, r, v);
         do_write_csr(r, v);
     }
     virtual void do_write_csr(int r, uint32_t v) = 0;

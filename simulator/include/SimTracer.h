@@ -9,13 +9,44 @@
 #include "RXV.h"
 #include "Trace_generated.h"
 
+struct RegisterTrace {
+    int id;
+    uint32_t value;
+    bool read;
+};
+
+struct CSRTrace {
+    int id;
+    uint32_t value;
+};
+
+struct MemTrace {
+    uint32_t addr;
+    uint32_t phys;
+    uint32_t value;
+    uint8_t size;
+    bool read;
+};
+
+struct InstructionTrace {
+    uint64_t cycle_num;
+    uint32_t pc;
+    uint32_t instruction;
+    std::vector<RegisterTrace> gprs;
+    std::vector<MemTrace> mems;
+    std::vector<CSRTrace> csrs;
+    bool exception_raised;
+    PrivilegeLevel privilege;
+    bool traced;
+};
+
 class SimTracer
 {
     static constexpr bool trace_reg_reads = false;
 
 public:
     SimTracer(const std::optional<std::string> filename)
-        : enabled(false), cur_cycle(0), insn_traced(false), file_count(0)
+        : enabled(false), file_count(0)
     {
         if (filename) {
             this->enabled = true;
@@ -24,58 +55,56 @@ public:
     }
 
     template <typename T>
-    void trace_read_mem(uint32_t addr, uint32_t phys, T val)
+    void trace_read_mem(int id, uint32_t addr, uint32_t phys, T val)
     {
         if (!enabled)
             return;
 
-        if (insn_traced)
-            cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
-                trace_builder, addr, phys, val, sizeof(T), true));
+        if (inflight[id].traced)
+            inflight[id].mems.emplace_back(MemTrace{
+                addr, phys, static_cast<uint32_t>(val), sizeof(T), true});
     }
 
     template <typename T>
-    void trace_write_mem(uint32_t addr, uint32_t phys, T val)
+    void trace_write_mem(int id, uint32_t addr, uint32_t phys, T val)
     {
         if (!enabled)
             return;
 
-        if (insn_traced)
-            cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
-                trace_builder, addr, phys, val, sizeof(T), false));
+        if (inflight[id].traced)
+            inflight[id].mems.emplace_back(MemTrace{
+                addr, phys, static_cast<uint32_t>(val), sizeof(T), false});
     }
 
-    void trace_write_reg(int r, uint32_t v)
+    void trace_write_reg(int id, int r, uint32_t v)
     {
         if (!enabled)
             return;
 
-        if (insn_traced)
-            cur_trace_reg_accesses.emplace_back(
-                RXV::Trace::CreateRegister(trace_builder, r, false, v));
+        if (inflight[id].traced)
+            inflight[id].gprs.emplace_back(RegisterTrace{r, v, false});
     }
 
-    void trace_write_csr(int r, uint32_t v)
+    void trace_write_csr(int id, int r, uint32_t v)
     {
         if (!enabled)
             return;
 
-        if (insn_traced)
-            cur_trace_csr_writes.emplace_back(RXV::Trace::CreateCSRValue(
-                trace_builder, static_cast<RXV::Trace::CSRId>(r), v));
+        if (inflight[id].traced)
+            inflight[id].csrs.emplace_back(CSRTrace{r, v});
     }
 
-    void trace_read_reg(int r, uint32_t v)
+    void trace_read_reg(int id, int r, uint32_t v)
     {
         if (!enabled || !trace_reg_reads)
             return;
 
-        if (insn_traced)
-            cur_trace_reg_accesses.emplace_back(
-                RXV::Trace::CreateRegister(trace_builder, r, true, v));
+        if (inflight[id].traced)
+            inflight[id].gprs.emplace_back(RegisterTrace{r, v, true});
     }
 
-    void trace_start_instruction(uint32_t pc,
+    void trace_start_instruction(int id,
+                                 uint32_t pc,
                                  uint32_t instr,
                                  uint64_t cycle,
                                  PrivilegeLevel level)
@@ -83,51 +112,68 @@ public:
         if (!enabled)
             return;
 
-        cur_trace_reg_accesses.clear();
-        cur_trace_mem_accesses.clear();
-        cur_trace_csr_writes.clear();
-
-        trace_pc = pc;
-        trace_insn = instr;
-        insn_traced = true;
-        cur_cycle = cycle;
-        privilege_level = level;
-        trace_exception_raised = false;
+        auto &instr_trace = inflight[id];
+        instr_trace.cycle_num = cycle;
+        instr_trace.pc = pc;
+        instr_trace.instruction = instr;
+        instr_trace.privilege = level;
+        instr_trace.exception_raised = false;
+        instr_trace.gprs.clear();
+        instr_trace.mems.clear();
+        instr_trace.csrs.clear();
+        instr_trace.traced = true;
     }
 
-    void trace_exception()
+    void trace_exception(int id)
     {
-        if (!insn_traced)
+        if (!inflight[id].traced)
             return;
 
-        trace_exception_raised = true;
+        inflight[id].exception_raised = true;
     }
 
-    void trace_end_instruction()
+    void trace_end_instruction(int id)
     {
-        if (!insn_traced)
+        if (!inflight[id].traced)
             return;
+
+        auto &instr_trace = inflight[id];
+        std::vector<flatbuffers::Offset<RXV::Trace::Register>>
+            cur_trace_reg_accesses;
+        std::vector<flatbuffers::Offset<RXV::Trace::MemAccess>>
+            cur_trace_mem_accesses;
+        std::vector<flatbuffers::Offset<RXV::Trace::CSRValue>>
+            cur_trace_csr_writes;
+        for (auto &r : instr_trace.gprs)
+            cur_trace_reg_accesses.emplace_back(RXV::Trace::CreateRegister(
+                trace_builder, r.id, r.read, r.value));
+        for (auto &r : instr_trace.csrs)
+            cur_trace_csr_writes.emplace_back(RXV::Trace::CreateCSRValue(
+                trace_builder, static_cast<RXV::Trace::CSRId>(r.id), r.value));
+        for (auto &m : instr_trace.mems)
+            cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
+                trace_builder, m.addr, m.phys, m.value, m.size, m.read));
 
         auto reg_accesses = trace_builder.CreateVector(cur_trace_reg_accesses);
         auto csr_writes = trace_builder.CreateVector(cur_trace_csr_writes);
         auto mem_accesses = trace_builder.CreateVector(cur_trace_mem_accesses);
         auto insn_builder = RXV::Trace::InstructionTraceBuilder(trace_builder);
 
-        insn_builder.add_pc(trace_pc);
-        insn_builder.add_cycle_num(cur_cycle);
-        insn_builder.add_exception_raised(trace_exception_raised);
-        insn_builder.add_instruction(trace_insn);
+        insn_builder.add_pc(instr_trace.pc);
+        insn_builder.add_cycle_num(instr_trace.cycle_num);
+        insn_builder.add_exception_raised(instr_trace.exception_raised);
+        insn_builder.add_instruction(instr_trace.instruction);
         insn_builder.add_gpr_accesses(reg_accesses);
         insn_builder.add_csr_writes(csr_writes);
         insn_builder.add_mem_accesses(mem_accesses);
         insn_builder.add_privilege(
-            static_cast<RXV::Trace::Privilege>(privilege_level));
+            static_cast<RXV::Trace::Privilege>(instr_trace.privilege));
         traced_insns.emplace_back(insn_builder.Finish());
-        insn_traced = false;
 
-        if (traced_insns.size() == 10000000) {
+        if (traced_insns.size() == 10000000)
             flush();
-        }
+
+        instr_trace.traced = false;
     }
 
     virtual ~SimTracer()
@@ -161,21 +207,9 @@ public:
 
 private:
     bool enabled;
-    bool insn_traced;
     unsigned file_count;
-
     flatbuffers::FlatBufferBuilder trace_builder;
-
-    std::vector<flatbuffers::Offset<RXV::Trace::Register>>
-        cur_trace_reg_accesses;
-    std::vector<flatbuffers::Offset<RXV::Trace::MemAccess>>
-        cur_trace_mem_accesses;
-    std::vector<flatbuffers::Offset<RXV::Trace::CSRValue>> cur_trace_csr_writes;
     std::vector<flatbuffers::Offset<RXV::Trace::InstructionTrace>> traced_insns;
-    uint32_t trace_insn;
-    uint32_t trace_pc;
-    bool trace_exception_raised;
-    uint64_t cur_cycle;
     std::string filename_base;
-    PrivilegeLevel privilege_level;
+    std::map<int, InstructionTrace> inflight;
 };

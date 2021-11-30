@@ -54,6 +54,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         ruby \
         ruby-dev \
 	tcl-dev \
+	unzip \
         wget \
 	xdot \
 	zip

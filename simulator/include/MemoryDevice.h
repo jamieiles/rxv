@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <cstddef>
 #include <vector>
+#include <cstdlib>
+#include <cassert>
 
 using MemFault = std::runtime_error;
 

@@ -55,7 +55,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         ruby-dev \
 	tcl-dev \
         wget \
-	xdot
+	xdot \
+	zip
 RUN cd /tmp && \
 	wget https://github.com/verilator/verilator/archive/refs/tags/v$VERILATOR_VERSION.tar.gz && \
         tar xf v$VERILATOR_VERSION.tar.gz && \
@@ -96,6 +97,11 @@ RUN cd /tmp && \
 	mkdir -p /opt/riscv && \
 	tar -C /usr --strip-components=1 -xf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz && \
 	rm *.tar.gz
+RUN cd /tmp && \
+	wget https://github.com/zachjs/sv2v/releases/download/v0.0.9/sv2v-Linux.zip && \
+	unzip sv2v-Linux.zip && \
+	cp sv2v-Linux/sv2v /usr/bin && \
+	rm sv2v-Linux *.zip -r
 
 RUN mkdir -p /build
 WORKDIR /build

@@ -187,7 +187,9 @@ module RXVFetch #(
         .q    (decode_instr)
     );
 
-    RXVDFF decode_predicted_dff (
+    RXVDFFPipe #(
+        .stages(2)
+    ) decode_predicted_dff (
         .clk  (clk),
         .reset(reset),
         .en   (decode_valid_next),
@@ -195,7 +197,9 @@ module RXVFetch #(
         .q    (decode_predicted)
     );
 
-    RXVDFF decode_predict_taken_dff (
+    RXVDFFPipe #(
+        .stages(2)
+    ) decode_predict_taken_dff (
         .clk  (clk),
         .reset(reset),
         .en   (decode_valid_next),
@@ -203,8 +207,9 @@ module RXVFetch #(
         .q    (decode_predict_taken)
     );
 
-    RXVDFF #(
-        .width(2)
+    RXVDFFPipe #(
+        .width (2),
+        .stages(2)
     ) decode_predict_strength_dff (
         .clk  (clk),
         .reset(reset),

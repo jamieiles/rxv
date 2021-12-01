@@ -159,6 +159,8 @@ module RXVDecode #(
         exec_have_writeback_next = 1'b0;
         exec_have_writeback_next |= opc_op & ~op_illegal_instr;
         exec_have_writeback_next |= opc_imm & ~imm_illegal_instr;
+
+        if (~|rename_out.arch) exec_have_writeback_next = 1'b0;
     end
 
     always_comb begin
@@ -194,18 +196,18 @@ module RXVDecode #(
 
     always_comb begin
         rename_out.arch  = decode_instr[11:7];
-        rename_out.phys  = |rename_out.arch ? allocated_reg : 'b0;
+        rename_out.phys  = |rename_out.arch ? allocated_reg : phys_reg_tag'('b0);
 
         rename_out_valid = exec_valid_next & |rename_out.arch;
     end
 
     always_comb begin
         busy_reg_out   = rename_out.phys;
-        busy_valid_out = exec_valid_next;
+        busy_valid_out = exec_valid_next & |rename_out.arch;
     end
 
     always_comb begin
-        reg_alloc_valid = exec_valid_next;
+        reg_alloc_valid = exec_valid_next & |rename_out.arch;
     end
 
     always_comb begin

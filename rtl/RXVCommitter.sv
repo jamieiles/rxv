@@ -3,6 +3,7 @@
 import RXVTypes::commit_entry;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
+import RXVTrace::trace_end_instruction;
 
 module RXVCommitter (
     input  logic              clk,

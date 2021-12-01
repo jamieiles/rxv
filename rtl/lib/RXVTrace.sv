@@ -62,8 +62,8 @@ package RXVTrace;
         input logic [1:0] privilege;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_start_instruction(", instr_id, ", ", pc, ",", instr, ",", $time,
-           ", static_cast<PrivilegeLevel>(", privilege, "));");
+        $c("this->tracer->trace_start_instruction(", instr_id, ", ", {pc, 2'b0}, ",", instr, ",",
+           $time, ", static_cast<PrivilegeLevel>(", privilege, "));");
 `endif
     endfunction
 

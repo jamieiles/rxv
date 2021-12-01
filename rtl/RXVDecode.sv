@@ -4,65 +4,79 @@ import RXVTypes::num_phys_regs;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTypes::rxv_alu_op;
-import RXVTypes::rxv_opcode_map;
+import RXVTypes::rxv_opcode;
+import RXVTypes::rxv_prediction;
 import RXVTrace::trace_start_instruction;
-import RXVTrace::trace_end_instruction;
 
 module RXVDecode #(
     parameter int commit_order = 3
 ) (
-    input  logic                            clk,
-    input  logic                            reset,
+    input  logic                              clk,
+    input  logic                              reset,
     // From fetch
-    input  logic                            decode_valid,
-    input  logic        [             31:2] decode_pc,
-    input  logic        [             31:2] decode_next_pc,
-    input  logic        [             31:0] decode_instr,
-    input  logic                            decode_predicted,
-    input  logic                            decode_predict_taken,
-    input  logic        [              1:0] decode_predict_strength,
-    output logic                            decode_stall,
-    output logic        [             31:2] decode_resume_tgt,
+    input  logic                              decode_valid,
+    input  logic          [             31:2] decode_pc,
+    input  logic          [             31:2] decode_next_pc,
+    input  rxv_prediction                     decode_prediction,
+    input  logic          [             31:0] decode_instr,
+    output logic                              decode_predict_kill,
+    output logic          [             31:2] decode_predict_kill_address,
+    output logic                              decode_stall,
+    output logic          [             31:2] decode_resume_tgt,
+    output logic                              decode_resteer,
+    output logic          [             31:2] decode_resteer_tgt,
     // To register allocator
-    input  logic                            reg_alloc_empty,
-    output logic                            reg_alloc_valid,
-    input  phys_reg_tag                     allocated_reg,
+    input  logic                              reg_alloc_empty,
+    output logic                              reg_alloc_valid,
+    input  phys_reg_tag                       allocated_reg,
     // To commit buffer
-    input  logic                            commit_buffer_full,
-    output commit_entry                     commit_dispatch,
-    output logic                            commit_dispatch_valid,
-    input               [ commit_width-1:0] dispatch_id,
+    input  logic                              commit_buffer_full,
+    output commit_entry                       commit_dispatch,
+    output logic                              commit_dispatch_valid,
+    input                 [ commit_width-1:0] dispatch_id,
     // To scoreboard
-    output phys_reg_tag                     busy_reg_out,
-    output logic                            busy_valid_out,
-    input  logic        [num_phys_regs-1:0] busy_status,
+    output phys_reg_tag                       busy_reg_out,
+    output logic                              busy_valid_out,
+    input  logic          [num_phys_regs-1:0] busy_status,
     // To renamer
-    output renamed_reg                      rename_out,
-    output logic                            rename_out_valid,
-    input  phys_reg_tag                     stale_phys_reg,
-    output arch_reg_tag                     rename_lookup_arch     [1:0],
-    input  phys_reg_tag                     rename_lookup_phys     [1:0],
+    output renamed_reg                        rename_out,
+    output logic                              rename_out_valid,
+    input  phys_reg_tag                       stale_phys_reg,
+    output arch_reg_tag                       rename_lookup_arch         [1:0],
+    input  phys_reg_tag                       rename_lookup_phys         [1:0],
     // To register fetch
-    output phys_reg_tag                     ra_phys,
-    output phys_reg_tag                     rb_phys,
+    output phys_reg_tag                       ra_phys,
+    output phys_reg_tag                       rb_phys,
     // To exec
-    output rxv_alu_op                       exec_alu_op,
-    output logic                            exec_valid,
-    output logic                            exec_have_writeback,
-    output phys_reg_tag                     exec_rd,
-    output              [ commit_width-1:0] exec_id,
-    output logic        [             31:0] exec_immed,
-    output logic                            exec_op2_immed
+    output rxv_alu_op                         exec_alu_op,
+    output logic                              exec_valid,
+    output logic                              exec_have_writeback,
+    output phys_reg_tag                       exec_rd,
+    output                [ commit_width-1:0] exec_id,
+    output logic          [             31:0] exec_immed,
+    output rxv_opcode                         exec_opcode,
+    // Exec branch
+    output logic          [             31:2] exec_pc,
+    output logic          [             31:2] exec_next_pc,
+    output rxv_prediction                     exec_prediction
 );
 
-    wire [ 6:0] funct7 = decode_instr[31:25];
-    wire [ 4:0] rs2 = decode_instr[24:20];
-    wire [ 4:0] rs1 = decode_instr[19:15];
-    wire [ 2:0] funct3 = decode_instr[14:12];
+    wire [6:0] funct7 = decode_instr[31:25];
+    wire [4:0] rs2 = decode_instr[24:20];
+    wire [4:0] rs1 = decode_instr[19:15];
+    wire [2:0] funct3 = decode_instr[14:12];
     wire [11:7] rd = decode_instr[11:7];
-    wire [ 6:0] opcode = decode_instr[6:0];
+    wire [6:0] opcode = decode_instr[6:0];
 
     wire [31:0] i_immed = 32'($signed(decode_instr[31:20]));
+    wire [31:0] j_immed = {
+        {12{decode_instr[31]}},
+        decode_instr[19:12],
+        decode_instr[20],
+        decode_instr[30:25],
+        decode_instr[24:21],
+        1'b0
+    };
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
@@ -71,11 +85,12 @@ module RXVDecode #(
     logic             illegal_instruction;
     logic             illegal_opcode;
 
+    logic             is_branch;
+
     logic      [ 3:0] exec_alu_op_next;
     logic             exec_valid_next;
     logic             exec_have_writeback_next;
     logic      [31:0] exec_immed_next;
-    logic             exec_op2_immed_next;
 
     logic             opc_op;
     rxv_alu_op        op_alu_op;
@@ -86,10 +101,10 @@ module RXVDecode #(
     logic             imm_illegal_instr;
 
     always_comb begin
-        opc_op              = 1'b0;
-        opc_imm = 1'b0;
-        exec_op2_immed_next = 1'b0;
-        exec_immed_next     = 'b0;
+        opc_op          = 1'b0;
+        opc_imm         = 1'b0;
+        exec_immed_next = 'b0;
+        is_branch       = 1'b0;
 
         unique case (decode_instr[6:2])
             RXVTypes::OPC_OP: begin
@@ -97,15 +112,21 @@ module RXVDecode #(
                 opc_op         = 1'b1;
             end
             RXVTypes::OPC_IMM: begin
-                illegal_opcode      = 1'b0;
-                opc_imm             = 1'b1;
-                exec_immed_next     = i_immed;
-                exec_op2_immed_next = 1'b1;
+                illegal_opcode  = 1'b0;
+                opc_imm         = 1'b1;
+                exec_immed_next = i_immed;
             end
             default: illegal_opcode = 1'b1;
         endcase
 
         if (decode_instr[1:0] != 2'b11) illegal_opcode = 1'b1;
+    end
+
+    always_comb begin
+        decode_predict_kill         = decode_prediction.predicted & ~is_branch;
+        decode_predict_kill_address = decode_pc;
+        decode_resteer              = decode_prediction.predicted & ~is_branch;
+        decode_resteer_tgt          = decode_next_pc;
     end
 
     always_comb begin
@@ -271,12 +292,44 @@ module RXVDecode #(
         .q    (exec_immed)
     );
 
-    RXVDFF exec_op2_immed_dff (
+    RXVDFF #(
+        .width($bits(RXVTypes::rxv_opcode))
+    ) exec_opcode_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_op2_immed_next),
-        .q    (exec_op2_immed)
+        .d    (decode_instr[6:2]),
+        .q    (exec_opcode)
+    );
+
+    RXVDFF #(
+        .width($bits(RXVTypes::rxv_prediction))
+    ) exec_prediction_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_prediction),
+        .q    (exec_prediction)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) exec_pc_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_pc),
+        .q    (exec_pc)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) exec_next_pc_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_next_pc),
+        .q    (exec_next_pc)
     );
 
     always_ff @(posedge clk) begin

@@ -32,7 +32,8 @@ ys_formal(TOP RXVIntExec
           DEFINES "FORMAL_RXVINTEXEC"
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
-          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv)
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
 
 add_executable(rtl-unittest
                main.cpp
@@ -143,22 +144,28 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVBranchPredictorWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
-         TOP_MODULE RXVBranchPredictor
+         TOP_MODULE RXVBranchPredictorWrapper
+         PREFIX VRXVBranchPredictorWrapper
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVFetchWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/PosedgeDetect.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
-         TOP_MODULE RXVFetch
+         TOP_MODULE RXVFetchWrapper
+         PREFIX VRXVFetchWrapper
          TRACE_FST COVERAGE)
 
 verilate(rtl-unittest

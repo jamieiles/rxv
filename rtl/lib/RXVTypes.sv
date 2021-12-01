@@ -20,6 +20,13 @@ package RXVTypes;
         logic have_writeback;
     } commit_entry;
 
+    typedef struct packed {
+        logic [31:2] prediction;
+        logic [1:0]  predict_strength;
+        logic        predict_taken;
+        logic        predicted;
+    } rxv_prediction;
+
     typedef enum logic [3:0] {
         ALU_ADD,
         ALU_SUB,
@@ -62,7 +69,7 @@ package RXVTypes;
         OPC_JAL      = 5'b11011,
         OPC_SYSTEM   = 5'b11100,
         OPC_CUSTOM_3 = 5'b11110
-    } rxv_opcode_map;
+    } rxv_opcode;
 
 `ifdef verilator
     function commit_entry make_commit_entry;

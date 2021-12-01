@@ -1,6 +1,6 @@
 #include "TestUtils.h"
 #include "VerilogTestbench.h"
-#include "VRXVBranchPredictor.h"
+#include "VRXVBranchPredictorWrapper.h"
 
 template <typename T = int32_t>
 static T sign_extend(uint32_t u, int bits)
@@ -14,7 +14,7 @@ static T sign_extend(uint32_t u, int bits)
 }
 
 class RXVBranchPredictorTest
-    : public VerilogTestbench<VRXVBranchPredictor>
+    : public VerilogTestbench<VRXVBranchPredictorWrapper>
     , public ::testing::Test
 {
 public:

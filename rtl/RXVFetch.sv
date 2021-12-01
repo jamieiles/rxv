@@ -1,38 +1,34 @@
 `default_nettype none
+import RXVTypes::rxv_prediction;
 
 module RXVFetch #(
     parameter logic [31:0] reset_address = 32'h80000000
 ) (
-    input  logic        clk,
-    input  logic        reset,
+    input  logic                 clk,
+    input  logic                 reset,
     // To instruction cache
-    output logic [31:2] icache_address,
-    output logic        icache_valid,
-    input  logic        icache_busy,
-    input  logic [31:0] icache_instr,
+    output logic          [31:2] icache_address,
+    output logic                 icache_valid,
+    input  logic                 icache_busy,
+    input  logic          [31:0] icache_instr,
     // To branch predictor
-    output logic [31:2] branch_predict_address,
-    input  logic        branch_predict_valid,
-    input  logic [31:2] branch_prediction,
-    input  logic        branch_predict_taken,
-    input  logic [ 1:0] branch_predict_strength,
+    output logic          [31:2] branch_predict_address,
+    input  rxv_prediction        prediction,
     // Decode resteer
-    input  logic        decode_resteer,
-    input  logic [31:2] decode_resteer_tgt,
+    input  logic                 decode_resteer,
+    input  logic          [31:2] decode_resteer_tgt,
     // Decode stall
-    input  logic        decode_stall,
-    input  logic [31:2] decode_resume_tgt,
+    input  logic                 decode_stall,
+    input  logic          [31:2] decode_resume_tgt,
     // To decode
-    output logic        decode_valid,
-    output logic [31:2] decode_pc,
-    output logic [31:2] decode_next_pc,
-    output logic [31:0] decode_instr,
-    output logic        decode_predicted,
-    output logic        decode_predict_taken,
-    output logic [ 1:0] decode_predict_strength,
+    output logic                 decode_valid,
+    output logic          [31:2] decode_pc,
+    output logic          [31:2] decode_next_pc,
+    output logic          [31:0] decode_instr,
+    output rxv_prediction        decode_prediction,
     // Exec branch resolution
-    input  logic        exec_resteer,
-    input  logic [31:2] exec_resteer_tgt
+    input  logic                 exec_resteer,
+    input  logic          [31:2] exec_resteer_tgt
 );
 
     /*
@@ -94,10 +90,10 @@ module RXVFetch #(
 
         if (icache_busy) next_pc = icache_address;
         if (icache_busy_start) next_pc = fetched_pc;
-        if (branch_predict_valid && branch_predict_taken) next_pc = branch_prediction;
+        if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
+        if (decode_stall) next_pc = decode_resume_tgt;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
-        if (decode_stall) next_pc = decode_resume_tgt;
     end
 
     RXVDFF #(
@@ -188,34 +184,14 @@ module RXVFetch #(
     );
 
     RXVDFFPipe #(
+        .width ($bits(RXVTypes::rxv_prediction)),
         .stages(2)
-    ) decode_predicted_dff (
+    ) decode_prediction_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (decode_valid_next),
-        .d    (branch_predict_valid),
-        .q    (decode_predicted)
-    );
-
-    RXVDFFPipe #(
-        .stages(2)
-    ) decode_predict_taken_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (decode_valid_next),
-        .d    (branch_predict_taken),
-        .q    (decode_predict_taken)
-    );
-
-    RXVDFFPipe #(
-        .width (2),
-        .stages(2)
-    ) decode_predict_strength_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (decode_valid_next),
-        .d    (branch_predict_strength),
-        .q    (decode_predict_strength)
+        .en   (1'b1),
+        .d    (prediction),
+        .q    (decode_prediction)
     );
 
     RXVDFF fetched_dff (

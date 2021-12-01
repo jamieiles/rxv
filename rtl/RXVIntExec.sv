@@ -1,27 +1,52 @@
 `default_nettype none
 
 import RXVTypes::rxv_alu_op;
+import RXVTypes::phys_reg_tag;
+import RXVTypes::rxv_prediction;
+import RXVTypes::rxv_opcode;
 
 module RXVIntExec #(
     parameter int commit_order = 3
 ) (
-    input  logic                           clk,
-    input  logic                           reset,
-    input  logic                           exec_valid,
-    input  rxv_alu_op                      exec_alu_op,
-    input  logic                           exec_have_writeback,
-    input  phys_reg_tag                    exec_rd,
-    input  logic        [commit_width-1:0] exec_id,
-    input  logic        [            31:0] op1,
-    input  logic        [            31:0] op2,
-    output phys_reg_tag                    exec_reg_addr,
-    output logic                           exec_reg_wr_en,
-    output logic        [            31:0] exec_reg_wr_data,
-    output logic                           exec_complete,
-    output logic        [commit_width-1:0] exec_complete_id,
-    input logic        [             31:0] exec_immed,
-    input logic                            exec_op2_immed
+    input  logic                             clk,
+    input  logic                             reset,
+    input  logic                             exec_valid,
+    input  rxv_alu_op                        exec_alu_op,
+    input  logic                             exec_have_writeback,
+    input  phys_reg_tag                      exec_rd,
+    input  logic          [commit_width-1:0] exec_id,
+    input  logic          [            31:0] op1,
+    input  logic          [            31:0] op2,
+    output phys_reg_tag                      exec_reg_addr,
+    output logic                             exec_reg_wr_en,
+    output logic          [            31:0] exec_reg_wr_data,
+    output logic                             exec_complete,
+    output logic          [commit_width-1:0] exec_complete_id,
+    input  logic          [            31:0] exec_immed,
+    input  rxv_opcode                        exec_opcode,
+    // Prediction
+    input  logic          [            31:2] exec_pc,
+    input  logic          [            31:2] exec_next_pc,
+    input  rxv_prediction                    exec_prediction,
+    // Branching + prediction
+    output logic                             exec_predict_update,
+    output logic          [             1:0] exec_predict_prev_strength,
+    output logic                             exec_update_predict_taken,
+    output logic          [            31:2] exec_update_predict_address,
+    output logic          [            31:2] exec_update_predict_target,
+    output logic                             exec_resteer,
+    output logic          [            31:2] exec_resteer_tgt
 );
+
+    always_comb begin
+        exec_predict_update         = 'b0;
+        exec_predict_prev_strength  = 'b0;
+        exec_update_predict_taken   = 'b0;
+        exec_update_predict_address = 'b0;
+        exec_update_predict_target  = 'b0;
+        exec_resteer                = 'b0;
+        exec_resteer_tgt            = 'b0;
+    end
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
@@ -29,9 +54,14 @@ module RXVIntExec #(
     logic [31:0] alu_q;
     logic [31:0] alu_op2;
     logic        zero;
+    logic        alu_op2_immed;
 
     always_comb begin
-        alu_op2 = exec_op2_immed ? exec_immed : op2;
+        alu_op2_immed = exec_opcode == RXVTypes::OPC_IMM;
+    end
+
+    always_comb begin
+        alu_op2 = alu_op2_immed ? exec_immed : op2;
     end
 
     RXVALU RXVALU (
@@ -90,8 +120,8 @@ module RXVIntExec #(
 
 `ifdef FORMAL
     always_comb
-        if (exec_alu_op == RXVTypes::ALU_SLT) assert ($signed(op1) < $signed(op2) == alu_q[0]);
-    always_comb if (exec_alu_op == RXVTypes::ALU_SLTU) assert (op1 < op2 == alu_q[0]);
+        if (exec_alu_op == RXVTypes::ALU_SLT) assert ($signed(op1) < $signed(alu_op2) == alu_q[0]);
+    always_comb if (exec_alu_op == RXVTypes::ALU_SLTU) assert (op1 < alu_op2 == alu_q[0]);
 `endif
 
 endmodule

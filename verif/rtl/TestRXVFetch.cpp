@@ -1,8 +1,8 @@
 #include "VerilogTestbench.h"
-#include "VRXVFetch.h"
+#include "VRXVFetchWrapper.h"
 
 class RXVFetchTestBench
-    : public VerilogTestbench<VRXVFetch>
+    : public VerilogTestbench<VRXVFetchWrapper>
     , public ::testing::Test
 {
 public:

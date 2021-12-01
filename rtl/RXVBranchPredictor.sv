@@ -8,10 +8,7 @@ module RXVBranchPredictor #(
     input  logic        reset,
     // Fetch port
     input  logic [31:2] fetch_address,
-    output logic        fetch_prediction_valid,
-    output logic [31:2] fetch_prediction,
-    output logic        fetch_predict_taken,
-    output logic [ 1:0] fetch_predict_strength,
+    output rxv_prediction prediction,
     // Decode resteer, for false positive branch identification
     input  logic        decode_predict_kill,
     input  logic [31:2] decode_kill_address,
@@ -23,7 +20,7 @@ module RXVBranchPredictor #(
     input  logic [31:2] exec_predict_target
 );
 
-    localparam btb_width = tag_bits + $bits(fetch_prediction) + 2 + 1;
+    localparam btb_width = tag_bits + $bits(prediction.prediction) + 2 + 1;
     localparam index_bits = $clog2(num_entries);
 
     // verilator lint_off UNUSED
@@ -68,6 +65,7 @@ module RXVBranchPredictor #(
     logic [           1:0] update_strength;
     logic [          31:2] update_target;
     logic                  update_valid;
+    logic [          31:2] predict_target;
 
     DPRAM #(
         .depth(num_entries),
@@ -77,7 +75,7 @@ module RXVBranchPredictor #(
         .addr_a(addr_index(fetch_address)),
         .wren_a(1'b0),
         .din_a (btb_width'('b0)),
-        .dout_a({btb_lookup_tag, btb_lookup_strength, fetch_prediction, btb_lookup_valid}),
+        .dout_a({btb_lookup_tag, btb_lookup_strength, predict_target, btb_lookup_valid}),
         .addr_b(update_addr),
         .wren_b(update),
         .din_b ({update_tag, update_strength, update_target, update_valid}),
@@ -87,18 +85,13 @@ module RXVBranchPredictor #(
     );
 
     always_comb begin
-        fetch_prediction_valid = btb_lookup_tag == addr_tag(last_fetch_address) && btb_lookup_valid;
-    end
-
-    always_comb begin
-        fetch_predict_taken = $signed(fetch_predict_strength) >= $signed(2'b00);
-    end
-
-    always_comb begin
+        prediction.predicted = btb_lookup_tag == addr_tag(last_fetch_address) && btb_lookup_valid;
         // Misses return a weakly not-taken in case they are later resolved to be
         // a taken branch so will be updated to be weakly taken, otherwise it will
         // be entered as strongly not taken.
-        fetch_predict_strength = fetch_prediction_valid ? btb_lookup_strength : 2'b11;
+        prediction.predict_strength = prediction.predicted ? btb_lookup_strength : 2'b11;
+        prediction.predict_taken = $signed(prediction.predict_strength) >= $signed(2'b00);
+        prediction.prediction = predict_target;
     end
 
     // Exec updates take priority over decode, when killing a prediction at decode

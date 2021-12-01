@@ -59,7 +59,7 @@ module RXVFetch #(
     logic        decode_valid_next;
     logic        resteer;
     logic        icache_busy_start;
-    logic        fetch_flush;
+    logic        fetched_next;
 
     PosedgeDetect ICacheBusyStart (
         .clk  (clk),
@@ -69,7 +69,7 @@ module RXVFetch #(
     );
 
     always_comb begin
-        fetch_flush = icache_valid & ~icache_busy & ~resteer & ~decode_stall;
+        fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall;
     end
 
     always_comb begin
@@ -217,7 +217,7 @@ module RXVFetch #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (fetch_flush),
+        .d    (fetched_next),
         .q    (fetched)
     );
 

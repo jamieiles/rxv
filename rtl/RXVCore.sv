@@ -58,6 +58,8 @@ module RXVCore #(
     logic                            exec_predict_taken;
     logic        [             31:2] exec_predict_address;
     logic        [             31:2] exec_predict_target;
+    logic        [             31:0] exec_immed;
+    logic                            exec_op2_immed;
 
     rxv_alu_op                       exec_alu_op;
     logic                            exec_valid;
@@ -221,7 +223,9 @@ module RXVCore #(
         .exec_valid             (exec_valid),
         .exec_have_writeback    (exec_have_writeback),
         .exec_rd                (exec_rd),
-        .exec_id                (exec_id)
+        .exec_id                (exec_id),
+        .exec_immed             (exec_immed),
+        .exec_op2_immed         (exec_op2_immed)
     );
 
     RXVIntExec RXVIntExec (
@@ -238,7 +242,9 @@ module RXVCore #(
         .exec_reg_wr_en     (reg_wr_en),
         .exec_reg_wr_data   (reg_wr_data),
         .exec_complete      (complete_valid),
-        .exec_complete_id   (complete_id)
+        .exec_complete_id   (complete_id),
+        .exec_immed         (exec_immed),
+        .exec_op2_immed     (exec_op2_immed)
     );
 
     RXVRegisterFile RXVRegisterFile (

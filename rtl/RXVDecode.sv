@@ -50,7 +50,9 @@ module RXVDecode #(
     output logic                            exec_valid,
     output logic                            exec_have_writeback,
     output phys_reg_tag                     exec_rd,
-    output              [ commit_width-1:0] exec_id
+    output              [ commit_width-1:0] exec_id,
+    output logic        [             31:0] exec_immed,
+    output logic                            exec_op2_immed
 );
 
     wire [ 6:0] funct7 = decode_instr[31:25];
@@ -60,28 +62,45 @@ module RXVDecode #(
     wire [11:7] rd = decode_instr[11:7];
     wire [ 6:0] opcode = decode_instr[6:0];
 
+    wire [31:0] i_immed = 32'($signed(decode_instr[31:20]));
+
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic            src_regs_ready;
-    logic            illegal_instruction;
-    logic            illegal_opcode;
-    logic            opc_op;
+    logic             src_regs_ready;
+    logic             illegal_instruction;
+    logic             illegal_opcode;
 
-    logic      [3:0] exec_alu_op_next;
-    logic            exec_valid_next;
-    logic            exec_have_writeback_next;
+    logic      [ 3:0] exec_alu_op_next;
+    logic             exec_valid_next;
+    logic             exec_have_writeback_next;
+    logic      [31:0] exec_immed_next;
+    logic             exec_op2_immed_next;
 
-    rxv_alu_op       op_alu_op;
-    logic            op_illegal_instr;
+    logic             opc_op;
+    rxv_alu_op        op_alu_op;
+    logic             op_illegal_instr;
+
+    logic             opc_imm;
+    rxv_alu_op        imm_alu_op;
+    logic             imm_illegal_instr;
 
     always_comb begin
-        opc_op = 1'b0;
+        opc_op              = 1'b0;
+        opc_imm = 1'b0;
+        exec_op2_immed_next = 1'b0;
+        exec_immed_next     = 'b0;
 
         unique case (decode_instr[6:2])
             RXVTypes::OPC_OP: begin
                 illegal_opcode = 1'b0;
                 opc_op         = 1'b1;
+            end
+            RXVTypes::OPC_IMM: begin
+                illegal_opcode      = 1'b0;
+                opc_imm             = 1'b1;
+                exec_immed_next     = i_immed;
+                exec_op2_immed_next = 1'b1;
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -111,19 +130,39 @@ module RXVDecode #(
     end
 
     always_comb begin
-        exec_alu_op_next = 'b0;
+        imm_illegal_instr = 1'b0;
+        imm_alu_op        = RXVTypes::ALU_ADD;
 
+        unique casez ({
+            funct7, funct3
+        })
+            10'bzzzzzzz_000: imm_alu_op = RXVTypes::ALU_ADD;
+            10'bzzzzzzz_010: imm_alu_op = RXVTypes::ALU_SLT;
+            10'bzzzzzzz_011: imm_alu_op = RXVTypes::ALU_SLTU;
+            10'bzzzzzzz_100: imm_alu_op = RXVTypes::ALU_XOR;
+            10'bzzzzzzz_110: imm_alu_op = RXVTypes::ALU_OR;
+            10'bzzzzzzz_111: imm_alu_op = RXVTypes::ALU_AND;
+            10'b0000000_001: imm_alu_op = RXVTypes::ALU_SLL;
+            10'b0000000_101: imm_alu_op = RXVTypes::ALU_SLR;
+            10'b0100000_101: imm_alu_op = RXVTypes::ALU_SRA;
+            default: imm_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
+        exec_alu_op_next = 'b0;
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_op & ~op_illegal_instr}} & op_alu_op);
+        exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_imm & ~imm_illegal_instr}} & imm_alu_op);
     end
 
     always_comb begin
         exec_have_writeback_next = 1'b0;
-
         exec_have_writeback_next |= opc_op & ~op_illegal_instr;
+        exec_have_writeback_next |= opc_imm & ~imm_illegal_instr;
     end
 
     always_comb begin
-        illegal_instruction = (opc_op & op_illegal_instr) | illegal_opcode;
+        illegal_instruction = (opc_op & op_illegal_instr) | (opc_imm & imm_illegal_instr) | illegal_opcode;
     end
 
     always_comb begin
@@ -218,6 +257,24 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (exec_have_writeback_next),
         .q    (exec_have_writeback)
+    );
+
+    RXVDFF #(
+        .width(32)
+    ) exec_immed_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_immed_next),
+        .q    (exec_immed)
+    );
+
+    RXVDFF exec_op2_immed_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_op2_immed_next),
+        .q    (exec_op2_immed)
     );
 
     always_ff @(posedge clk) begin

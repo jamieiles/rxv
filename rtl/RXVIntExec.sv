@@ -18,18 +18,25 @@ module RXVIntExec #(
     output logic                           exec_reg_wr_en,
     output logic        [            31:0] exec_reg_wr_data,
     output logic                           exec_complete,
-    output logic        [commit_width-1:0] exec_complete_id
+    output logic        [commit_width-1:0] exec_complete_id,
+    input logic        [             31:0] exec_immed,
+    input logic                            exec_op2_immed
 );
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
     logic [31:0] alu_q;
+    logic [31:0] alu_op2;
     logic        zero;
+
+    always_comb begin
+        alu_op2 = exec_op2_immed ? exec_immed : op2;
+    end
 
     RXVALU RXVALU (
         .a   (op1),
-        .b   (op2),
+        .b   (alu_op2),
         .op  (exec_alu_op),
         .q   (alu_q),
         .zero(zero)

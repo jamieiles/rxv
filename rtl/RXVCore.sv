@@ -20,6 +20,7 @@ module RXVCore #(
     parameter int          dcache_line_size_bytes = 32,
     parameter int          btb_num_entries        = 256,
     parameter int          btb_tag_bits           = 10,
+    parameter int          commit_order           = 4,
     parameter logic [31:0] reset_address          = 32'h80000000
 ) (
     input logic                clk,
@@ -28,6 +29,9 @@ module RXVCore #(
           MemInterface.Manager instruction_bus,
           MemInterface.Manager data_bus
 );
+
+    localparam int commit_num_entries = (1 << commit_order);
+    localparam int commit_width = $clog2(commit_num_entries);
 
     logic          [             31:2] icache_address;
     logic                              icache_valid;
@@ -68,7 +72,7 @@ module RXVCore #(
     logic                              exec_valid;
     logic                              exec_have_writeback;
     phys_reg_tag                       exec_rd;
-    logic          [              2:0] exec_id;
+    logic          [ commit_width-1:0] exec_id;
     logic          [             31:2] exec_pc;
     logic          [             31:2] exec_next_pc;
     rxv_prediction                     exec_prediction;
@@ -112,11 +116,11 @@ module RXVCore #(
     logic                              commit_full;
     commit_entry                       dispatch_in;
     logic                              dispatch_valid;
-    logic          [              2:0] dispatch_id;
+    logic          [ commit_width-1:0] dispatch_id;
     logic                              kill_valid;
-    logic          [              2:0] complete_id;
+    logic          [ commit_width-1:0] complete_id;
     logic                              complete_valid;
-    logic          [              2:0] except_id;
+    logic          [ commit_width-1:0] except_id;
     logic                              except_valid;
     logic                              commit_empty;
     commit_entry                       commit_out;
@@ -125,12 +129,10 @@ module RXVCore #(
     logic                              commit_excepted_out;
     renamed_reg                        commit_rename_out;
     logic                              commit_rename_valid;
-    logic          [              2:0] commit_id;
+    logic          [ commit_width-1:0] commit_id;
 
     phys_reg_tag                       busy_reg_in;
     logic                              busy_valid_in;
-    phys_reg_tag                       kill_reg_in;
-    logic                              kill_valid_in;
     logic          [num_phys_regs-1:0] scoreboard_busy;
 
     RXVICache #(
@@ -189,7 +191,9 @@ module RXVCore #(
         .exec_resteer_tgt      (exec_resteer_tgt)
     );
 
-    RXVDecode RXVDecode (
+    RXVDecode #(
+        .commit_order(commit_order)
+    ) RXVDecode (
         .clk                        (clk),
         .reset                      (reset),
         .decode_valid               (decode_valid),
@@ -238,7 +242,9 @@ module RXVCore #(
         .exec_branch_target         (exec_branch_target)
     );
 
-    RXVIntExec RXVIntExec (
+    RXVIntExec #(
+        .commit_order(commit_order)
+    ) RXVIntExec (
         .clk                        (clk),
         .reset                      (reset),
         .exec_valid                 (exec_valid),
@@ -327,7 +333,9 @@ module RXVCore #(
         .invalidate   (dcache_invalidate)
     );
 
-    RXVCommitBuffer RXVCommitBuffer (
+    RXVCommitBuffer #(
+        .order(commit_order)
+    ) RXVCommitBuffer (
         .clk                (clk),
         .reset              (reset),
         .full               (commit_full),
@@ -353,14 +361,16 @@ module RXVCore #(
         .reset             (reset),
         .busy_reg_in       (busy_reg_in),
         .busy_valid_in     (busy_valid_in),
-        .kill_reg_in       (kill_reg_in),
-        .kill_valid_in     (kill_valid_in),
+        .kill_reg_in       (reg_free_phys),
+        .kill_valid_in     (reg_free),
         .writeback_reg_in  (reg_wr_addr),
         .writeback_valid_in(reg_wr_en),
         .busy_out          (scoreboard_busy)
     );
 
-    RXVCommitter RXVCommitter (
+    RXVCommitter #(
+        .commit_order(commit_order)
+    ) RXVCommitter (
         .clk                   (clk),
         .commit_empty          (commit_empty),
         .commit_in             (commit_out),
@@ -389,8 +399,6 @@ module RXVCore #(
         kill_valid           = 'b0;
         except_id            = 'b0;
         except_valid         = 'b0;
-        kill_reg_in          = 'b0;
-        kill_valid_in        = 'b0;
     end
 
     always_comb begin

@@ -5,24 +5,29 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTrace::trace_end_instruction;
 
-module RXVCommitter (
-    input  logic              clk,
+module RXVCommitter #(
+    parameter int commit_order = 3
+) (
+    input  logic                           clk,
     // Commit buffer
-    input  logic              commit_empty,
-    input  commit_entry       commit_in,
-    input  logic              commit_complete,
-    input  logic              commit_killed,
-    input  logic              commit_excepted,
-    output logic              commit_valid,
-    input  logic        [2:0] commit_id,
+    input  logic                           commit_empty,
+    input  commit_entry                    commit_in,
+    input  logic                           commit_complete,
+    input  logic                           commit_killed,
+    input  logic                           commit_excepted,
+    output logic                           commit_valid,
+    input  logic        [commit_width-1:0] commit_id,
     // To rename file
-    output renamed_reg        commit_rename_out,
-    output logic              commit_rename_valid,
-    output logic              commit_rename_rollback,
+    output renamed_reg                     commit_rename_out,
+    output logic                           commit_rename_valid,
+    output logic                           commit_rename_rollback,
     // To register allocator
-    output logic              commit_reg_push,
-    output phys_reg_tag       commit_reg_reg
+    output logic                           commit_reg_push,
+    output phys_reg_tag                    commit_reg_reg
 );
+
+    localparam int commit_num_entries = (1 << commit_order);
+    localparam int commit_width = $clog2(commit_num_entries);
 
     logic commit_ready;
 

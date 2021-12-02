@@ -25,6 +25,9 @@ module RXVDecode #(
     output logic          [             31:2] decode_resume_tgt,
     output logic                              decode_resteer,
     output logic          [             31:2] decode_resteer_tgt,
+    // Register write snoop
+    input  phys_reg_tag                       reg_wr_addr,
+    input  logic                              reg_wr_en,
     // To register allocator
     input  logic                              reg_alloc_empty,
     output logic                              reg_alloc_valid,
@@ -55,6 +58,8 @@ module RXVDecode #(
     output                [ commit_width-1:0] exec_id,
     output logic          [             31:0] exec_immed,
     output rxv_opcode                         exec_opcode,
+    output logic                              exec_bypass_rs1,
+    output logic                              exec_bypass_rs2,
     // Exec branch
     output logic          [             31:2] exec_pc,
     output logic          [             31:2] exec_next_pc,
@@ -81,9 +86,14 @@ module RXVDecode #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
+    logic             rs1_busy;
+    logic             rs2_busy;
     logic             src_regs_ready;
     logic             illegal_instruction;
     logic             illegal_opcode;
+    logic             int_bypass_valid;
+    logic             exec_bypass_rs1_next;
+    logic             exec_bypass_rs2_next;
 
     logic             is_branch;
 
@@ -198,12 +208,38 @@ module RXVDecode #(
     end
 
     always_comb begin
-        rename_lookup_arch[0] = decode_instr[19:15];
-        rename_lookup_arch[1] = decode_instr[24:20];
+        rename_lookup_arch[0] = rs1;
+        rename_lookup_arch[1] = rs2;
     end
 
     always_comb begin
-        src_regs_ready = ~busy_status[rename_lookup_phys[0]] & ~busy_status[rename_lookup_phys[1]];
+        int_bypass_valid = exec_valid && exec_have_writeback && exec_uop == RXVTypes::UOP_ALU;
+    end
+
+    always_comb begin
+        exec_bypass_rs1_next = int_bypass_valid && exec_rd == rename_lookup_phys[0];
+        exec_bypass_rs2_next = int_bypass_valid && exec_rd == rename_lookup_phys[1];
+    end
+
+    always_comb begin
+        rs1_busy = busy_status[rename_lookup_phys[0]];
+        if (reg_wr_en && reg_wr_addr == rename_lookup_phys[0]) rs1_busy = 1'b0;
+        if (exec_bypass_rs1_next) rs1_busy = 1'b0;
+    end
+
+    always_comb begin
+        rs2_busy = busy_status[rename_lookup_phys[1]];
+        if (reg_wr_en && reg_wr_addr == rename_lookup_phys[1]) rs2_busy = 1'b0;
+        if (int_bypass_valid && exec_rd == rename_lookup_phys[1]) rs2_busy = 1'b0;
+        if (exec_bypass_rs2_next) rs2_busy = 1'b0;
+    end
+
+    always_comb begin
+        if (opc_op) begin
+            src_regs_ready = ~rs1_busy & ~rs2_busy;
+        end else if (opc_imm) begin
+            src_regs_ready = ~rs1_busy;
+        end
     end
 
     always_comb begin
@@ -330,6 +366,22 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (decode_next_pc),
         .q    (exec_next_pc)
+    );
+
+    RXVDFF exec_bypass_rs1_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_bypass_rs1_next),
+        .q    (exec_bypass_rs1)
+    );
+
+    RXVDFF exec_bypass_rs2_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_bypass_rs2_next),
+        .q    (exec_bypass_rs2)
     );
 
     always_ff @(posedge clk) begin

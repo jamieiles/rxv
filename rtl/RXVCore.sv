@@ -57,6 +57,8 @@ module RXVCore #(
     logic          [             31:2] exec_update_predict_target;
     logic          [             31:0] exec_immed;
     rxv_opcode                         exec_opcode;
+    logic                              exec_bypass_rs1;
+    logic                              exec_bypass_rs2;
 
     rxv_alu_op                         exec_alu_op;
     logic                              exec_valid;
@@ -74,6 +76,8 @@ module RXVCore #(
     logic                              reg_wr_en;
     phys_reg_tag                       reg_wr_addr;
     logic          [             31:0] reg_wr_data;
+    logic          [             31:0] rs1_data;
+    logic          [             31:0] rs2_data;
 
     renamed_reg                        rename_in;
     logic                              rename_valid;
@@ -196,6 +200,8 @@ module RXVCore #(
         .decode_resteer_tgt         (decode_resteer_tgt),
         .decode_stall               (decode_stall),
         .decode_resume_tgt          (decode_resume_tgt),
+        .reg_wr_addr                (reg_wr_addr),
+        .reg_wr_en                  (reg_wr_en),
         .reg_alloc_empty            (reg_alloc_empty),
         .reg_alloc_valid            (reg_alloc),
         .allocated_reg              (reg_alloc_phys),
@@ -220,6 +226,8 @@ module RXVCore #(
         .exec_id                    (exec_id),
         .exec_immed                 (exec_immed),
         .exec_opcode                (exec_opcode),
+        .exec_bypass_rs1            (exec_bypass_rs1),
+        .exec_bypass_rs2            (exec_bypass_rs2),
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction)
@@ -234,8 +242,8 @@ module RXVCore #(
         .exec_have_writeback        (exec_have_writeback),
         .exec_rd                    (exec_rd),
         .exec_id                    (exec_id),
-        .op1                        (rd_data_a),
-        .op2                        (rd_data_b),
+        .op1                        (rs1_data),
+        .op2                        (rs2_data),
         .exec_reg_addr              (reg_wr_addr),
         .exec_reg_wr_en             (reg_wr_en),
         .exec_reg_wr_data           (reg_wr_data),
@@ -364,21 +372,26 @@ module RXVCore #(
     );
 
     always_comb begin
-        icache_invalidate          = 'b0;
-        dcache_address             = 'b0;
-        dcache_wren                = 'b0;
-        dcache_bytesel             = 'b0;
-        dcache_invalidate          = 'b0;
-        dcache_clean               = 'b0;
-        dcache_device_memory       = 'b0;
-        dcache_valid               = 'b0;
-        dcache_din                 = 'b0;
-        kill_id                    = 'b0;
-        kill_valid                 = 'b0;
-        except_id                  = 'b0;
-        except_valid               = 'b0;
-        kill_reg_in                = 'b0;
-        kill_valid_in              = 'b0;
+        icache_invalidate    = 'b0;
+        dcache_address       = 'b0;
+        dcache_wren          = 'b0;
+        dcache_bytesel       = 'b0;
+        dcache_invalidate    = 'b0;
+        dcache_clean         = 'b0;
+        dcache_device_memory = 'b0;
+        dcache_valid         = 'b0;
+        dcache_din           = 'b0;
+        kill_id              = 'b0;
+        kill_valid           = 'b0;
+        except_id            = 'b0;
+        except_valid         = 'b0;
+        kill_reg_in          = 'b0;
+        kill_valid_in        = 'b0;
+    end
+
+    always_comb begin
+        rs1_data = exec_bypass_rs1 ? reg_wr_data : rd_data_a;
+        rs2_data = exec_bypass_rs2 ? reg_wr_data : rd_data_b;
     end
 
 `ifdef verilator

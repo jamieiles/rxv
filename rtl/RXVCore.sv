@@ -113,7 +113,6 @@ module RXVCore #(
     commit_entry                       dispatch_in;
     logic                              dispatch_valid;
     logic          [              2:0] dispatch_id;
-    logic          [              2:0] kill_id;
     logic                              kill_valid;
     logic          [              2:0] complete_id;
     logic                              complete_valid;
@@ -335,7 +334,6 @@ module RXVCore #(
         .dispatch_in        (dispatch_in),
         .dispatch_valid     (dispatch_valid),
         .dispatch_id        (dispatch_id),
-        .kill_id            (kill_id),
         .kill_valid         (kill_valid),
         .complete_id        (complete_id),
         .complete_valid     (complete_valid),
@@ -388,7 +386,6 @@ module RXVCore #(
         dcache_device_memory = 'b0;
         dcache_valid         = 'b0;
         dcache_din           = 'b0;
-        kill_id              = 'b0;
         kill_valid           = 'b0;
         except_id            = 'b0;
         except_valid         = 'b0;

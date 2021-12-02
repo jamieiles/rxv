@@ -77,10 +77,19 @@ public:
         cycle(2);
     }
 
-    void kill(uint8_t id)
+    void complete(uint8_t id)
     {
         after_n_cycles(0, [&] {
-            this->dut.kill_id = id;
+            this->dut.complete_id = id;
+            this->dut.complete_valid = 1;
+            after_n_cycles(1, [&] { this->dut.complete_valid = 0; });
+        });
+        cycle(2);
+    }
+
+    void kill()
+    {
+        after_n_cycles(0, [&] {
             this->dut.kill_valid = 1;
             after_n_cycles(1, [&] { this->dut.kill_valid = 0; });
         });
@@ -131,13 +140,18 @@ TEST_F(RXVCommitBufferTest, CommitOrder)
 
 TEST_F(RXVCommitBufferTest, Kill)
 {
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 5; ++i) {
         auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
         EXPECT_EQ(id, i);
     }
 
     except(2);
-    kill(4);
+    kill();
+
+    for (int i = 0; i < 2; ++i) {
+        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        EXPECT_EQ(id, i + 5);
+    }
 
     for (int i = 0; i < 7; ++i) {
         auto ce = commit();
@@ -158,12 +172,17 @@ TEST_F(RXVCommitBufferTest, Kill)
 
 TEST_F(RXVCommitBufferTest, KillWithoutExcept)
 {
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 5; ++i) {
         auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
         EXPECT_EQ(id, i);
     }
 
-    kill(4);
+    kill();
+
+    for (int i = 0; i < 2; ++i) {
+        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        EXPECT_EQ(id, i + 5);
+    }
 
     for (int i = 0; i < 7; ++i) {
         auto ce = commit();
@@ -187,7 +206,7 @@ TEST_F(RXVCommitBufferTest, EmptyDrainsException)
     }
 
     except(2);
-    kill(4);
+    kill();
 
     for (int i = 0; i < 7; ++i)
         commit();
@@ -208,4 +227,31 @@ TEST_F(RXVCommitBufferTest, EmptyDrainsException)
     EXPECT_FALSE(ce.killed);
 
     cycle();
+}
+
+TEST_F(RXVCommitBufferTest, CommitClearsExceptKill)
+{
+    for (int i = 0; i < 5; ++i) {
+        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        EXPECT_EQ(id, i);
+    }
+
+    except(2);
+    kill();
+
+    for (int i = 0; i < 5; ++i)
+        commit();
+
+    EXPECT_TRUE(this->dut.empty);
+    EXPECT_FALSE(this->dut.commit_excepted_out);
+    EXPECT_FALSE(this->dut.commit_killed_out);
+
+    for (int i = 0; i < 32; ++i) {
+        int id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        complete(id);
+        auto ce = commit();
+        EXPECT_TRUE(ce.complete);
+        EXPECT_FALSE(ce.excepted);
+        EXPECT_FALSE(ce.killed);
+    }
 }

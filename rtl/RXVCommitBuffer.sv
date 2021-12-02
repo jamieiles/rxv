@@ -13,7 +13,6 @@ module RXVCommitBuffer #(
     input  logic                         dispatch_valid,
     output logic        [addr_width-1:0] dispatch_id,
     // Kill
-    input  logic        [addr_width-1:0] kill_id,
     input  logic                         kill_valid,
     // Completion
     input  logic        [addr_width-1:0] complete_id,
@@ -53,33 +52,41 @@ module RXVCommitBuffer #(
 
     logic [num_entries-1:0] completed;
     logic [num_entries-1:0] completed_next;
+    logic [num_entries-1:0] killed;
+    logic [num_entries-1:0] killed_next;
+    logic [num_entries-1:0] excepted;
+    logic [num_entries-1:0] excepted_next;
 
-    logic [ addr_width-1:0] excepted_id;
-    logic                   excepted;
-    logic                   excepted_next;
-    logic [ addr_width-1:0] killed_id;
-    logic                   killed_id_valid;
-    logic                   killed_id_valid_next;
-    logic                   killed;
-    logic                   killed_next;
+    logic                   killing;
+    logic                   killing_next;
 
     always_comb begin
-        killed_next = killed;
-        if (excepted && commit_id == excepted_id) killed_next = 1'b1;
-        if (killed_id_valid && commit_id == killed_id) killed_next = 1'b1;
-        if ((commit_valid && commit_id == killed_id && killed) || empty) killed_next = 1'b0;
+        killing_next = killing;
+        if (commit_valid && killed[commit_id]) killing_next = 1'b0;
+        if (commit_valid && excepted[commit_id]) killing_next = 1'b1;
     end
 
     always_comb begin
-        killed_id_valid_next = killed_id_valid;
-        if (commit_id == killed_id) killed_id_valid_next = 1'b0;
-        if (kill_valid) killed_id_valid_next = 1'b1;
+        integer i;
+        for (i = 0; i < num_entries; i = i + 1) begin
+            excepted_next[i] = excepted[i];
+            if (dispatch_id == addr_width'(i) && dispatch_valid) excepted_next[i] = 1'b0;
+            if (except_id == addr_width'(i) && except_valid) excepted_next[i] = 1'b1;
+            if (commit_id == addr_width'(i) && commit_valid) excepted_next[i] = 1'b0;
+        end
     end
 
     always_comb begin
-        excepted_next = excepted;
-        if ((commit_valid && commit_id == killed_id && killed) || empty) excepted_next = 1'b0;
-        if (except_valid) excepted_next = 1'b1;
+        integer i;
+        for (i = 0; i < num_entries; i = i + 1) begin
+            killed_next[i] = killed[i];
+            if (dispatch_id == addr_width'(i) && dispatch_valid) killed_next[i] = 1'b0;
+            if (dispatch_id - 1'b1 == addr_width'(i) && kill_valid) killed_next[i] = 1'b1;
+            if (except_id == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
+            if (commit_id == addr_width'(i) && commit_valid) killed_next[i] = 1'b0;
+        end
+
+        assert (!((kill_valid || except_valid) && dispatch_valid));
     end
 
     always_comb begin
@@ -94,8 +101,8 @@ module RXVCommitBuffer #(
 
     always_comb begin
         commit_complete_out = completed[commit_id];
-        commit_killed_out   = killed || (killed_id_valid && killed_id == commit_id);
-        commit_excepted_out = excepted && excepted_id == commit_id;
+        commit_killed_out   = killing | killed[commit_id];
+        commit_excepted_out = excepted[commit_id];
     end
 
 `ifdef verilator
@@ -104,16 +111,6 @@ module RXVCommitBuffer #(
         if (empty) assert (!commit_valid);
     end
 `endif
-
-    RXVDFF #(
-        .width(addr_width)
-    ) excepted_id_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (except_valid),
-        .d    (except_id),
-        .q    (excepted_id)
-    );
 
     RXVDFF #(
         .width(num_entries)
@@ -126,16 +123,8 @@ module RXVCommitBuffer #(
     );
 
     RXVDFF #(
-        .width(addr_width)
-    ) killed_id_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (kill_valid),
-        .d    (kill_id),
-        .q    (killed_id)
-    );
-
-    RXVDFF killed_dff (
+        .width(num_entries)
+    ) killed_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -143,20 +132,22 @@ module RXVCommitBuffer #(
         .q    (killed)
     );
 
-    RXVDFF killed_id_valid_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (killed_id_valid_next),
-        .q    (killed_id_valid)
-    );
-
-    RXVDFF excepted_dff (
+    RXVDFF #(
+        .width(num_entries)
+    ) excepted_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
         .d    (excepted_next),
         .q    (excepted)
+    );
+
+    RXVDFF killing_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (killing_next),
+        .q    (killing)
     );
 
 endmodule

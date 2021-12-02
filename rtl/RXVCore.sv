@@ -7,6 +7,8 @@ import RXVTypes::commit_entry;
 import RXVTypes::num_phys_regs;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_opcode;
+import RXVTypes::rxv_alu_op;
+import RXVTypes::rxv_uop;
 import RXVTrace::trace_write_reg;
 
 module RXVCore #(
@@ -47,6 +49,7 @@ module RXVCore #(
     logic          [             31:0] decode_instr;
     logic                              decode_predict_kill;
     logic          [             31:2] decode_kill_address;
+    logic          [             31:1] exec_branch_target;
 
     logic                              exec_resteer;
     logic          [             31:2] exec_resteer_tgt;
@@ -57,6 +60,7 @@ module RXVCore #(
     logic          [             31:2] exec_update_predict_target;
     logic          [             31:0] exec_immed;
     rxv_opcode                         exec_opcode;
+    rxv_uop                            exec_uop;
     logic                              exec_bypass_rs1;
     logic                              exec_bypass_rs2;
 
@@ -226,12 +230,13 @@ module RXVCore #(
         .exec_id                    (exec_id),
         .exec_immed                 (exec_immed),
         .exec_opcode                (exec_opcode),
+        .exec_uop                   (exec_uop),
         .exec_bypass_rs1            (exec_bypass_rs1),
         .exec_bypass_rs2            (exec_bypass_rs2),
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
-        .exec_prediction            (exec_prediction)
-
+        .exec_prediction            (exec_prediction),
+        .exec_branch_target         (exec_branch_target)
     );
 
     RXVIntExec RXVIntExec (
@@ -251,6 +256,8 @@ module RXVCore #(
         .exec_complete_id           (complete_id),
         .exec_immed                 (exec_immed),
         .exec_opcode                (exec_opcode),
+        .exec_branch_target         (exec_branch_target),
+        .exec_uop                   (exec_uop),
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction),

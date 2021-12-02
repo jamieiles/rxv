@@ -27,13 +27,32 @@ public:
 
 TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
 {
-    for (int i = 0; i < 2; ++i)
-        bus->write(0x80000000 + i * 4, 0x00418133, 0xf);
-    bus->write(0x80000000 + 8, 0x00210133, 0xf);
-    bus->write(0x80000000 + 12, 0x40518233, 0xf);
-    bus->write(0x80000000 + 16, 0x00a50513, 0xf);
-    for (int i = 0; i < 128; ++i)
-        bus->write(0x80000000 + 20 + i * 4, 0x00150513, 0xf);
+    /*
+     *  0:   00000093                li      x1,0
+     *  4:   00a00113                li      x2,10
+     *  8:   00108093                addi    x1,x1,1
+     *  c:   fe20cee3                blt     x1,x2,0x8
+     * 10:   00108093                addi    x1,x1,1
+     * 14:   0000006f                j       0x10
+     */
+    bus->write(0x80000000, 0x00000093, 0xf);
+    bus->write(0x80000004, 0x00a00113, 0xf);
+    bus->write(0x80000008, 0x00108093, 0xf);
+    bus->write(0x8000000c, 0xfe20cee3, 0xf);
+    bus->write(0x80000010, 0x00108093, 0xf);
+    bus->write(0x80000014, 0x0000006f, 0xf);
+
+    cycle(512);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
+{
+    /*
+     *  0:   00108093                addi    x1,x1,1
+     *     ...
+     */
+    for (int i = 0; i < 16; ++i)
+        bus->write(0x80000000 + i * 4, 0x00108093, 0xf);
 
     cycle(512);
 }

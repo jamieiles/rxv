@@ -16,7 +16,10 @@ module RXVCoreEmulWrapper (
         .bus(dmem_bus.Subordinate)
     );
 
-    RXVCore RXVCore (
+    RXVCore #(
+        .icache_line_size_bytes(32),
+        .dcache_line_size_bytes(32)
+    ) RXVCore (
         .clk            (clk),
         .reset          (reset),
         .instruction_bus(imem_bus.Manager),

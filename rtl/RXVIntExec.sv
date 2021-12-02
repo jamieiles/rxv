@@ -4,6 +4,7 @@ import RXVTypes::rxv_alu_op;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_opcode;
+import RXVTypes::rxv_uop;
 
 module RXVIntExec #(
     parameter int commit_order = 3
@@ -24,6 +25,8 @@ module RXVIntExec #(
     output logic          [commit_width-1:0] exec_complete_id,
     input  logic          [            31:0] exec_immed,
     input  rxv_opcode                        exec_opcode,
+    input  logic          [            31:1] exec_branch_target,
+    input  rxv_uop                           exec_uop,
     // Prediction
     input  logic          [            31:2] exec_pc,
     input  logic          [            31:2] exec_next_pc,

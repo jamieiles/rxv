@@ -71,6 +71,14 @@ package RXVTypes;
         OPC_CUSTOM_3 = 5'b11110
     } rxv_opcode;
 
+    typedef enum logic [2:0] {
+        UOP_ALU,
+        UOP_BEQ,
+        UOP_BNE,
+        UOP_BLT,
+        UOP_BGE
+    } rxv_uop;
+
 `ifdef verilator
     function commit_entry make_commit_entry;
         // verilator public

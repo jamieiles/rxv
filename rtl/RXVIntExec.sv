@@ -11,6 +11,8 @@ module RXVIntExec #(
 ) (
     input  logic                             clk,
     input  logic                             reset,
+    input  logic                             kill_valid,
+
     input  logic                             exec_valid,
     input  rxv_alu_op                        exec_alu_op,
     input  logic                             exec_have_writeback,
@@ -41,23 +43,24 @@ module RXVIntExec #(
     output logic          [            31:2] exec_resteer_tgt
 );
 
-    always_comb begin
-        exec_predict_update         = 'b0;
-        exec_predict_prev_strength  = 'b0;
-        exec_update_predict_taken   = 'b0;
-        exec_update_predict_address = 'b0;
-        exec_update_predict_target  = 'b0;
-        exec_resteer                = 'b0;
-        exec_resteer_tgt            = 'b0;
-    end
-
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
+    logic        valid;
     logic [31:0] alu_q;
     logic [31:0] alu_op2;
     logic        zero;
     logic        alu_op2_immed;
+    logic        branch_taken;
+    logic        branch_mispredict;
+
+    logic        exec_predict_update_next;
+    logic [ 1:0] exec_predict_prev_strength_next;
+    logic        exec_update_predict_taken_next;
+    logic [31:2] exec_update_predict_address_next;
+    logic [31:2] exec_update_predict_target_next;
+    logic        exec_resteer_next;
+    logic [31:2] exec_resteer_tgt_next;
 
     always_comb begin
         alu_op2_immed = exec_opcode == RXVTypes::OPC_IMM;
@@ -67,6 +70,10 @@ module RXVIntExec #(
         alu_op2 = alu_op2_immed ? exec_immed : op2;
     end
 
+    always_comb begin
+        valid = exec_valid & ~kill_valid;
+    end
+
     RXVALU RXVALU (
         .a   (op1),
         .b   (alu_op2),
@@ -74,6 +81,35 @@ module RXVIntExec #(
         .q   (alu_q),
         .zero(zero)
     );
+
+    always_comb begin
+        unique case (exec_uop)
+            RXVTypes::UOP_BEQ: branch_taken = zero;
+            RXVTypes::UOP_BNE: branch_taken = ~zero;
+            RXVTypes::UOP_BLT: branch_taken = alu_q[0];
+            RXVTypes::UOP_BGE: branch_taken = ~alu_q[0];
+            default: branch_taken = 1'b0;
+        endcase
+    end
+
+    always_comb begin
+        branch_mispredict = 1'b0;
+        if (branch_taken && !exec_prediction.predicted) branch_mispredict = 1'b1;
+        if (exec_prediction.predicted && exec_prediction.predict_taken != branch_taken)
+            branch_mispredict = 1'b1;
+        if (exec_prediction.predicted && exec_prediction.prediction != exec_branch_target[31:2])
+            branch_mispredict = 1'b1;
+    end
+
+    always_comb begin
+        exec_predict_update_next         = valid && branch_taken;
+        exec_predict_prev_strength_next  = exec_prediction.predict_strength;
+        exec_update_predict_taken_next   = branch_taken;
+        exec_update_predict_address_next = exec_pc;
+        exec_update_predict_target_next  = exec_branch_target[31:2];
+        exec_resteer_next                = valid && branch_mispredict;
+        exec_resteer_tgt_next            = branch_taken ? exec_branch_target[31:2] : exec_next_pc;
+    end
 
     RXVDFF #(
         .width($bits(phys_reg_tag))
@@ -109,7 +145,7 @@ module RXVIntExec #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_valid),
+        .d    (valid),
         .q    (exec_complete)
     );
 
@@ -117,8 +153,72 @@ module RXVIntExec #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_valid & exec_have_writeback),
+        .d    (valid & exec_have_writeback),
         .q    (exec_reg_wr_en)
+    );
+
+    RXVDFF exec_predict_update_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_predict_update_next),
+        .q    (exec_predict_update)
+    );
+
+    RXVDFF #(
+        .width(2)
+    ) exec_predict_prev_strength_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_predict_prev_strength_next),
+        .q    (exec_predict_prev_strength)
+    );
+
+    RXVDFF exec_update_predict_taken_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_update_predict_taken_next),
+        .q    (exec_update_predict_taken)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) exec_update_predict_address_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_update_predict_address_next),
+        .q    (exec_update_predict_address)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) exec_update_predict_target_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_update_predict_target_next),
+        .q    (exec_update_predict_target)
+    );
+
+    RXVDFF exec_resteer_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_resteer_next),
+        .q    (exec_resteer)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) exec_resteer_tgt_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_resteer_tgt_next),
+        .q    (exec_resteer_tgt)
     );
 
 `ifdef FORMAL

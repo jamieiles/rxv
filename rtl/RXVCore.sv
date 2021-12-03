@@ -239,7 +239,8 @@ module RXVCore #(
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction),
-        .exec_branch_target         (exec_branch_target)
+        .exec_branch_target         (exec_branch_target),
+        .kill_valid                 (kill_valid)
     );
 
     RXVIntExec #(
@@ -247,6 +248,7 @@ module RXVCore #(
     ) RXVIntExec (
         .clk                        (clk),
         .reset                      (reset),
+        .kill_valid                 (kill_valid),
         .exec_valid                 (exec_valid),
         .exec_alu_op                (exec_alu_op),
         .exec_have_writeback        (exec_have_writeback),
@@ -396,7 +398,6 @@ module RXVCore #(
         dcache_device_memory = 'b0;
         dcache_valid         = 'b0;
         dcache_din           = 'b0;
-        kill_valid           = 'b0;
         except_id            = 'b0;
         except_valid         = 'b0;
     end
@@ -404,6 +405,10 @@ module RXVCore #(
     always_comb begin
         rs1_data = exec_bypass_rs1 ? reg_wr_data : rd_data_a;
         rs2_data = exec_bypass_rs2 ? reg_wr_data : rd_data_b;
+    end
+
+    always_comb begin
+        kill_valid = exec_resteer;
     end
 
 `ifdef verilator

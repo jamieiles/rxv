@@ -66,7 +66,8 @@ module RXVDecode #(
     output logic          [             31:2] exec_pc,
     output logic          [             31:2] exec_next_pc,
     output rxv_prediction                     exec_prediction,
-    output logic          [             31:1] exec_branch_target
+    output logic          [             31:1] exec_branch_target,
+    input  logic                              kill_valid
 );
 
     wire [6:0] funct7 = decode_instr[31:25];
@@ -155,9 +156,9 @@ module RXVDecode #(
     end
 
     always_comb begin
-        decode_predict_kill         = decode_prediction.predicted & ~is_branch;
+        decode_predict_kill         = decode_valid & decode_prediction.predicted & ~is_branch;
         decode_predict_kill_address = decode_pc;
-        decode_resteer              = decode_prediction.predicted & ~is_branch;
+        decode_resteer              = decode_valid & decode_prediction.predicted & ~is_branch;
         decode_resteer_tgt          = decode_next_pc;
     end
 
@@ -259,7 +260,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_op & ~op_illegal_instr;
         exec_have_writeback_next |= opc_imm & ~imm_illegal_instr;
 
-        if (~|rename_out.arch) exec_have_writeback_next = 1'b0;
+        if (~|rd) exec_have_writeback_next = 1'b0;
     end
 
     always_comb begin
@@ -277,12 +278,12 @@ module RXVDecode #(
     end
 
     always_comb begin
-        decode_stall      = reg_alloc_empty | commit_buffer_full | ~src_regs_ready;
+        decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full | ~src_regs_ready);
         decode_resume_tgt = decode_pc;
     end
 
     always_comb begin
-        exec_valid_next = ~illegal_instruction & decode_valid & ~decode_stall;
+        exec_valid_next = ~illegal_instruction & decode_valid & ~decode_stall & ~kill_valid;
     end
 
     always_comb begin
@@ -333,14 +334,14 @@ module RXVDecode #(
 
     always_comb begin
         rename_out.arch  = rd;
-        rename_out.phys  = |rename_out.arch ? allocated_reg : phys_reg_tag'('b0);
+        rename_out.phys  = allocated_reg;
 
-        rename_out_valid = exec_valid_next & |rename_out.arch & exec_have_writeback;
+        rename_out_valid = exec_valid_next & |rd & exec_have_writeback_next;
     end
 
     always_comb begin
         busy_reg_out   = rename_out.phys;
-        busy_valid_out = exec_valid_next & |rename_out.arch & exec_have_writeback;
+        busy_valid_out = exec_valid_next & |rename_out.arch & exec_have_writeback_next;
     end
 
     always_comb begin
@@ -485,7 +486,7 @@ module RXVDecode #(
     );
 
     always_ff @(posedge clk) begin
-        if (decode_valid && !decode_stall) begin
+        if (decode_valid && !decode_stall && !kill_valid) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
         end
     end

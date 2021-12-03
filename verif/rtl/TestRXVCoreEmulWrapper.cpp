@@ -33,14 +33,14 @@ TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
      *  8:   00108093                addi    x1,x1,1
      *  c:   fe20cee3                blt     x1,x2,0x8
      * 10:   0f000513                li      x10,240
-     * 14:   0000006f                j       0x10
+     * 14:   000005ef                jal     x11,0x14
      */
     bus->write(0x80000000, 0x00000093, 0xf);
     bus->write(0x80000004, 0x00a00113, 0xf);
     bus->write(0x80000008, 0x00108093, 0xf);
     bus->write(0x8000000c, 0xfe20cee3, 0xf);
     bus->write(0x80000010, 0x0f000513, 0xf);
-    bus->write(0x80000014, 0x0000006f, 0xf);
+    bus->write(0x80000014, 0x000005ef, 0xf);
 
     cycle(512);
 }

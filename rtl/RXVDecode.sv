@@ -87,7 +87,7 @@ module RXVDecode #(
         1'b0
     };
     wire [31:0] b_immed = {
-        {19{decode_instr[31]}}, decode_instr[7], decode_instr[30:25], decode_instr[11:8], 2'b0
+        {20{decode_instr[31]}}, decode_instr[7], decode_instr[30:25], decode_instr[11:8], 1'b0
     };
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -127,10 +127,15 @@ module RXVDecode #(
     logic      [                 31:0] branch_target;
     rxv_uop                            branch_uop;
 
+    logic                              opc_jal;
+    logic      [                 31:0] jal_target;
+    rxv_uop                            jal_uop;
+
     always_comb begin
         opc_op          = 1'b0;
         opc_imm         = 1'b0;
         opc_branch      = 1'b0;
+        opc_jal         = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
 
@@ -147,6 +152,11 @@ module RXVDecode #(
             RXVTypes::OPC_BRANCH: begin
                 illegal_opcode = 1'b0;
                 opc_branch     = 1'b1;
+                is_branch      = 1'b1;
+            end
+            RXVTypes::OPC_JAL: begin
+                illegal_opcode = 1'b0;
+                opc_jal        = 1'b1;
                 is_branch      = 1'b1;
             end
             default: illegal_opcode = 1'b1;
@@ -240,6 +250,10 @@ module RXVDecode #(
     end
 
     always_comb begin
+        jal_uop = RXVTypes::UOP_JAL;
+    end
+
+    always_comb begin
         exec_alu_op_next = 'b0;
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_op}} & op_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_imm}} & imm_alu_op);
@@ -247,18 +261,24 @@ module RXVDecode #(
     end
 
     always_comb begin
-        branch_target = {decode_next_pc, 2'b0} + b_immed;
+        branch_target = {decode_pc, 2'b0} + b_immed;
+    end
+
+    always_comb begin
+        jal_target = {decode_pc, 2'b0} + j_immed;
     end
 
     always_comb begin
         exec_branch_target_next = 32'b0;
         exec_branch_target_next |= {32{opc_branch}} & branch_target;
+        exec_branch_target_next |= {32{opc_jal}} & jal_target;
     end
 
     always_comb begin
         exec_have_writeback_next = 1'b0;
         exec_have_writeback_next |= opc_op & ~op_illegal_instr;
         exec_have_writeback_next |= opc_imm & ~imm_illegal_instr;
+        exec_have_writeback_next |= opc_jal;
 
         if (~|rd) exec_have_writeback_next = 1'b0;
     end
@@ -268,6 +288,7 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_op}} & op_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_imm}} & imm_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_branch}} & branch_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_jal}} & jal_uop);
     end
 
     always_comb begin

@@ -61,6 +61,7 @@ module RXVIntExec #(
     logic [31:2] exec_update_predict_target_next;
     logic        exec_resteer_next;
     logic [31:2] exec_resteer_tgt_next;
+    logic [31:0] exec_reg_wr_data_next;
 
     always_comb begin
         alu_op2_immed = exec_opcode == RXVTypes::OPC_IMM;
@@ -72,6 +73,15 @@ module RXVIntExec #(
 
     always_comb begin
         valid = exec_valid & ~kill_valid;
+    end
+
+    always_comb begin
+        unique case (exec_uop)
+            RXVTypes::UOP_ALU: exec_reg_wr_data_next = alu_q;
+            RXVTypes::UOP_JAL: exec_reg_wr_data_next = {exec_next_pc, 2'b0};
+            default: exec_reg_wr_data_next = 32'b0;
+        endcase
+
     end
 
     RXVALU RXVALU (
@@ -88,6 +98,7 @@ module RXVIntExec #(
             RXVTypes::UOP_BNE: branch_taken = ~zero;
             RXVTypes::UOP_BLT: branch_taken = alu_q[0];
             RXVTypes::UOP_BGE: branch_taken = ~alu_q[0];
+            RXVTypes::UOP_JAL: branch_taken = 1'b1;
             default: branch_taken = 1'b0;
         endcase
     end
@@ -127,7 +138,7 @@ module RXVIntExec #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (alu_q),
+        .d    (exec_reg_wr_data_next),
         .q    (exec_reg_wr_data)
     );
 

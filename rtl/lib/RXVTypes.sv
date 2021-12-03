@@ -76,7 +76,8 @@ package RXVTypes;
         UOP_BEQ,
         UOP_BNE,
         UOP_BLT,
-        UOP_BGE
+        UOP_BGE,
+        UOP_JAL
     } rxv_uop;
 
 `ifdef verilator

@@ -408,7 +408,7 @@ module RXVCore #(
     end
 
     always_comb begin
-        kill_valid = exec_resteer;
+        kill_valid = exec_valid & exec_resteer;
     end
 
 `ifdef verilator

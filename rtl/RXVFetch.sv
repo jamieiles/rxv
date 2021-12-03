@@ -56,6 +56,10 @@ module RXVFetch #(
     logic        resteer;
     logic        icache_busy_start;
     logic        fetched_next;
+    logic        resteer_pending;
+    logic        resteer_pending_next;
+    logic [31:2] resteer_target;
+    logic [31:2] resteer_target_next;
 
     PosedgeDetect ICacheBusyStart (
         .clk  (clk),
@@ -65,7 +69,7 @@ module RXVFetch #(
     );
 
     always_comb begin
-        fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall;
+        fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall & ~(resteer_pending & icache_busy);
     end
 
     always_comb begin
@@ -73,7 +77,7 @@ module RXVFetch #(
     end
 
     always_comb begin
-        decode_valid_next = fetched & ~stalling & ~resteer;
+        decode_valid_next = fetched & ~stalling & ~resteer & ~resteer_pending;
     end
 
     always_comb begin
@@ -91,9 +95,22 @@ module RXVFetch #(
         if (icache_busy) next_pc = icache_address;
         if (icache_busy_start) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
+        if (resteer_pending && icache_busy) next_pc = resteer_target;
         if (decode_stall) next_pc = decode_resume_tgt;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
+    end
+
+    always_comb begin
+        resteer_target_next = resteer_target;
+        if (decode_resteer) resteer_target_next = decode_resteer_tgt;
+        if (exec_resteer) resteer_target_next = exec_resteer_tgt;
+    end
+
+    always_comb begin
+        resteer_pending_next = resteer_pending;
+        if (~icache_busy) resteer_pending_next = 1'b0;
+        if (resteer) resteer_pending_next = 1'b1;
     end
 
     RXVDFF #(
@@ -171,6 +188,24 @@ module RXVFetch #(
         .en   (decode_valid_next),
         .d    (next_seq_pc_reg),
         .q    (decode_next_pc)
+    );
+
+    RXVDFF resteer_pending_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (resteer_pending_next),
+        .q    (resteer_pending)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) resteer_target_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (resteer),
+        .d    (resteer_target_next),
+        .q    (resteer_target)
     );
 
     RXVDFF #(

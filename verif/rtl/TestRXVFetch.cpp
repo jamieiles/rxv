@@ -182,15 +182,18 @@ TEST_F(RXVFetchTestBench, StallDuringLineFill)
     }
 }
 
-TEST_F(RXVFetchTestBench, ResteerDuringLineFill)
+class RXVFetchLineFill
+    : public ::testing::WithParamInterface<int>
+    , public RXVFetchTestBench
+{
+};
+
+TEST_P(RXVFetchLineFill, ResteerDuringLineFill)
 {
     cycle(4);
 
-    after_n_cycles(0, [&] { this->dut.icache_busy = 1; });
-    cycle(4);
-    ASSERT_TRUE(this->dut.icache_busy);
-
-    after_n_cycles(4, [&] {
+    after_n_cycles(4, [&] { this->dut.icache_busy = 1; });
+    after_n_cycles(3 + GetParam(), [&] {
         this->dut.exec_resteer = 1;
         this->dut.exec_resteer_tgt = 0x80004444 >> 2;
         after_n_cycles(1, [&] {
@@ -198,11 +201,15 @@ TEST_F(RXVFetchTestBench, ResteerDuringLineFill)
             this->dut.exec_resteer_tgt = 0;
         });
     });
+    cycle(5);
 
     for (int i = 0; i < 8; ++i) {
-        EXPECT_FALSE(this->dut.decode_valid);
+        if (this->dut.decode_valid)
+            EXPECT_LT(this->dut.decode_pc, 0x80000100 >> 2);
         cycle();
     }
+    EXPECT_FALSE(this->dut.decode_valid);
+
     after_n_cycles(0, [&] { this->dut.icache_busy = 0; });
 
     for (int i = 0; i < 8; ++i) {
@@ -217,3 +224,6 @@ TEST_F(RXVFetchTestBench, ResteerDuringLineFill)
     }
     cycle(8);
 }
+INSTANTIATE_TEST_CASE_P(ResteerLineFillLatency,
+                        RXVFetchLineFill,
+                        ::testing::Values(0, 1, 2, 3));

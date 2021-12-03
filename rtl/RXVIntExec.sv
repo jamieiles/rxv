@@ -62,6 +62,8 @@ module RXVIntExec #(
     logic        exec_resteer_next;
     logic [31:2] exec_resteer_tgt_next;
     logic [31:0] exec_reg_wr_data_next;
+    logic [31:0] branch_target;
+    logic unconditional_branch;
 
     always_comb begin
         alu_op2_immed = exec_opcode == RXVTypes::OPC_IMM;
@@ -78,10 +80,13 @@ module RXVIntExec #(
     always_comb begin
         unique case (exec_uop)
             RXVTypes::UOP_ALU: exec_reg_wr_data_next = alu_q;
-            RXVTypes::UOP_JAL: exec_reg_wr_data_next = {exec_next_pc, 2'b0};
+            RXVTypes::UOP_JAL, RXVTypes::UOP_JALR: exec_reg_wr_data_next = {exec_next_pc, 2'b0};
             default: exec_reg_wr_data_next = 32'b0;
         endcase
+    end
 
+    always_comb begin
+        unconditional_branch = exec_uop == RXVTypes::UOP_JAL || exec_uop == RXVTypes::UOP_JALR;
     end
 
     RXVALU RXVALU (
@@ -99,7 +104,15 @@ module RXVIntExec #(
             RXVTypes::UOP_BLT: branch_taken = alu_q[0];
             RXVTypes::UOP_BGE: branch_taken = ~alu_q[0];
             RXVTypes::UOP_JAL: branch_taken = 1'b1;
+            RXVTypes::UOP_JALR: branch_taken = 1'b1;
             default: branch_taken = 1'b0;
+        endcase
+    end
+
+    always_comb begin
+        unique case (exec_uop)
+            RXVTypes::UOP_JALR: branch_target = {alu_q[31:1], 1'b0};
+            default: branch_target = {exec_branch_target, 1'b0};
         endcase
     end
 
@@ -113,13 +126,13 @@ module RXVIntExec #(
     end
 
     always_comb begin
-        exec_predict_update_next         = valid && branch_taken;
-        exec_predict_prev_strength_next  = exec_prediction.predict_strength;
-        exec_update_predict_taken_next   = branch_taken;
+        exec_predict_update_next = valid && branch_taken;
+        exec_predict_prev_strength_next  = unconditional_branch ? 2'b01 : exec_prediction.predict_strength;
+        exec_update_predict_taken_next = branch_taken;
         exec_update_predict_address_next = exec_pc;
-        exec_update_predict_target_next  = exec_branch_target[31:2];
-        exec_resteer_next                = valid && branch_mispredict;
-        exec_resteer_tgt_next            = branch_taken ? exec_branch_target[31:2] : exec_next_pc;
+        exec_update_predict_target_next = branch_target[31:2];
+        exec_resteer_next = valid && branch_mispredict;
+        exec_resteer_tgt_next = branch_taken ? branch_target[31:2] : exec_next_pc;
     end
 
     RXVDFF #(

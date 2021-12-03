@@ -131,11 +131,17 @@ module RXVDecode #(
     logic      [                 31:0] jal_target;
     rxv_uop                            jal_uop;
 
+    logic                              opc_jalr;
+    rxv_alu_op                         jalr_alu_op;
+    logic      [                 31:0] jalr_target;
+    rxv_uop                            jalr_uop;
+
     always_comb begin
         opc_op          = 1'b0;
         opc_imm         = 1'b0;
         opc_branch      = 1'b0;
         opc_jal         = 1'b0;
+        opc_jalr        = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
 
@@ -158,6 +164,12 @@ module RXVDecode #(
                 illegal_opcode = 1'b0;
                 opc_jal        = 1'b1;
                 is_branch      = 1'b1;
+            end
+            RXVTypes::OPC_JALR: begin
+                illegal_opcode  = 1'b0;
+                opc_jalr        = 1'b1;
+                is_branch       = 1'b1;
+                exec_immed_next = i_immed;
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -254,10 +266,16 @@ module RXVDecode #(
     end
 
     always_comb begin
+        jalr_alu_op = RXVTypes::ALU_ADD;
+        jalr_uop    = RXVTypes::UOP_JALR;
+    end
+
+    always_comb begin
         exec_alu_op_next = 'b0;
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_op}} & op_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_imm}} & imm_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_branch}} & branch_alu_op);
+        exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_jalr}} & jalr_alu_op);
     end
 
     always_comb begin
@@ -279,6 +297,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_op & ~op_illegal_instr;
         exec_have_writeback_next |= opc_imm & ~imm_illegal_instr;
         exec_have_writeback_next |= opc_jal;
+        exec_have_writeback_next |= opc_jalr;
 
         if (~|rd) exec_have_writeback_next = 1'b0;
     end
@@ -289,6 +308,7 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_imm}} & imm_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_branch}} & branch_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_jal}} & jal_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_jalr}} & jalr_uop);
     end
 
     always_comb begin
@@ -338,6 +358,8 @@ module RXVDecode #(
         if (opc_op) begin
             src_regs_ready = ~rs1_busy & ~rs2_busy;
         end else if (opc_imm) begin
+            src_regs_ready = ~rs1_busy;
+        end else if (opc_jalr) begin
             src_regs_ready = ~rs1_busy;
         end else begin
             src_regs_ready = ~rs1_busy & ~rs2_busy;

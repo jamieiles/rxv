@@ -69,3 +69,41 @@ TEST_F(RXVCoreEmulWrapperTest, NoBypassX0)
 
     cycle(512);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, JALR)
+{
+    /*
+     *  0:   00100093                li      x1,1
+     *  4:   00c000ef                jal     x1,0x10
+     *  8:   0dc00193                li      x3,220
+     *  c:   0000006f                j       0xc
+     * 10:   0ac00113                li      x2,172
+     * 14:   00008067                ret
+     */
+    bus->write(0x80000000, 0x00100093, 0xf);
+    bus->write(0x80000004, 0x00c000ef, 0xf);
+    bus->write(0x80000008, 0x0dc00193, 0xf);
+    bus->write(0x8000000c, 0x0000006f, 0xf);
+    bus->write(0x80000010, 0x0ac00113, 0xf);
+    bus->write(0x80000014, 0x00008067, 0xf);
+
+    cycle(512);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
+{
+    /*
+     *  0:   0040006f                j       0x4
+     *  4:   0040006f                j       0x8
+     *  8:   0040006f                j       0xc
+     *  c:   00150513                addi    x10,x10,1
+     * 10:   ff1ff06f                j       0x0
+     */
+    bus->write(0x80000000, 0x0040006f, 0xf);
+    bus->write(0x80000004, 0x0040006f, 0xf);
+    bus->write(0x80000008, 0x0040006f, 0xf);
+    bus->write(0x8000000c, 0x00150513, 0xf);
+    bus->write(0x80000010, 0xff1ff06f, 0xf);
+
+    cycle(512);
+}

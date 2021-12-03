@@ -56,7 +56,7 @@ module RXVCommitter #(
         if (!commit_empty && (commit_excepted || commit_killed))
             commit_reg_reg = commit_in.dest_reg.phys;
 
-        commit_reg_push = commit_ready & |commit_reg_reg;
+        commit_reg_push = commit_in.have_writeback && commit_ready & |commit_reg_reg;
     end
 
     always_comb begin

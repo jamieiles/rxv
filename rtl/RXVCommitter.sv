@@ -64,7 +64,7 @@ module RXVCommitter #(
     end
 
     always_ff @(posedge clk) begin
-        if (commit_valid) begin
+        if (commit_valid && !(commit_killed || commit_excepted)) begin
             trace_end_instruction(32'(commit_id));
         end
     end

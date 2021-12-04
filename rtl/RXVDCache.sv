@@ -79,10 +79,6 @@ module RXVDCache #(
     logic                      invalidating_update;
     logic                      cleaning;
     logic                      cleaning_update;
-    logic                      arvalid_next;
-    logic                      awvalid_next;
-    logic                      wvalid_next;
-    logic                      wlast_next;
     logic                      start_access;
     logic                      need_fill;
     logic                      need_writeback;
@@ -118,8 +114,10 @@ module RXVDCache #(
     logic                      bus_valid;
     logic                      bus_complete;
     logic [              31:0] bus_rdata;
+    // verilator lint_off UNUSED
     logic [               3:0] bus_beat_num;
     logic [               3:0] bus_beat_num_next;
+    // verilator lint_on UNUSED
     logic [               3:0] bus_bytesel;
     logic                      bus_beat_ack;
     logic                      bus_wren;

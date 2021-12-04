@@ -101,6 +101,7 @@ module RXVCore #(
     phys_reg_tag                       reg_alloc_phys;
     phys_reg_tag                       reg_free_phys;
 
+    // verilator lint_off UNUSED
     logic          [             31:2] dcache_address;
     logic                              dcache_valid;
     logic                              dcache_busy;
@@ -112,6 +113,7 @@ module RXVCore #(
     logic                              dcache_clean;
     logic          [             31:0] dcache_phys_out;
     logic                              dcache_device_memory;
+    // verilator lint_on UNUSED
 
     logic                              commit_full;
     commit_entry                       dispatch_in;

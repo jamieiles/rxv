@@ -62,7 +62,9 @@ module RXVIntExec #(
     logic        exec_resteer_next;
     logic [31:2] exec_resteer_tgt_next;
     logic [31:0] exec_reg_wr_data_next;
+    // verilator lint_off UNUSED
     logic [31:0] branch_target;
+    // verilator lint_on UNUSED
     logic unconditional_branch;
 
     always_comb begin

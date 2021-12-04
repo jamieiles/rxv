@@ -75,20 +75,22 @@ module RXVDecode #(
     wire [4:0] rs1 = decode_instr[19:15];
     wire [2:0] funct3 = decode_instr[14:12];
     wire [11:7] rd = decode_instr[11:7];
+    // verilator lint_off UNUSED
     wire [6:0] opcode = decode_instr[6:0];
+    // verilator lint_on UNUSED
 
     wire [31:0] i_immed = 32'($signed(decode_instr[31:20]));
     wire [31:0] j_immed = {
-        {12{decode_instr[31]}},
-        decode_instr[19:12],
-        decode_instr[20],
-        decode_instr[30:25],
-        decode_instr[24:21],
-        1'b0
-    };
+{12{decode_instr[31]}},
+decode_instr[19:12],
+decode_instr[20],
+decode_instr[30:25],
+decode_instr[24:21],
+1'b0
+};
     wire [31:0] b_immed = {
-        {20{decode_instr[31]}}, decode_instr[7], decode_instr[30:25], decode_instr[11:8], 1'b0
-    };
+{20{decode_instr[31]}}, decode_instr[7], decode_instr[30:25], decode_instr[11:8], 1'b0
+};
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
@@ -133,7 +135,6 @@ module RXVDecode #(
 
     logic                              opc_jalr;
     rxv_alu_op                         jalr_alu_op;
-    logic      [                 31:0] jalr_target;
     rxv_uop                            jalr_uop;
 
     always_comb begin

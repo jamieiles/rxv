@@ -24,9 +24,6 @@ module BusAdapter (
     logic        awvalid_next;
     logic        wvalid_next;
     logic        wlast_next;
-    logic [ 3:0] write_bytesel;
-    logic [31:0] write_din;
-    logic        write_wren;
     logic [31:2] address_f;
     logic        bus_active_next;
     logic        bus_active;

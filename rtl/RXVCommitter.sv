@@ -11,7 +11,9 @@ module RXVCommitter #(
     input  logic                           clk,
     // Commit buffer
     input  logic                           commit_empty,
+    // verilator lint_off UNUSED
     input  commit_entry                    commit_in,
+    // verilator lint_on UNUSED
     input  logic                           commit_complete,
     input  logic                           commit_killed,
     input  logic                           commit_excepted,

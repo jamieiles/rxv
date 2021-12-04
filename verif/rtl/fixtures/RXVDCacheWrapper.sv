@@ -17,7 +17,9 @@ module RXVDCacheWrapper #(
     input  logic        clean
 );
 
+    // verilator lint_off UNUSED
     logic [31:0] phys_out;
+    // verilator lint_on UNUSED
     logic        device_memory;
 
     MemInterface mem_bus ();

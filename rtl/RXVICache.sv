@@ -42,12 +42,10 @@ module RXVICache #(
 
     logic [ index_bits-1:0] index;
     logic [offset_bits-1:0] data_offset;
-    logic [    nr_ways-1:0] wren;
     logic [           31:0] way_dout              [0:nr_ways-1];
     logic [   tag_bits-1:0] way_tag               [0:nr_ways-1];
     logic [    nr_ways-1:0] way_valid;
     logic                   miss;
-    logic [offset_bits-1:0] offset;
     logic                   tag_compare_valid;
     logic [           31:2] lookup_address;
     logic                   filling;
@@ -72,8 +70,10 @@ module RXVICache #(
     logic                   bus_valid;
     logic                   bus_complete;
     logic [           31:0] bus_rdata;
+    // verilator lint_off UNUSED
     logic [            3:0] bus_beat_num;
     logic [            3:0] bus_beat_num_next;
+    // verilator lint_on UNUSED
     logic                   bus_beat_ack;
 
     BusAdapter BusAdapter (

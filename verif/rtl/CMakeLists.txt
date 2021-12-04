@@ -62,7 +62,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          TOP_MODULE BusTransactorWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --assert
@@ -71,7 +71,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE BitPLRU
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --assert
@@ -83,7 +83,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterFile
          PREFIX VRXVRegisterFile
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --assert
@@ -98,7 +98,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVICacheWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -114,7 +114,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVDCacheWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -126,7 +126,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterAllocator
          PREFIX VRXVRegisterAllocator
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -139,7 +139,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRenameFileWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -152,7 +152,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVBranchPredictorWrapper
          PREFIX VRXVBranchPredictorWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -166,7 +166,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVFetchWrapper
          PREFIX VRXVFetchWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -177,7 +177,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE Fifo
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -191,7 +191,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVCommitBuffer
          PREFIX VRXVCommitBuffer
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -204,7 +204,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVScoreboard
          PREFIX VRXVScoreboard
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
@@ -215,7 +215,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVALU
          PREFIX VRXVALU
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE
@@ -252,7 +252,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVCoreEmulWrapper
-         TRACE_FST COVERAGE)
+         TRACE_FST)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../simulator/include)

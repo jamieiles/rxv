@@ -13,6 +13,79 @@
 #include "MockMemoryBus.h"
 #include "SimTracer.h"
 
+class TestbenchTracer : public SimTracer
+{
+public:
+    TestbenchTracer(const std::optional<std::string> filename)
+        : SimTracer(filename), num_instructions(0), last_pc(0x80000000)
+    {
+        for (auto i = 0; i < 32; ++i)
+            shadow_regs[i] = 0;
+    }
+
+    virtual void trace_write_reg(int id, int r, uint32_t v) override
+    {
+        SimTracer::trace_write_reg(id, r, v);
+        shadow_regs[r] = v;
+    }
+
+    virtual void trace_write_csr(int id, int r, uint32_t v) override
+    {
+        SimTracer::trace_write_csr(id, r, v);
+    }
+
+    virtual void trace_read_reg(int id, int r, uint32_t v) override
+    {
+        SimTracer::trace_read_reg(id, r, v);
+    }
+
+    virtual void trace_start_instruction(int id,
+                                         uint32_t pc,
+                                         uint32_t instr,
+                                         uint64_t cycle,
+                                         PrivilegeLevel level) override
+    {
+        SimTracer::trace_start_instruction(id, pc, instr, cycle, level);
+        pc_map[id] = pc;
+    }
+
+    virtual void trace_exception(int id) override
+    {
+        SimTracer::trace_exception(id);
+    }
+
+    virtual void trace_end_instruction(int id) override
+    {
+        SimTracer::trace_end_instruction(id);
+        ++num_instructions;
+        last_pc = pc_map[id];
+    }
+
+    uint32_t read_reg(int id) const
+    {
+        if (id < 0 || id >= 32)
+            throw std::runtime_error("invalid GPR");
+
+        return shadow_regs[id];
+    }
+
+    int get_num_instructions() const
+    {
+        return num_instructions;
+    }
+
+    uint32_t get_last_pc() const
+    {
+        return last_pc;
+    }
+
+private:
+    uint32_t shadow_regs[32];
+    int num_instructions;
+    uint32_t last_pc;
+    std::map<int, uint32_t> pc_map;
+};
+
 class RXVCoreEmulWrapperTest
     : public VerilogTestbench<VRXVCoreEmulWrapper>
     , public ::testing::Test
@@ -20,8 +93,9 @@ class RXVCoreEmulWrapperTest
 public:
     RXVCoreEmulWrapperTest()
     {
-        this->dut.RXVCoreEmulWrapper->RXVCore->tracer =
-            std::make_unique<SimTracer>(current_test_name() + ".trace");
+        tracer =
+            std::make_shared<TestbenchTracer>(current_test_name() + ".trace");
+        this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
         this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
@@ -52,6 +126,7 @@ public:
     }
 
     std::shared_ptr<MemoryBus> bus;
+    std::shared_ptr<TestbenchTracer> tracer;
 };
 
 TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
@@ -65,7 +140,13 @@ TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
         14:   000005ef                jal     x11,0x14
     )objdump");
 
-    cycle(512);
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(1), 10);
+    EXPECT_EQ(tracer->read_reg(2), 10);
+    EXPECT_EQ(tracer->read_reg(10), 240);
+    EXPECT_EQ(tracer->read_reg(11), 0x80000018);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
@@ -78,20 +159,26 @@ TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
         10:   00108093                addi    x1,x1,1
     )objdump");
 
-    cycle(512);
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(1), 5);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, NoBypassX0)
 {
     load(R"objdump(
-         0:   00108093                addi    x0,x0,1
-         4:   00108093                addi    x0,x0,1
-         8:   00108093                addi    x0,x0,1
-         c:   00108093                addi    x0,x0,1
+         0:   00100013                add     x0,x0,1
+         4:   00100013                add     x0,x0,1
+         8:   00100013                add     x0,x0,1
+         c:   00100013                add     x0,x0,1
         10:   000080b3                add     x1,x1,x0
     )objdump");
 
-    cycle(512);
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(1), 0);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, JALR)
@@ -105,7 +192,12 @@ TEST_F(RXVCoreEmulWrapperTest, JALR)
         14:   00008067                ret
     )objdump");
 
-    cycle(512);
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000000c; ++i)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(1), 0x80000008);
+    EXPECT_EQ(tracer->read_reg(3), 220);
+    EXPECT_EQ(tracer->read_reg(2), 172);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
@@ -118,5 +210,8 @@ TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
         10:   ff1ff06f                j       0x0
     )objdump");
 
-    cycle(512);
+    while (tracer->get_num_instructions() != 5)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(10), 1);
 }

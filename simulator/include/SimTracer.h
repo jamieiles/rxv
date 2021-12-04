@@ -76,7 +76,7 @@ public:
                 addr, phys, static_cast<uint32_t>(val), sizeof(T), false});
     }
 
-    void trace_write_reg(int id, int r, uint32_t v)
+    virtual void trace_write_reg(int id, int r, uint32_t v)
     {
         if (!enabled)
             return;
@@ -85,7 +85,7 @@ public:
             inflight[id].gprs.emplace_back(RegisterTrace{r, v, false});
     }
 
-    void trace_write_csr(int id, int r, uint32_t v)
+    virtual void trace_write_csr(int id, int r, uint32_t v)
     {
         if (!enabled)
             return;
@@ -94,7 +94,7 @@ public:
             inflight[id].csrs.emplace_back(CSRTrace{r, v});
     }
 
-    void trace_read_reg(int id, int r, uint32_t v)
+    virtual void trace_read_reg(int id, int r, uint32_t v)
     {
         if (!enabled || !trace_reg_reads)
             return;
@@ -103,11 +103,11 @@ public:
             inflight[id].gprs.emplace_back(RegisterTrace{r, v, true});
     }
 
-    void trace_start_instruction(int id,
-                                 uint32_t pc,
-                                 uint32_t instr,
-                                 uint64_t cycle,
-                                 PrivilegeLevel level)
+    virtual void trace_start_instruction(int id,
+                                         uint32_t pc,
+                                         uint32_t instr,
+                                         uint64_t cycle,
+                                         PrivilegeLevel level)
     {
         if (!enabled)
             return;
@@ -124,7 +124,7 @@ public:
         instr_trace.traced = true;
     }
 
-    void trace_exception(int id)
+    virtual void trace_exception(int id)
     {
         if (!inflight[id].traced)
             return;
@@ -132,7 +132,7 @@ public:
         inflight[id].exception_raised = true;
     }
 
-    void trace_end_instruction(int id)
+    virtual void trace_end_instruction(int id)
     {
         if (!inflight[id].traced)
             return;

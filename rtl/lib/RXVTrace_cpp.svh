@@ -3,6 +3,6 @@
 #include <memory>
 #include "SimTracer.h"
 `systemc_interface
-std::unique_ptr<SimTracer> tracer;
+std::shared_ptr<SimTracer> tracer;
 `verilog
 `endif // RXV_TRACE

@@ -81,6 +81,26 @@ package RXVTypes;
         UOP_JALR
     } rxv_uop;
 
+    // verilator lint_off UNUSED
+    function logic [31:0] i_immed;
+        input logic [31:0] instr;
+
+        i_immed = 32'($signed(instr[31:20]));
+    endfunction
+
+    function logic [31:0] j_immed;
+        input logic [31:0] instr;
+
+        j_immed = {{12{instr[31]}}, instr[19:12], instr[20], instr[30:25], instr[24:21], 1'b0};
+    endfunction
+
+    function logic [31:0] b_immed;
+        input logic [31:0] instr;
+
+        b_immed = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
+    endfunction
+    // verilator lint_on UNUSED
+
 `ifdef verilator
     function commit_entry make_commit_entry;
         // verilator public

@@ -7,6 +7,9 @@ import RXVTypes::rxv_alu_op;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_uop;
+import RXVTypes::b_immed;
+import RXVTypes::i_immed;
+import RXVTypes::j_immed;
 import RXVTrace::trace_start_instruction;
 
 module RXVDecode #(
@@ -70,27 +73,14 @@ module RXVDecode #(
     input  logic                              kill_valid
 );
 
-    wire [6:0] funct7 = decode_instr[31:25];
-    wire [4:0] rs2 = decode_instr[24:20];
-    wire [4:0] rs1 = decode_instr[19:15];
-    wire [2:0] funct3 = decode_instr[14:12];
+    wire [ 6:0] funct7 = decode_instr[31:25];
+    wire [ 4:0] rs2 = decode_instr[24:20];
+    wire [ 4:0] rs1 = decode_instr[19:15];
+    wire [ 2:0] funct3 = decode_instr[14:12];
     wire [11:7] rd = decode_instr[11:7];
     // verilator lint_off UNUSED
-    wire [6:0] opcode = decode_instr[6:0];
+    wire [ 6:0] opcode = decode_instr[6:0];
     // verilator lint_on UNUSED
-
-    wire [31:0] i_immed = 32'($signed(decode_instr[31:20]));
-    wire [31:0] j_immed = {
-{12{decode_instr[31]}},
-decode_instr[19:12],
-decode_instr[20],
-decode_instr[30:25],
-decode_instr[24:21],
-1'b0
-};
-    wire [31:0] b_immed = {
-{20{decode_instr[31]}}, decode_instr[7], decode_instr[30:25], decode_instr[11:8], 1'b0
-};
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
@@ -154,7 +144,7 @@ decode_instr[24:21],
             RXVTypes::OPC_IMM: begin
                 illegal_opcode  = 1'b0;
                 opc_imm         = 1'b1;
-                exec_immed_next = i_immed;
+                exec_immed_next = i_immed(decode_instr);
             end
             RXVTypes::OPC_BRANCH: begin
                 illegal_opcode = 1'b0;
@@ -170,7 +160,7 @@ decode_instr[24:21],
                 illegal_opcode  = 1'b0;
                 opc_jalr        = 1'b1;
                 is_branch       = 1'b1;
-                exec_immed_next = i_immed;
+                exec_immed_next = i_immed(decode_instr);
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -280,11 +270,11 @@ decode_instr[24:21],
     end
 
     always_comb begin
-        branch_target = {decode_pc, 2'b0} + b_immed;
+        branch_target = {decode_pc, 2'b0} + b_immed(decode_instr);
     end
 
     always_comb begin
-        jal_target = {decode_pc, 2'b0} + j_immed;
+        jal_target = {decode_pc, 2'b0} + j_immed(decode_instr);
     end
 
     always_comb begin

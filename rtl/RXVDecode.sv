@@ -92,6 +92,8 @@ module RXVDecode #(
     logic                              illegal_instruction;
     logic                              illegal_opcode;
     logic                              int_bypass_valid;
+    logic                              have_rs1;
+    logic                              have_rs2;
 
     logic                              is_branch;
 
@@ -144,21 +146,28 @@ module RXVDecode #(
         opc_auipc       = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
+        have_rs1        = 1'b0;
+        have_rs2        = 1'b0;
 
         unique case (opcode[6:2])
             RXVTypes::OPC_OP: begin
                 illegal_opcode = 1'b0;
                 opc_op         = 1'b1;
+                have_rs1       = 1'b1;
+                have_rs2       = 1'b1;
             end
             RXVTypes::OPC_IMM: begin
                 illegal_opcode  = 1'b0;
                 opc_imm         = 1'b1;
+                have_rs1        = 1'b1;
                 exec_immed_next = i_immed(decode_instr);
             end
             RXVTypes::OPC_BRANCH: begin
                 illegal_opcode = 1'b0;
                 opc_branch     = 1'b1;
                 is_branch      = 1'b1;
+                have_rs1       = 1'b1;
+                have_rs2       = 1'b1;
             end
             RXVTypes::OPC_JAL: begin
                 illegal_opcode = 1'b0;
@@ -169,6 +178,7 @@ module RXVDecode #(
                 illegal_opcode  = 1'b0;
                 opc_jalr        = 1'b1;
                 is_branch       = 1'b1;
+                have_rs1        = 1'b1;
                 exec_immed_next = i_immed(decode_instr);
             end
             RXVTypes::OPC_LUI: begin
@@ -377,15 +387,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        if (opc_op) begin
-            src_regs_ready = ~rs1_busy & ~rs2_busy;
-        end else if (opc_imm) begin
-            src_regs_ready = ~rs1_busy;
-        end else if (opc_jalr) begin
-            src_regs_ready = ~rs1_busy;
-        end else begin
-            src_regs_ready = ~rs1_busy & ~rs2_busy;
-        end
+        src_regs_ready = ~((have_rs1 & rs1_busy) | (have_rs2 & rs2_busy));
     end
 
     always_comb begin

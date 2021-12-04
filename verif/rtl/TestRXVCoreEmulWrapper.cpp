@@ -1,3 +1,9 @@
+#include <iostream>
+#include <iterator>
+#include <sstream>
+#include <vector>
+#include <algorithm>
+
 #include "VerilogTestbench.h"
 #include "VRXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
@@ -22,88 +28,95 @@ public:
         this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
     }
 
+    void load(const std::string &objdump)
+    {
+        std::istringstream line_stream(objdump);
+        std::string line;
+
+        while (std::getline(line_stream, line)) {
+            std::istringstream ss(line);
+            std::vector<std::string> tokens;
+
+            std::copy(std::istream_iterator<std::string>(ss),
+                      std::istream_iterator<std::string>(),
+                      std::back_inserter(tokens));
+
+            if (tokens.size() == 0)
+                continue;
+
+            auto addr = strtoul(tokens[0].c_str(), NULL, 16);
+            auto instr = strtoul(tokens[1].c_str(), NULL, 16);
+
+            bus->write(0x80000000 + addr, instr, 0xf);
+        }
+    }
+
     std::shared_ptr<MemoryBus> bus;
 };
 
 TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
 {
-    /*
-     *  0:   00000093                li      x1,0
-     *  4:   00a00113                li      x2,10
-     *  8:   00108093                addi    x1,x1,1
-     *  c:   fe20cee3                blt     x1,x2,0x8
-     * 10:   0f000513                li      x10,240
-     * 14:   000005ef                jal     x11,0x14
-     */
-    bus->write(0x80000000, 0x00000093, 0xf);
-    bus->write(0x80000004, 0x00a00113, 0xf);
-    bus->write(0x80000008, 0x00108093, 0xf);
-    bus->write(0x8000000c, 0xfe20cee3, 0xf);
-    bus->write(0x80000010, 0x0f000513, 0xf);
-    bus->write(0x80000014, 0x000005ef, 0xf);
+    load(R"objdump(
+         0:   00000093                li      x1,0
+         4:   00a00113                li      x2,10
+         8:   00108093                addi    x1,x1,1
+         c:   fe20cee3                blt     x1,x2,0x8
+        10:   0f000513                li      x10,240
+        14:   000005ef                jal     x11,0x14
+    )objdump");
 
     cycle(512);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
 {
-    /*
-     *  0:   00108093                addi    x1,x1,1
-     *     ...
-     */
-    for (int i = 0; i < 16; ++i)
-        bus->write(0x80000000 + i * 4, 0x00108093, 0xf);
+    load(R"objdump(
+         0:   00108093                addi    x1,x1,1
+         4:   00108093                addi    x1,x1,1
+         8:   00108093                addi    x1,x1,1
+         c:   00108093                addi    x1,x1,1
+        10:   00108093                addi    x1,x1,1
+    )objdump");
 
     cycle(512);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, NoBypassX0)
 {
-    /*
-     *  0:   00108093                addi    x0,x0,1
-     *     ...
-     */
-    for (int i = 0; i < 16; ++i)
-        bus->write(0x80000000 + i * 4, 0x00100013, 0xf);
-    bus->write(0x80000000 + 16 * 4, 0x000080b3, 0xf);
+    load(R"objdump(
+         0:   00108093                addi    x0,x0,1
+         4:   00108093                addi    x0,x0,1
+         8:   00108093                addi    x0,x0,1
+         c:   00108093                addi    x0,x0,1
+        10:   000080b3                add     x1,x1,x0
+    )objdump");
 
     cycle(512);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, JALR)
 {
-    /*
-     *  0:   00100093                li      x1,1
-     *  4:   00c000ef                jal     x1,0x10
-     *  8:   0dc00193                li      x3,220
-     *  c:   0000006f                j       0xc
-     * 10:   0ac00113                li      x2,172
-     * 14:   00008067                ret
-     */
-    bus->write(0x80000000, 0x00100093, 0xf);
-    bus->write(0x80000004, 0x00c000ef, 0xf);
-    bus->write(0x80000008, 0x0dc00193, 0xf);
-    bus->write(0x8000000c, 0x0000006f, 0xf);
-    bus->write(0x80000010, 0x0ac00113, 0xf);
-    bus->write(0x80000014, 0x00008067, 0xf);
+    load(R"objdump(
+         0:   00100093                li      x1,1
+         4:   00c000ef                jal     x1,0x10
+         8:   0dc00193                li      x3,220
+         c:   0000006f                j       0xc
+        10:   0ac00113                li      x2,172
+        14:   00008067                ret
+    )objdump");
 
     cycle(512);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
 {
-    /*
-     *  0:   0040006f                j       0x4
-     *  4:   0040006f                j       0x8
-     *  8:   0040006f                j       0xc
-     *  c:   00150513                addi    x10,x10,1
-     * 10:   ff1ff06f                j       0x0
-     */
-    bus->write(0x80000000, 0x0040006f, 0xf);
-    bus->write(0x80000004, 0x0040006f, 0xf);
-    bus->write(0x80000008, 0x0040006f, 0xf);
-    bus->write(0x8000000c, 0x00150513, 0xf);
-    bus->write(0x80000010, 0xff1ff06f, 0xf);
+    load(R"objdump(
+         0:   0040006f                j       0x4
+         4:   0040006f                j       0x8
+         8:   0040006f                j       0xc
+         c:   00150513                addi    x10,x10,1
+        10:   ff1ff06f                j       0x0
+    )objdump");
 
     cycle(512);
 }

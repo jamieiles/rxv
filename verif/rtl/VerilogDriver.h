@@ -2,7 +2,6 @@
 
 #include <verilated.h>
 #include <verilated_fst_c.h>
-#include <verilated_cov.h>
 
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/format.hpp>
@@ -38,12 +37,6 @@ static_assert(evals_per_cycle % 2 == 0,
 const bool verilator_debug_enabled = true;
 #else
 const bool verilator_debug_enabled = false;
-#endif
-
-#ifdef VM_COVERAGE
-const bool verilator_coverage_enabled = true;
-#else
-const bool verilator_coverage_enabled = false;
 #endif
 
 template <typename T, bool debug_enabled = verilator_debug_enabled>
@@ -153,19 +146,6 @@ VerilogDriver<T, debug_enabled>::~VerilogDriver()
         teardown_trace();
 
     dut.final();
-
-    if (verilator_coverage_enabled) {
-        auto filename = (boost::format("%s.dat") % instance_name).str();
-
-        if (mkdir("coverage", 0755) && errno != EEXIST) {
-            std::cerr << "Failed to create coverage dir" << std::endl;
-            abort();
-        }
-
-        boost::replace_all(filename, "/", "_");
-        VerilatedCov::write(("coverage/" + filename).c_str());
-        VerilatedCov::clear();
-    }
 }
 
 template <typename T, bool debug_enabled>

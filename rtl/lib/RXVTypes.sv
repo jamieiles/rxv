@@ -71,14 +71,16 @@ package RXVTypes;
         OPC_CUSTOM_3 = 5'b11110
     } rxv_opcode;
 
-    typedef enum logic [2:0] {
+    typedef enum logic [3:0] {
         UOP_ALU,
         UOP_BEQ,
         UOP_BNE,
         UOP_BLT,
         UOP_BGE,
         UOP_JAL,
-        UOP_JALR
+        UOP_JALR,
+        UOP_LUI,
+        UOP_AUIPC
     } rxv_uop;
 
     // verilator lint_off UNUSED
@@ -98,6 +100,12 @@ package RXVTypes;
         input logic [31:0] instr;
 
         b_immed = {{20{instr[31]}}, instr[7], instr[30:25], instr[11:8], 1'b0};
+    endfunction
+
+    function logic [31:0] u_immed;
+        input logic [31:0] instr;
+
+        u_immed = {instr[31:12], 12'b0};
     endfunction
     // verilator lint_on UNUSED
 

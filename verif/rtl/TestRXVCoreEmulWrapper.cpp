@@ -215,3 +215,31 @@ TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
 
     EXPECT_EQ(tracer->read_reg(10), 1);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, LUI)
+{
+    load(R"objdump(
+         0:   800010b7                lui     x1,0x80001
+         4:   fffff137                lui     x2,0xfffff
+    )objdump");
+
+    while (tracer->get_num_instructions() != 2)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(1), 0x80001 << 12);
+    EXPECT_EQ(tracer->read_reg(2), 0xfffff << 12);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, AUIPC)
+{
+    load(R"objdump(
+         0:   00000013                nop
+         4:   00008097                auipc   x1,0x8
+         8:   00000013                nop
+    )objdump");
+
+    while (tracer->get_num_instructions() != 3)
+        cycle();
+
+    EXPECT_EQ(tracer->read_reg(1), 0x80000004 + (8 << 12));
+}

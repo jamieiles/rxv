@@ -10,6 +10,7 @@ import RXVTypes::rxv_uop;
 import RXVTypes::b_immed;
 import RXVTypes::i_immed;
 import RXVTypes::j_immed;
+import RXVTypes::u_immed;
 import RXVTrace::trace_start_instruction;
 
 module RXVDecode #(
@@ -127,12 +128,20 @@ module RXVDecode #(
     rxv_alu_op                         jalr_alu_op;
     rxv_uop                            jalr_uop;
 
+    logic                              opc_lui;
+    rxv_uop                            lui_uop;
+
+    logic                              opc_auipc;
+    rxv_uop                            auipc_uop;
+
     always_comb begin
         opc_op          = 1'b0;
         opc_imm         = 1'b0;
         opc_branch      = 1'b0;
         opc_jal         = 1'b0;
         opc_jalr        = 1'b0;
+        opc_lui         = 1'b0;
+        opc_auipc       = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
 
@@ -161,6 +170,16 @@ module RXVDecode #(
                 opc_jalr        = 1'b1;
                 is_branch       = 1'b1;
                 exec_immed_next = i_immed(decode_instr);
+            end
+            RXVTypes::OPC_LUI: begin
+                illegal_opcode  = 1'b0;
+                opc_lui         = 1'b1;
+                exec_immed_next = u_immed(decode_instr);
+            end
+            RXVTypes::OPC_AUIPC: begin
+                illegal_opcode  = 1'b0;
+                opc_auipc       = 1'b1;
+                exec_immed_next = u_immed(decode_instr);
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -262,6 +281,14 @@ module RXVDecode #(
     end
 
     always_comb begin
+        lui_uop = RXVTypes::UOP_LUI;
+    end
+
+    always_comb begin
+        auipc_uop = RXVTypes::UOP_AUIPC;
+    end
+
+    always_comb begin
         exec_alu_op_next = 'b0;
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_op}} & op_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_imm}} & imm_alu_op);
@@ -289,6 +316,8 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_imm & ~imm_illegal_instr;
         exec_have_writeback_next |= opc_jal;
         exec_have_writeback_next |= opc_jalr;
+        exec_have_writeback_next |= opc_lui;
+        exec_have_writeback_next |= opc_auipc;
 
         if (~|rd) exec_have_writeback_next = 1'b0;
     end
@@ -300,6 +329,8 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_branch}} & branch_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_jal}} & jal_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_jalr}} & jalr_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_lui}} & lui_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_auipc}} & auipc_uop);
     end
 
     always_comb begin

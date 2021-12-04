@@ -67,6 +67,14 @@ module RXVIntExec #(
     // verilator lint_on UNUSED
     logic unconditional_branch;
 
+    RXVALU RXVALU (
+        .a   (op1),
+        .b   (alu_op2),
+        .op  (exec_alu_op),
+        .q   (alu_q),
+        .zero(zero)
+    );
+
     always_comb begin
         alu_op2_immed = exec_opcode == RXVTypes::OPC_IMM;
     end
@@ -83,6 +91,8 @@ module RXVIntExec #(
         unique case (exec_uop)
             RXVTypes::UOP_ALU: exec_reg_wr_data_next = alu_q;
             RXVTypes::UOP_JAL, RXVTypes::UOP_JALR: exec_reg_wr_data_next = {exec_next_pc, 2'b0};
+            RXVTypes::UOP_LUI: exec_reg_wr_data_next = exec_immed;
+            RXVTypes::UOP_AUIPC: exec_reg_wr_data_next = exec_immed + {exec_pc, 2'b0};
             default: exec_reg_wr_data_next = 32'b0;
         endcase
     end
@@ -90,14 +100,6 @@ module RXVIntExec #(
     always_comb begin
         unconditional_branch = exec_uop == RXVTypes::UOP_JAL || exec_uop == RXVTypes::UOP_JALR;
     end
-
-    RXVALU RXVALU (
-        .a   (op1),
-        .b   (alu_op2),
-        .op  (exec_alu_op),
-        .q   (alu_q),
-        .zero(zero)
-    );
 
     always_comb begin
         unique case (exec_uop)

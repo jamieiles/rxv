@@ -43,4 +43,111 @@ package RXVCSR;
         CSR_SATP       = 12'h180
     } RXVCSR_id;
 
+    typedef struct packed {
+        logic mpie;
+        logic mie;
+    } mstatus;
+
+    function mstatus pack_mstatus;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mstatus.mpie = v[7];
+            pack_mstatus.mie  = v[3];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mstatus;
+        input mstatus v;
+        begin
+            unpack_mstatus = {24'b0, v.mpie, 3'b0, v.mie, 3'b0};
+        end
+    endfunction
+
+    typedef enum logic {
+        MTVEC_DIRECT   = 1'b0,
+        MTVEC_VECTORED = 1'b1
+    } mtvec_mode;
+
+    typedef struct packed {
+        logic [31:2] base;
+        mtvec_mode   mode;
+    } mtvec;
+
+    function mtvec pack_mtvec;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mtvec.base = v[31:2];
+            pack_mtvec.mode = mtvec_mode'(v[0]);
+        end
+    endfunction
+
+    function logic [31:0] unpack_mtvec;
+        input mtvec v;
+        begin
+            unpack_mtvec = {v.base, 1'b0, v.mode};
+        end
+    endfunction
+
+    typedef struct packed {logic [31:2] addr;} mepc;
+
+    function mepc pack_mepc;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mepc.addr = v[31:2];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mepc;
+        input mepc v;
+        begin
+            unpack_mepc = {v.addr, 2'b0};
+        end
+    endfunction
+
+    typedef struct packed {
+        logic is_interrupt;
+        logic [3:0] cause;
+    } mcause;
+
+    function mcause pack_mcause;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mcause.is_interrupt = v[31];
+            pack_mcause.cause        = v[3:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mcause;
+        input mcause v;
+        begin
+            unpack_mcause = {v.is_interrupt, 27'b0, v.cause};
+        end
+    endfunction
+
+    typedef struct packed {logic [31:0] val;} mtval;
+
+    function mtval pack_mtval;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mtval.val = v[31:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mtval;
+        input mtval v;
+        begin
+            unpack_mtval = v.val;
+        end
+    endfunction
+
 endpackage

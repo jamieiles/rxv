@@ -44,7 +44,7 @@ set(ALL_SOURCES ${CORE_SOURCES} ${FPGA_SOURCES})
 
 add_fpga(PROJECT RXVCoreSynthTop
          FAMILY "Cyclone V"
-         PART "5CEBA4F23C7"
+         PART "5CEFA2F23C6"
          SOURCES ${ALL_SOURCES})
 
 add_custom_target(virtual-fpga DEPENDS RXVCoreSynthTop.sta.rpt)

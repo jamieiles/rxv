@@ -327,6 +327,13 @@ module RXVDecode #(
         system_have_writeback = 1'b0;
 
         unique case (funct3)
+            3'b000: begin
+                system_illegal_instr = 1'b1;
+                if (funct7 == 7'b0011000 && rs2 == 5'b00010 && ~|rs1 && ~|rd) begin
+                    system_uop           = RXVTypes::UOP_MRET;
+                    system_illegal_instr = 1'b0;
+                end
+            end
             3'b001: begin  // CSRRW
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = RXVTypes::CSR_SWAP;

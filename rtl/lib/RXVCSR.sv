@@ -43,6 +43,23 @@ package RXVCSR;
         CSR_SATP       = 12'h180
     } RXVCSR_id;
 
+    typedef enum logic [3:0] {
+        MCAUSE_INSTR_MISALIGN = 4'd0,
+        MCAUSE_INSTR_ACCESS_FAULT = 4'd1,
+        MCAUSE_ILLEGAL_INSTR = 4'd2,
+        MCAUSE_BREAKPOINT = 4'd3,
+        MCAUSE_LOAD_MISALIGN = 4'd4,
+        MCAUSE_LOAD_ACCESS_FAULT = 4'd5,
+        MCAUSE_STORE_MISALIGN = 4'd6,
+        MCAUSE_STORE_ACCESS_FAULT = 4'd7,
+        MCAUSE_U_ECALL = 4'd8,
+        MCAUSE_S_ECALL = 4'd9,
+        MCAUSE_M_ECALL = 4'd11,
+        MCAUSE_INSTR_PAGE_FAULT = 4'd12,
+        MCAUSE_LOAD_PAGE_FAULT = 4'd13,
+        MCAUSE_STORE_PAGE_FAULT = 4'd15
+    } MCAUSE_id;
+
     typedef struct packed {
         logic mpie;
         logic mie;

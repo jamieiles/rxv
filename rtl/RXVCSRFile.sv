@@ -30,7 +30,9 @@ module RXVCSRFile #(
     // Write port
     input  logic [11:0] wr_addr,
     input  logic [31:0] wr_data,
-    input  logic        wr_en
+    input  logic        wr_en,
+    // Exception handling
+    output logic [31:2] mepc_out
 );
 
     logic   [31:0] rd_data_next;
@@ -70,6 +72,10 @@ module RXVCSRFile #(
         mepc_wren     = wr_en && wr_addr == RXVCSR::CSR_MEPC;
         mcause_wren   = wr_en && wr_addr == RXVCSR::CSR_MCAUSE;
         mtval_wren    = wr_en && wr_addr == RXVCSR::CSR_MTVAL;
+    end
+
+    always_comb begin
+        mepc_out = mepc_reg.addr;
     end
 
 `ifdef verilator

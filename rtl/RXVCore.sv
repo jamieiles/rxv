@@ -77,6 +77,7 @@ module RXVCore #(
     logic          [             11:0] exec_csr_wr_addr;
     logic          [             31:0] exec_csr_wr_data;
     logic                              exec_csr_wr_en;
+    logic          [             31:2] mepc_val;
 
     rxv_alu_op                         exec_alu_op;
     rxv_csr_op                         exec_csr_op;
@@ -295,7 +296,8 @@ module RXVCore #(
         .exec_update_predict_address(exec_update_predict_address),
         .exec_update_predict_target (exec_update_predict_target),
         .exec_resteer               (exec_resteer),
-        .exec_resteer_tgt           (exec_resteer_tgt)
+        .exec_resteer_tgt           (exec_resteer_tgt),
+        .mepc_in                    (mepc_val)
     );
 
     RXVRegisterFile RXVRegisterFile (
@@ -315,13 +317,14 @@ module RXVCore #(
         .archid  (archid),
         .impid   (impid)
     ) RXVCSRFile (
-        .clk    (clk),
-        .reset  (reset),
-        .rd_addr(decode_csr_addr),
-        .rd_data(exec_csr_rd_data),
-        .wr_addr(exec_csr_wr_addr),
-        .wr_data(exec_csr_wr_data),
-        .wr_en  (exec_csr_wr_en)
+        .clk     (clk),
+        .reset   (reset),
+        .rd_addr (decode_csr_addr),
+        .rd_data (exec_csr_rd_data),
+        .wr_addr (exec_csr_wr_addr),
+        .wr_data (exec_csr_wr_data),
+        .wr_en   (exec_csr_wr_en),
+        .mepc_out(mepc_val)
     );
 
     RXVRenameFile RXVRenameFile (

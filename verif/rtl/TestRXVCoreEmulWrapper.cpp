@@ -323,7 +323,6 @@ TEST_F(RXVCoreEmulWrapperTest, ReadVendorId)
     load(R"objdump(
           0:   f11020f3                csrr    x1,mvendorid
           4:   00000013                nop
-
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000004; ++i) {
@@ -333,4 +332,29 @@ TEST_F(RXVCoreEmulWrapperTest, ReadVendorId)
     }
 
     EXPECT_EQ(tracer->read_reg(1), 0x53454c49);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, MRET)
+{
+    load(R"objdump(
+          0:   00000097                auipc   x1,0x0
+          4:   02408093                addi    x1,x1,36 # 0x24
+          8:   34109073                csrw    mepc,x1
+          c:   00000013                nop
+         10:   30200073                mret
+         14:   00f00093                li      x1,15
+         18:   0000006f                j       0x18
+         1c:   00000013                nop
+         20:   00000013                nop
+         24:   00100093                li      x1,1
+         28:   ffdff06f                j       0x24
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 1);
 }

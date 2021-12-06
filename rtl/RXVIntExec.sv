@@ -45,7 +45,9 @@ module RXVIntExec #(
     output logic          [            31:2] exec_update_predict_address,
     output logic          [            31:2] exec_update_predict_target,
     output logic                             exec_resteer,
-    output logic          [            31:2] exec_resteer_tgt
+    output logic          [            31:2] exec_resteer_tgt,
+    // Exception return
+    input  logic          [            31:2] mepc_in
 );
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -147,6 +149,7 @@ module RXVIntExec #(
     always_comb begin
         unique case (exec_uop)
             RXVTypes::UOP_JALR: branch_target = {alu_q[31:1], 1'b0};
+            RXVTypes::UOP_MRET: branch_target = {mepc_in, 2'b0};
             default: branch_target = {exec_branch_target, 1'b0};
         endcase
     end
@@ -166,8 +169,8 @@ module RXVIntExec #(
         exec_update_predict_taken_next = branch_taken;
         exec_update_predict_address_next = exec_pc;
         exec_update_predict_target_next = branch_target[31:2];
-        exec_resteer_next = valid && branch_mispredict;
-        exec_resteer_tgt_next = branch_taken ? branch_target[31:2] : exec_next_pc;
+        exec_resteer_next = valid && (branch_mispredict || exec_uop == RXVTypes::UOP_MRET);
+        exec_resteer_tgt_next = branch_taken || exec_uop == RXVTypes::UOP_MRET ? branch_target[31:2] : exec_next_pc;
     end
 
     always_comb begin

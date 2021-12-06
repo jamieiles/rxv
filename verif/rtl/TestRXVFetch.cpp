@@ -227,3 +227,49 @@ TEST_P(RXVFetchLineFill, ResteerDuringLineFill)
 INSTANTIATE_TEST_CASE_P(ResteerLineFillLatency,
                         RXVFetchLineFill,
                         ::testing::Values(0, 1, 2, 3));
+
+class RXVFetchLineFillDecodeStall
+    : public ::testing::WithParamInterface<int>
+    , public RXVFetchTestBench
+{
+};
+
+TEST_P(RXVFetchLineFillDecodeStall, DecodeStallDuringLineFill)
+{
+    cycle(4);
+
+    after_n_cycles(4, [&] { this->dut.icache_busy = 1; });
+    after_n_cycles(3 + GetParam(), [&] {
+        this->dut.decode_stall = 1;
+        this->dut.decode_resume_tgt = 0x80004444 >> 2;
+        after_n_cycles(1, [&] {
+            this->dut.decode_stall = 0;
+            this->dut.decode_resume_tgt = 0;
+        });
+    });
+    cycle(5);
+
+    for (int i = 0; i < 8; ++i) {
+        if (this->dut.decode_valid)
+            EXPECT_LT(this->dut.decode_pc, 0x80000100 >> 2);
+        cycle();
+    }
+    EXPECT_FALSE(this->dut.decode_valid);
+
+    after_n_cycles(0, [&] { this->dut.icache_busy = 0; });
+
+    for (int i = 0; i < 8; ++i) {
+        if (this->dut.decode_valid) {
+            EXPECT_EQ(this->dut.decode_pc, 0x80004444 >> 2);
+            break;
+        }
+
+        if (i == 7)
+            FAIL() << "stall never ended";
+        cycle();
+    }
+    cycle(8);
+}
+INSTANTIATE_TEST_CASE_P(DecodeStall,
+                        RXVFetchLineFillDecodeStall,
+                        ::testing::Values(0, 1, 2, 3));

@@ -90,19 +90,19 @@ module RXVFetch #(
 
     always_comb begin
         next_seq_pc = pc + 1'b1;
-        next_pc     = !stalling && icache_valid ? next_seq_pc : pc;
+        next_pc     = !icache_busy && icache_valid ? next_seq_pc : pc;
 
-        if (icache_busy) next_pc = icache_address;
         if (icache_busy_start) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
-        if (resteer_pending && icache_busy) next_pc = resteer_target;
         if (decode_stall) next_pc = decode_resume_tgt;
+        if (resteer_pending && icache_busy) next_pc = resteer_target;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
     end
 
     always_comb begin
         resteer_target_next = resteer_target;
+        if (decode_stall) resteer_target_next = decode_resume_tgt;
         if (decode_resteer) resteer_target_next = decode_resteer_tgt;
         if (exec_resteer) resteer_target_next = exec_resteer_tgt;
     end
@@ -111,6 +111,7 @@ module RXVFetch #(
         resteer_pending_next = resteer_pending;
         if (~icache_busy) resteer_pending_next = 1'b0;
         if (resteer) resteer_pending_next = 1'b1;
+        if (decode_stall) resteer_pending_next = 1'b1;
     end
 
     RXVDFF #(
@@ -203,7 +204,7 @@ module RXVFetch #(
     ) resteer_target_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (resteer),
+        .en   (resteer | decode_stall),
         .d    (resteer_target_next),
         .q    (resteer_target)
     );

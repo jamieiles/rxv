@@ -33,6 +33,7 @@ module RXVDecode #(
     output logic                              decode_resteer,
     output logic          [             31:2] decode_resteer_tgt,
     // CSR
+    input  logic                              valid_csr_in,
     output logic          [             11:0] decode_csr_addr,
     // Register write snoop
     input  phys_reg_tag                       reg_wr_addr,
@@ -338,31 +339,37 @@ module RXVDecode #(
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = RXVTypes::CSR_SWAP;
                 system_have_writeback = 1'b1;
+                system_illegal_instr  = ~valid_csr_in;
             end
             3'b010: begin  // CSRRS
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
                 system_have_writeback = 1'b1;
+                system_illegal_instr  = ~valid_csr_in;
             end
             3'b011: begin  // CSRRC
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
                 system_have_writeback = 1'b1;
+                system_illegal_instr  = ~valid_csr_in;
             end
             3'b101: begin  // CSRRWI
                 system_uop            = RXVTypes::UOP_CSRI;
                 csr_op_next           = RXVTypes::CSR_SWAP;
                 system_have_writeback = 1'b1;
+                system_illegal_instr  = ~valid_csr_in;
             end
             3'b110: begin  // CSRRSI
                 system_uop = RXVTypes::UOP_CSRI;
                 csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
                 system_have_writeback = 1'b1;
+                system_illegal_instr = ~valid_csr_in;
             end
             3'b111: begin  // CSRRCI
                 system_uop = RXVTypes::UOP_CSRI;
                 csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
                 system_have_writeback = 1'b1;
+                system_illegal_instr = ~valid_csr_in;
             end
             default: system_illegal_instr = 1'b1;
         endcase

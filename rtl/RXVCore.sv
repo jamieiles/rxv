@@ -60,6 +60,7 @@ module RXVCore #(
     logic          [             31:2] decode_kill_address;
     logic          [             31:1] exec_branch_target;
     logic          [             11:0] decode_csr_addr;
+    logic                              decode_valid_csr;
 
     logic                              exec_resteer;
     logic          [             31:2] exec_resteer_tgt;
@@ -222,6 +223,7 @@ module RXVCore #(
         .decode_stall               (decode_stall),
         .decode_resume_tgt          (decode_resume_tgt),
         .decode_csr_addr            (decode_csr_addr),
+        .valid_csr_in               (decode_valid_csr),
         .reg_wr_addr                (reg_wr_addr),
         .reg_wr_en                  (reg_wr_en),
         .reg_alloc_empty            (reg_alloc_empty),
@@ -317,14 +319,15 @@ module RXVCore #(
         .archid  (archid),
         .impid   (impid)
     ) RXVCSRFile (
-        .clk     (clk),
-        .reset   (reset),
-        .rd_addr (decode_csr_addr),
-        .rd_data (exec_csr_rd_data),
-        .wr_addr (exec_csr_wr_addr),
-        .wr_data (exec_csr_wr_data),
-        .wr_en   (exec_csr_wr_en),
-        .mepc_out(mepc_val)
+        .clk          (clk),
+        .reset        (reset),
+        .valid_csr_out(decode_valid_csr),
+        .rd_addr      (decode_csr_addr),
+        .rd_data      (exec_csr_rd_data),
+        .wr_addr      (exec_csr_wr_addr),
+        .wr_data      (exec_csr_wr_data),
+        .wr_en        (exec_csr_wr_en),
+        .mepc_out     (mepc_val)
     );
 
     RXVRenameFile RXVRenameFile (

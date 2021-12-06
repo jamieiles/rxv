@@ -31,6 +31,8 @@ module RXVCSRFile #(
     input  logic [11:0] wr_addr,
     input  logic [31:0] wr_data,
     input  logic        wr_en,
+    // Decode
+    output logic        valid_csr_out,
     // Exception handling
     output logic [31:2] mepc_out
 );
@@ -62,6 +64,16 @@ module RXVCSRFile #(
             RXVCSR::CSR_MCAUSE: rd_data_next = unpack_mcause(mcause_reg);
             RXVCSR::CSR_MTVAL: rd_data_next = unpack_mtval(mtval_reg);
             default: rd_data_next = 32'b0;
+        endcase
+    end
+
+    always_comb begin
+        unique case (rd_addr)
+            RXVCSR::CSR_MVENDORID, RXVCSR::CSR_MARCHID, RXVCSR::CSR_MIMPID,
+            RXVCSR::CSR_MSCRATCH, RXVCSR::CSR_MSTATUS, RXVCSR::CSR_MTVEC,
+            RXVCSR::CSR_MEPC, RXVCSR::CSR_MCAUSE, RXVCSR::CSR_MTVAL:
+                valid_csr_out = 1'b1;
+            default: valid_csr_out = 1'b0;
         endcase
     end
 

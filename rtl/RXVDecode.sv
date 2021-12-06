@@ -1,6 +1,7 @@
 `default_nettype none
 
 import RXVTypes::num_phys_regs;
+import RXVTypes::arch_reg_tag;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTypes::rxv_alu_op;
@@ -95,6 +96,7 @@ module RXVDecode #(
     logic                              int_bypass_valid;
     logic                              have_rs1;
     logic                              have_rs2;
+    arch_reg_tag                       last_rd_arch;
     logic                              system_stall;
 
     logic                              is_branch;
@@ -371,12 +373,14 @@ module RXVDecode #(
     end
 
     always_comb begin
-        int_bypass_valid = exec_valid && exec_have_writeback && exec_uop == RXVTypes::UOP_ALU;
+        int_bypass_valid = exec_valid && exec_have_writeback &&
+            (exec_uop == RXVTypes::UOP_ALU || exec_uop == RXVTypes::UOP_AUIPC ||
+             exec_uop == RXVTypes::UOP_LUI);
     end
 
     always_comb begin
-        exec_bypass_rs1_next = int_bypass_valid && exec_rd == rename_lookup_phys[0];
-        exec_bypass_rs2_next = int_bypass_valid && exec_rd == rename_lookup_phys[1];
+        exec_bypass_rs1_next = int_bypass_valid && last_rd_arch == rs1;
+        exec_bypass_rs2_next = int_bypass_valid && last_rd_arch == rs2;
     end
 
     always_comb begin
@@ -388,7 +392,6 @@ module RXVDecode #(
     always_comb begin
         rs2_busy = busy_status[rename_lookup_phys[1]];
         if (reg_wr_en && reg_wr_addr == rename_lookup_phys[1]) rs2_busy = 1'b0;
-        if (int_bypass_valid && exec_rd == rename_lookup_phys[1]) rs2_busy = 1'b0;
         if (exec_bypass_rs2_next) rs2_busy = 1'b0;
     end
 
@@ -540,6 +543,16 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (exec_uop_next),
         .q    (exec_uop)
+    );
+
+    RXVDFF #(
+        .width($bits(RXVTypes::arch_reg_tag))
+    ) last_rd_arch_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (rd),
+        .q    (last_rd_arch)
     );
 
     RXVDFF exec_bypass_rs1_dff (

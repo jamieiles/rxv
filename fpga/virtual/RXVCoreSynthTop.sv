@@ -89,7 +89,12 @@ module RXVCoreSynthTop (
     assign d_mem_bus.rlast   = d_rlast;
     assign d_mem_bus.bvalid  = d_bvalid;
 
-    SysPLL SysPLL (.refclk(refclk), .reset(reset), .clk(clk), .locked());
+    SysPLL SysPLL (
+        .refclk(refclk),
+        .reset (reset),
+        .clk   (clk),
+        .locked()
+    );
 
     RXVCore #(
         .icache_nr_ways (2),

@@ -31,8 +31,10 @@ ys_formal(TOP RXVIntExec
           SKIP 0
           DEFINES "FORMAL_RXVINTEXEC"
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+          SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
+          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
 
 add_executable(rtl-unittest
@@ -223,13 +225,16 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDecode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitter.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv

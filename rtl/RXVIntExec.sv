@@ -5,16 +5,17 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_uop;
-
+// verilator lint_off UNUSED
 module RXVIntExec #(
     parameter int commit_order = 3
 ) (
-    input  logic                             clk,
-    input  logic                             reset,
-    input  logic                             kill_valid,
+    input logic clk,
+    input logic reset,
+    input logic kill_valid,
 
     input  logic                             exec_valid,
     input  rxv_alu_op                        exec_alu_op,
+    input  rxv_csr_op                        exec_csr_op,
     input  logic                             exec_have_writeback,
     input  phys_reg_tag                      exec_rd,
     input  logic          [commit_width-1:0] exec_id,
@@ -29,6 +30,10 @@ module RXVIntExec #(
     input  rxv_opcode                        exec_opcode,
     input  logic          [            31:1] exec_branch_target,
     input  rxv_uop                           exec_uop,
+    input  logic          [            31:0] exec_csr_rd_data,
+    output logic          [            11:0] exec_csr_wr_addr,
+    output logic          [            31:0] exec_csr_wr_data,
+    output logic                             exec_csr_wr_en,
     // Prediction
     input  logic          [            31:2] exec_pc,
     input  logic          [            31:2] exec_next_pc,
@@ -54,6 +59,11 @@ module RXVIntExec #(
     logic        branch_taken;
     logic        branch_mispredict;
 
+    logic [31:0] csr_q;
+    logic [31:0] csr_alu_op2;
+    logic [ 4:0] csr_immed_val;
+    logic [11:0] csr_addr;
+
     logic        exec_predict_update_next;
     logic [ 1:0] exec_predict_prev_strength_next;
     logic        exec_update_predict_taken_next;
@@ -65,7 +75,11 @@ module RXVIntExec #(
     // verilator lint_off UNUSED
     logic [31:0] branch_target;
     // verilator lint_on UNUSED
-    logic unconditional_branch;
+    logic        unconditional_branch;
+
+    logic [11:0] exec_csr_wr_addr_next;
+    logic [31:0] exec_csr_wr_data_next;
+    logic        exec_csr_wr_en_next;
 
     RXVALU RXVALU (
         .a   (op1),
@@ -73,6 +87,13 @@ module RXVIntExec #(
         .op  (exec_alu_op),
         .q   (alu_q),
         .zero(zero)
+    );
+
+    RXVCSRALU RXVCSRALU (
+        .old_val(exec_csr_rd_data),
+        .new_val(csr_alu_op2),
+        .op     (exec_csr_op),
+        .q      (csr_q)
     );
 
     always_comb begin
@@ -84,7 +105,16 @@ module RXVIntExec #(
     end
 
     always_comb begin
+        csr_alu_op2 = exec_uop == RXVTypes::UOP_CSRI ? {27'b0, exec_immed[19:15]} : op1;
+    end
+
+    always_comb begin
         valid = exec_valid & ~kill_valid;
+    end
+
+    always_comb begin
+        csr_immed_val = exec_immed[19:15];
+        csr_addr      = exec_immed[31:20];
     end
 
     always_comb begin
@@ -93,6 +123,7 @@ module RXVIntExec #(
             RXVTypes::UOP_JAL, RXVTypes::UOP_JALR: exec_reg_wr_data_next = {exec_next_pc, 2'b0};
             RXVTypes::UOP_LUI: exec_reg_wr_data_next = exec_immed;
             RXVTypes::UOP_AUIPC: exec_reg_wr_data_next = exec_immed + {exec_pc, 2'b0};
+            RXVTypes::UOP_CSR, RXVTypes::UOP_CSRI: exec_reg_wr_data_next = exec_csr_rd_data;
             default: exec_reg_wr_data_next = 32'b0;
         endcase
     end
@@ -137,6 +168,14 @@ module RXVIntExec #(
         exec_update_predict_target_next = branch_target[31:2];
         exec_resteer_next = valid && branch_mispredict;
         exec_resteer_tgt_next = branch_taken ? branch_target[31:2] : exec_next_pc;
+    end
+
+    always_comb begin
+        exec_csr_wr_addr_next = csr_addr;
+        exec_csr_wr_data_next = csr_q;
+        exec_csr_wr_en_next = |csr_addr && valid &&
+            (exec_uop == RXVTypes::UOP_CSR || exec_uop == RXVTypes::UOP_CSRI) &&
+            exec_csr_op != RXVTypes::CSR_READ;
     end
 
     RXVDFF #(
@@ -247,6 +286,34 @@ module RXVIntExec #(
         .en   (1'b1),
         .d    (exec_resteer_tgt_next),
         .q    (exec_resteer_tgt)
+    );
+
+    RXVDFF #(
+        .width(12)
+    ) exec_csr_wr_addr_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_csr_wr_addr_next),
+        .q    (exec_csr_wr_addr)
+    );
+
+    RXVDFF #(
+        .width(32)
+    ) exec_csr_wr_data_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_csr_wr_data_next),
+        .q    (exec_csr_wr_data)
+    );
+
+    RXVDFF exec_csr_wr_en_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_csr_wr_en_next),
+        .q    (exec_csr_wr_en)
     );
 
 `ifdef FORMAL

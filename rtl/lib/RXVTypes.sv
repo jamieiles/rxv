@@ -40,6 +40,13 @@ package RXVTypes;
         ALU_SLTU
     } rxv_alu_op  /* verilator public */;
 
+    typedef enum logic [1:0] {
+        CSR_SWAP,
+        CSR_SET,
+        CSR_CLEAR,
+        CSR_READ
+    } rxv_csr_op  /* verilator public */;
+
     typedef enum logic [4:0] {
         OPC_LOAD     = 5'b00000,
         OPC_LOAD_FP  = 5'b00001,
@@ -80,7 +87,9 @@ package RXVTypes;
         UOP_JAL,
         UOP_JALR,
         UOP_LUI,
-        UOP_AUIPC
+        UOP_AUIPC,
+        UOP_CSR,
+        UOP_CSRI
     } rxv_uop;
 
     // verilator lint_off UNUSED

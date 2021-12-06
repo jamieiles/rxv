@@ -6,6 +6,7 @@
 
 #include "VerilogTestbench.h"
 #include "VRXVCoreEmulWrapper.h"
+#include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper_BusTransactor.h"
 #include "VRXVCoreEmulWrapper_RXVCore.h"
@@ -242,4 +243,94 @@ TEST_F(RXVCoreEmulWrapperTest, AUIPC)
         cycle();
 
     EXPECT_EQ(tracer->read_reg(1), 0x80000004 + (8 << 12));
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CSRRW)
+{
+    load(R"objdump(
+         0:   deadc0b7                lui     x1,0xdeadc
+         4:   eef08093                addi    x1,x1,-273 # 0xdeadbeef
+         8:   34009173                csrrw   x2,mscratch,x1
+         c:   aa55a137                lui     x2,0xaa55a
+        10:   5a510113                addi    x2,x2,1445 # 0xaa55a5a5
+        14:   340111f3                csrrw   x3,mscratch,x2
+        18:   34002273                csrr    x4,mscratch
+        1c:   00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0xaa55a5a5);
+    EXPECT_EQ(tracer->read_reg(3), 0xdeadbeef);
+    EXPECT_EQ(tracer->read_reg(4), 0xaa55a5a5);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CSRRS)
+{
+    load(R"objdump(
+          0:   000010b7                lui     x1,0x1
+          4:   f0108093                addi    x1,x1,-255 # 0xf01
+          8:   11111137                lui     x2,0x11111
+          c:   11110113                addi    x2,x2,273 # 0x11111111
+         10:   34011073                csrw    mscratch,x2
+         14:   3400b1f3                csrrc   x3,mscratch,x1
+         18:   34002273                csrr    x4,mscratch
+         1c:   00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 0x00000f01);
+    EXPECT_EQ(tracer->read_reg(2), 0x11111111);
+    EXPECT_EQ(tracer->read_reg(3), 0x11111111);
+    EXPECT_EQ(tracer->read_reg(4), 0x11111010);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CSRZeroNoWrite)
+{
+    load(R"objdump(
+          0:   111110b7                lui     x1,0x11111
+          4:   11108093                addi    x1,x1,273 # 0x11111111
+          8:   34009073                csrw    mscratch,x1
+          c:   34003073                csrc    mscratch,x0
+         10:   34002173                csrr    x2,mscratch
+         14:   34007073                csrci   mscratch,0
+         18:   340021f3                csrr    x3,mscratch
+         1c:   00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 0x11111111);
+    EXPECT_EQ(tracer->read_reg(2), 0x11111111);
+    EXPECT_EQ(tracer->read_reg(3), 0x11111111);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, ReadVendorId)
+{
+    load(R"objdump(
+          0:   f11020f3                csrr    x1,mvendorid
+          4:   00000013                nop
+
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000004; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 0x53454c49);
 }

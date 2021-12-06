@@ -18,7 +18,8 @@ module RXVCoreEmulWrapper (
 
     RXVCore #(
         .icache_line_size_bytes(32),
-        .dcache_line_size_bytes(32)
+        .dcache_line_size_bytes(32),
+        .vendorid(32'h53454c49)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),

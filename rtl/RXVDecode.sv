@@ -5,6 +5,7 @@ import RXVTypes::arch_reg_tag;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTypes::rxv_alu_op;
+import RXVTypes::rxv_csr_op;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_uop;
@@ -31,6 +32,8 @@ module RXVDecode #(
     output logic          [             31:2] decode_resume_tgt,
     output logic                              decode_resteer,
     output logic          [             31:2] decode_resteer_tgt,
+    // CSR
+    output logic          [             11:0] decode_csr_addr,
     // Register write snoop
     input  phys_reg_tag                       reg_wr_addr,
     input  logic                              reg_wr_en,
@@ -59,6 +62,7 @@ module RXVDecode #(
     output phys_reg_tag                       rb_phys,
     // To exec
     output rxv_alu_op                         exec_alu_op,
+    output rxv_csr_op                         exec_csr_op,
     output logic                              exec_valid,
     output logic                              exec_have_writeback,
     output phys_reg_tag                       exec_rd,
@@ -88,57 +92,63 @@ module RXVDecode #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic                              rs1_busy;
-    logic                              rs2_busy;
-    logic                              src_regs_ready;
-    logic                              illegal_instruction;
-    logic                              illegal_opcode;
-    logic                              int_bypass_valid;
-    logic                              have_rs1;
-    logic                              have_rs2;
-    arch_reg_tag                       last_rd_arch;
-    logic                              system_stall;
+    logic                                rs1_busy;
+    logic                                rs2_busy;
+    logic                                src_regs_ready;
+    logic                                illegal_instruction;
+    logic                                illegal_opcode;
+    logic                                int_bypass_valid;
+    logic                                have_rs1;
+    logic                                have_rs2;
+    arch_reg_tag                         last_rd_arch;
+    logic                                system_stall;
 
-    logic                              is_branch;
+    logic                                is_branch;
 
-    logic      [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
-    logic                              exec_valid_next;
-    logic                              exec_have_writeback_next;
-    logic      [                 31:0] exec_immed_next;
-    logic      [                 31:0] exec_branch_target_next;
-    logic      [   $bits(rxv_uop)-1:0] exec_uop_next;
-    logic                              exec_bypass_rs1_next;
-    logic                              exec_bypass_rs2_next;
+    logic        [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
+    logic                                exec_valid_next;
+    logic                                exec_have_writeback_next;
+    logic        [                 31:0] exec_immed_next;
+    logic        [                 31:0] exec_branch_target_next;
+    logic        [   $bits(rxv_uop)-1:0] exec_uop_next;
+    logic                                exec_bypass_rs1_next;
+    logic                                exec_bypass_rs2_next;
 
-    logic                              opc_op;
-    rxv_alu_op                         op_alu_op;
-    logic                              op_illegal_instr;
-    rxv_uop                            op_uop;
+    logic                                opc_op;
+    rxv_alu_op                           op_alu_op;
+    logic                                op_illegal_instr;
+    rxv_uop                              op_uop;
 
-    logic                              opc_imm;
-    rxv_alu_op                         imm_alu_op;
-    logic                              imm_illegal_instr;
-    rxv_uop                            imm_uop;
+    logic                                opc_imm;
+    rxv_alu_op                           imm_alu_op;
+    logic                                imm_illegal_instr;
+    rxv_uop                              imm_uop;
 
-    logic                              opc_branch;
-    rxv_alu_op                         branch_alu_op;
-    logic                              branch_illegal_instr;
-    logic      [                 31:0] branch_target;
-    rxv_uop                            branch_uop;
+    logic                                opc_branch;
+    rxv_alu_op                           branch_alu_op;
+    logic                                branch_illegal_instr;
+    logic        [                 31:0] branch_target;
+    rxv_uop                              branch_uop;
 
-    logic                              opc_jal;
-    logic      [                 31:0] jal_target;
-    rxv_uop                            jal_uop;
+    logic                                opc_jal;
+    logic        [                 31:0] jal_target;
+    rxv_uop                              jal_uop;
 
-    logic                              opc_jalr;
-    rxv_alu_op                         jalr_alu_op;
-    rxv_uop                            jalr_uop;
+    logic                                opc_jalr;
+    rxv_alu_op                           jalr_alu_op;
+    rxv_uop                              jalr_uop;
 
-    logic                              opc_lui;
-    rxv_uop                            lui_uop;
+    logic                                opc_lui;
+    rxv_uop                              lui_uop;
 
-    logic                              opc_auipc;
-    rxv_uop                            auipc_uop;
+    logic                                opc_auipc;
+    rxv_uop                              auipc_uop;
+
+    logic                                opc_system;
+    rxv_csr_op                           csr_op_next;
+    logic                                system_illegal_instr;
+    rxv_uop                              system_uop;
+    logic                                system_have_writeback;
 
     always_comb begin
         opc_op          = 1'b0;
@@ -148,6 +158,7 @@ module RXVDecode #(
         opc_jalr        = 1'b0;
         opc_lui         = 1'b0;
         opc_auipc       = 1'b0;
+        opc_system      = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
         have_rs1        = 1'b0;
@@ -194,6 +205,13 @@ module RXVDecode #(
                 illegal_opcode  = 1'b0;
                 opc_auipc       = 1'b1;
                 exec_immed_next = u_immed(decode_instr);
+            end
+            RXVTypes::OPC_SYSTEM: begin
+                illegal_opcode  = 1'b0;
+                opc_system      = 1'b1;
+                exec_immed_next = u_immed(decode_instr);
+                // Only CSRRW/CSRRS/CSRRC have a source register
+                have_rs1        = funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011;
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -303,6 +321,47 @@ module RXVDecode #(
     end
 
     always_comb begin
+        system_illegal_instr  = 1'b0;
+        csr_op_next           = RXVTypes::CSR_SWAP;
+        system_uop            = RXVTypes::UOP_ALU;
+        system_have_writeback = 1'b0;
+
+        unique case (funct3)
+            3'b001: begin  // CSRRW
+                system_uop            = RXVTypes::UOP_CSR;
+                csr_op_next           = RXVTypes::CSR_SWAP;
+                system_have_writeback = 1'b1;
+            end
+            3'b010: begin  // CSRRS
+                system_uop            = RXVTypes::UOP_CSR;
+                csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
+                system_have_writeback = 1'b1;
+            end
+            3'b011: begin  // CSRRC
+                system_uop            = RXVTypes::UOP_CSR;
+                csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
+                system_have_writeback = 1'b1;
+            end
+            3'b101: begin  // CSRRWI
+                system_uop            = RXVTypes::UOP_CSRI;
+                csr_op_next           = RXVTypes::CSR_SWAP;
+                system_have_writeback = 1'b1;
+            end
+            3'b110: begin  // CSRRSI
+                system_uop = RXVTypes::UOP_CSRI;
+                csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
+                system_have_writeback = 1'b1;
+            end
+            3'b111: begin  // CSRRCI
+                system_uop = RXVTypes::UOP_CSRI;
+                csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
+                system_have_writeback = 1'b1;
+            end
+            default: system_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
         exec_alu_op_next = 'b0;
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_op}} & op_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_imm}} & imm_alu_op);
@@ -332,6 +391,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_jalr;
         exec_have_writeback_next |= opc_lui;
         exec_have_writeback_next |= opc_auipc;
+        exec_have_writeback_next |= opc_system & system_have_writeback;
 
         if (~|rd) exec_have_writeback_next = 1'b0;
     end
@@ -345,12 +405,14 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_jalr}} & jalr_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_lui}} & lui_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_auipc}} & auipc_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_system}} & system_uop);
     end
 
     always_comb begin
         illegal_instruction = (opc_op & op_illegal_instr) |
             (opc_imm & imm_illegal_instr) |
             (opc_branch & branch_illegal_instr) |
+            (opc_system & system_illegal_instr) |
             illegal_opcode;
     end
 
@@ -429,6 +491,10 @@ module RXVDecode #(
         rb_phys = rename_lookup_phys[1];
     end
 
+    always_comb begin
+        decode_csr_addr = decode_instr[31:20];
+    end
+
     RXVDFF #(
         .width($bits(exec_alu_op))
     ) exec_alu_op_dff (
@@ -437,6 +503,16 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (exec_alu_op_next),
         .q    (exec_alu_op)
+    );
+
+    RXVDFF #(
+        .width($bits(exec_csr_op))
+    ) exec_csr_op_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (csr_op_next),
+        .q    (exec_csr_op)
     );
 
     RXVDFF #(

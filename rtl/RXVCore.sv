@@ -8,8 +8,10 @@ import RXVTypes::num_phys_regs;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_alu_op;
+import RXVTypes::rxv_csr_op;
 import RXVTypes::rxv_uop;
 import RXVTrace::trace_write_reg;
+import RXVTrace::trace_write_csr;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -21,7 +23,10 @@ module RXVCore #(
     parameter int          btb_num_entries        = 256,
     parameter int          btb_tag_bits           = 10,
     parameter int          commit_order           = 4,
-    parameter logic [31:0] reset_address          = 32'h80000000
+    parameter logic [31:0] reset_address          = 32'h80000000,
+    parameter logic [31:0] vendorid               = 0,
+    parameter logic [31:0] archid                 = 0,
+    parameter logic [31:0] impid                  = 0
 ) (
     input logic                clk,
     input logic                reset,
@@ -54,6 +59,7 @@ module RXVCore #(
     logic                              decode_predict_kill;
     logic          [             31:2] decode_kill_address;
     logic          [             31:1] exec_branch_target;
+    logic          [             11:0] decode_csr_addr;
 
     logic                              exec_resteer;
     logic          [             31:2] exec_resteer_tgt;
@@ -67,8 +73,13 @@ module RXVCore #(
     rxv_uop                            exec_uop;
     logic                              exec_bypass_rs1;
     logic                              exec_bypass_rs2;
+    logic          [             31:0] exec_csr_rd_data;
+    logic          [             11:0] exec_csr_wr_addr;
+    logic          [             31:0] exec_csr_wr_data;
+    logic                              exec_csr_wr_en;
 
     rxv_alu_op                         exec_alu_op;
+    rxv_csr_op                         exec_csr_op;
     logic                              exec_valid;
     logic                              exec_have_writeback;
     phys_reg_tag                       exec_rd;
@@ -209,6 +220,7 @@ module RXVCore #(
         .decode_resteer_tgt         (decode_resteer_tgt),
         .decode_stall               (decode_stall),
         .decode_resume_tgt          (decode_resume_tgt),
+        .decode_csr_addr            (decode_csr_addr),
         .reg_wr_addr                (reg_wr_addr),
         .reg_wr_en                  (reg_wr_en),
         .reg_alloc_empty            (reg_alloc_empty),
@@ -230,6 +242,7 @@ module RXVCore #(
         .ra_phys                    (rd_addr_a),
         .rb_phys                    (rd_addr_b),
         .exec_alu_op                (exec_alu_op),
+        .exec_csr_op                (exec_csr_op),
         .exec_valid                 (exec_valid),
         .exec_have_writeback        (exec_have_writeback),
         .exec_rd                    (exec_rd),
@@ -254,6 +267,7 @@ module RXVCore #(
         .kill_valid                 (kill_valid),
         .exec_valid                 (exec_valid),
         .exec_alu_op                (exec_alu_op),
+        .exec_csr_op                (exec_csr_op),
         .exec_have_writeback        (exec_have_writeback),
         .exec_rd                    (exec_rd),
         .exec_id                    (exec_id),
@@ -268,6 +282,10 @@ module RXVCore #(
         .exec_opcode                (exec_opcode),
         .exec_branch_target         (exec_branch_target),
         .exec_uop                   (exec_uop),
+        .exec_csr_rd_data           (exec_csr_rd_data),
+        .exec_csr_wr_addr           (exec_csr_wr_addr),
+        .exec_csr_wr_data           (exec_csr_wr_data),
+        .exec_csr_wr_en             (exec_csr_wr_en),
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction),
@@ -290,6 +308,20 @@ module RXVCore #(
         .wr_en    (reg_wr_en),
         .wr_addr  (reg_wr_addr),
         .wr_data  (reg_wr_data)
+    );
+
+    RXVCSRFile #(
+        .vendorid(vendorid),
+        .archid  (archid),
+        .impid   (impid)
+    ) RXVCSRFile (
+        .clk    (clk),
+        .reset  (reset),
+        .rd_addr(decode_csr_addr),
+        .rd_data(exec_csr_rd_data),
+        .wr_addr(exec_csr_wr_addr),
+        .wr_data(exec_csr_wr_data),
+        .wr_en  (exec_csr_wr_en)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -423,6 +455,12 @@ module RXVCore #(
             commit_entry ce = RXVCommitBuffer.commit_fifo.mem[complete_id];
             // verilator lint_on UNUSED
             trace_write_reg(32'(complete_id), ce.dest_reg.arch, reg_wr_data);
+        end
+    end
+
+    always_ff @(posedge clk) begin
+        if (exec_csr_wr_en) begin
+            trace_write_csr(32'(complete_id), exec_csr_wr_addr, exec_csr_wr_data);
         end
     end
 `endif  // verilator

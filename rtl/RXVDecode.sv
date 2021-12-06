@@ -39,6 +39,7 @@ module RXVDecode #(
     input  phys_reg_tag                       allocated_reg,
     // To commit buffer
     input  logic                              commit_buffer_full,
+    input  logic                              commit_buffer_empty,
     output commit_entry                       commit_dispatch,
     output logic                              commit_dispatch_valid,
     input                 [ commit_width-1:0] dispatch_id,
@@ -94,6 +95,7 @@ module RXVDecode #(
     logic                              int_bypass_valid;
     logic                              have_rs1;
     logic                              have_rs2;
+    logic                              system_stall;
 
     logic                              is_branch;
 
@@ -351,7 +353,11 @@ module RXVDecode #(
     end
 
     always_comb begin
-        decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full | ~src_regs_ready);
+        system_stall = opcode[6:2] == RXVTypes::OPC_SYSTEM && ~commit_buffer_empty;
+    end
+
+    always_comb begin
+        decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full | ~src_regs_ready | system_stall);
         decode_resume_tgt = decode_pc;
     end
 

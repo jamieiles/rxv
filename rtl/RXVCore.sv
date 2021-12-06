@@ -215,6 +215,7 @@ module RXVCore #(
         .reg_alloc_valid            (reg_alloc),
         .allocated_reg              (reg_alloc_phys),
         .commit_buffer_full         (commit_full),
+        .commit_buffer_empty        (commit_empty),
         .commit_dispatch            (dispatch_in),
         .commit_dispatch_valid      (dispatch_valid),
         .dispatch_id                (dispatch_id),

@@ -9,10 +9,9 @@ import RXVTypes::rxv_uop;
 module RXVIntExec #(
     parameter int commit_order = 3
 ) (
-    input logic clk,
-    input logic reset,
-    input logic kill_valid,
-
+    input  logic                             clk,
+    input  logic                             reset,
+    input  logic                             kill_valid,
     input  logic                             exec_valid,
     input  rxv_alu_op                        exec_alu_op,
     input  rxv_csr_op                        exec_csr_op,

@@ -63,6 +63,8 @@ module RXVCore #(
     logic          [             11:0] decode_csr_addr;
     logic                              decode_valid_csr;
     RXVException                       decode_exception;
+    logic                              decode_except_valid;
+    logic          [ commit_width-1:0] decode_except_id;
 
     logic                              exec_resteer;
     logic          [             31:2] exec_resteer_tgt;
@@ -139,6 +141,7 @@ module RXVCore #(
     logic                              complete_valid;
     logic          [ commit_width-1:0] except_id;
     logic                              except_valid;
+    logic                              exception_pending;
     logic                              commit_empty;
     commit_entry                       commit_out;
     logic                              commit_complete_out;
@@ -189,6 +192,8 @@ module RXVCore #(
     ) RXVFetch (
         .clk                   (clk),
         .reset                 (reset),
+        .except_valid          (except_valid),
+        .exception_pending     (exception_pending),
         .icache_address        (icache_address),
         .icache_valid          (icache_valid),
         .icache_busy           (icache_busy),
@@ -262,7 +267,10 @@ module RXVCore #(
         .exec_prediction            (exec_prediction),
         .exec_branch_target         (exec_branch_target),
         .kill_valid                 (kill_valid),
-        .decode_exception           (decode_exception)
+        .exec_resteer               (exec_resteer),
+        .decode_exception           (decode_exception),
+        .decode_except_valid        (decode_except_valid),
+        .decode_except_id           (decode_except_id)
     );
 
     RXVIntExec #(
@@ -318,20 +326,23 @@ module RXVCore #(
     );
 
     RXVCSRFile #(
-        .vendorid(vendorid),
-        .archid  (archid),
-        .impid   (impid)
+        .vendorid    (vendorid),
+        .archid      (archid),
+        .impid       (impid),
+        .commit_order(commit_order)
     ) RXVCSRFile (
         .clk             (clk),
         .reset           (reset),
         .valid_csr_out   (decode_valid_csr),
         .rd_addr         (decode_csr_addr),
         .rd_data         (exec_csr_rd_data),
+        .writeback_id    (complete_id),
         .wr_addr         (exec_csr_wr_addr),
         .wr_data         (exec_csr_wr_data),
         .wr_en           (exec_csr_wr_en),
         .mepc_out        (mepc_val),
-        .decode_exception(decode_exception)
+        .decode_exception(decode_exception),
+        .decode_except_id(decode_except_id)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -394,6 +405,7 @@ module RXVCore #(
         .complete_valid     (complete_valid),
         .except_id          (except_id),
         .except_valid       (except_valid),
+        .exception_pending  (exception_pending),
         .empty              (commit_empty),
         .commit_out         (commit_out),
         .commit_complete_out(commit_complete_out),
@@ -443,8 +455,6 @@ module RXVCore #(
         dcache_device_memory = 'b0;
         dcache_valid         = 'b0;
         dcache_din           = 'b0;
-        except_id            = 'b0;
-        except_valid         = 'b0;
     end
 
     always_comb begin
@@ -456,6 +466,11 @@ module RXVCore #(
         kill_valid = exec_valid & exec_resteer;
     end
 
+    always_comb begin
+        except_valid = decode_except_valid & ~exec_resteer;
+        except_id    = decode_except_id;
+    end
+
 `ifdef verilator
     `include "RXVTrace_cpp.svh"
 
@@ -465,12 +480,6 @@ module RXVCore #(
             commit_entry ce = RXVCommitBuffer.commit_fifo.mem[complete_id];
             // verilator lint_on UNUSED
             trace_write_reg(32'(complete_id), ce.dest_reg.arch, reg_wr_data);
-        end
-    end
-
-    always_ff @(posedge clk) begin
-        if (exec_csr_wr_en) begin
-            trace_write_csr(32'(complete_id), exec_csr_wr_addr, exec_csr_wr_data);
         end
     end
 `endif  // verilator

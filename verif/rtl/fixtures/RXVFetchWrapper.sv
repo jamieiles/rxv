@@ -6,6 +6,8 @@ module RXVFetchWrapper #(
 ) (
     input  logic        clk,
     input  logic        reset,
+    input  logic        except_valid,
+    input  logic        exception_pending,
     // To instruction cache
     output logic [31:2] icache_address,
     output logic        icache_valid,

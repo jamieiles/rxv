@@ -4,6 +4,7 @@ import RXVTypes::commit_entry;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTrace::trace_end_instruction;
+import RXVTrace::trace_exception;
 
 module RXVCommitter #(
     parameter int commit_order = 3
@@ -66,7 +67,8 @@ module RXVCommitter #(
     end
 
     always_ff @(posedge clk) begin
-        if ((commit_valid || commit_excepted) && !commit_killed) begin
+        if (((commit_valid && !commit_killed) || (commit_valid && commit_excepted))) begin
+            if (commit_excepted) trace_exception(32'(commit_id));
             trace_end_instruction(32'(commit_id));
         end
     end

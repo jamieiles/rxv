@@ -104,8 +104,11 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
-            pack_mtvec.base = v[31:2];
             pack_mtvec.mode = mtvec_mode'(v[0]);
+            // Vectored mode is aligned to 64 bytes so that the cause can be
+            // OR'd in
+            if (pack_mtvec.mode == MTVEC_DIRECT) pack_mtvec.base = v[31:2];
+            else pack_mtvec.base = {v[31:6], 4'b0};
         end
     endfunction
 

@@ -6,6 +6,8 @@ module RXVFetch #(
 ) (
     input  logic                 clk,
     input  logic                 reset,
+    input  logic                 except_valid,
+    input  logic                 exception_pending,
     // To instruction cache
     output logic          [31:2] icache_address,
     output logic                 icache_valid,
@@ -54,6 +56,7 @@ module RXVFetch #(
     logic        fetched;
     logic        decode_valid_next;
     logic        resteer;
+    logic        icache_valid_next;
     logic        icache_busy_start;
     logic        fetched_next;
     logic        resteer_pending;
@@ -69,7 +72,8 @@ module RXVFetch #(
     );
 
     always_comb begin
-        fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall & ~(resteer_pending & icache_busy);
+        fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall &
+            ~exception_pending & ~except_valid & ~(resteer_pending & icache_busy);
     end
 
     always_comb begin
@@ -77,7 +81,7 @@ module RXVFetch #(
     end
 
     always_comb begin
-        decode_valid_next = fetched & ~stalling & ~resteer & ~resteer_pending;
+        decode_valid_next = fetched & ~stalling & ~resteer & ~resteer_pending & ~exception_pending & ~except_valid;
     end
 
     always_comb begin
@@ -86,6 +90,10 @@ module RXVFetch #(
 
     always_comb begin
         branch_predict_address = next_pc;
+    end
+
+    always_comb begin
+        icache_valid_next = ~decode_stall & ~exception_pending & ~except_valid;
     end
 
     always_comb begin
@@ -139,7 +147,7 @@ module RXVFetch #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (~decode_stall),
+        .d    (icache_valid_next),
         .q    (icache_valid)
     );
 

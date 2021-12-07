@@ -20,6 +20,7 @@ module RXVCommitBuffer #(
     // Exception
     input  logic        [addr_width-1:0] except_id,
     input  logic                         except_valid,
+    output logic                         exception_pending,
     // Retirement
     output logic                         empty,
     output commit_entry                  commit_out,
@@ -59,6 +60,7 @@ module RXVCommitBuffer #(
 
     logic                   killing;
     logic                   killing_next;
+    logic                   exception_pending_next;
 
     always_comb begin
         killing_next = killing;
@@ -86,7 +88,7 @@ module RXVCommitBuffer #(
             if (commit_id == addr_width'(i) && commit_valid) killed_next[i] = 1'b0;
         end
 
-        assert (!((kill_valid || except_valid) && dispatch_valid));
+        assert (!(kill_valid && dispatch_valid));
     end
 
     always_comb begin
@@ -103,6 +105,12 @@ module RXVCommitBuffer #(
         commit_complete_out = completed[commit_id];
         commit_killed_out   = killing | killed[commit_id];
         commit_excepted_out = excepted[commit_id];
+    end
+
+    always_comb begin
+        exception_pending_next = exception_pending;
+        if (commit_excepted_out && commit_valid) exception_pending_next = 1'b0;
+        if (except_valid) exception_pending_next = 1'b1;
     end
 
 `ifdef verilator
@@ -148,6 +156,14 @@ module RXVCommitBuffer #(
         .en   (1'b1),
         .d    (killing_next),
         .q    (killing)
+    );
+
+    RXVDFF exception_pending_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exception_pending_next),
+        .q    (exception_pending)
     );
 
 endmodule

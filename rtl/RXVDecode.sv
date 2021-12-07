@@ -81,7 +81,11 @@ module RXVDecode #(
     output rxv_prediction                     exec_prediction,
     output logic          [             31:1] exec_branch_target,
     input  logic                              kill_valid,
-    output RXVException                       decode_exception
+    input  logic                              exec_resteer,
+    // Exception handling
+    output RXVException                       decode_exception,
+    output logic                              decode_except_valid,
+    output logic          [ commit_width-1:0] decode_except_id
 );
 
     wire [ 6:0] funct7 = decode_instr[31:25];
@@ -107,6 +111,8 @@ module RXVDecode #(
     arch_reg_tag                         last_rd_arch;
     logic                                system_stall;
     RXVException                         decode_exception_next;
+    logic                                decode_except_valid_next;
+    logic        [     commit_width-1:0] decode_except_id_next;
 
     logic                                is_branch;
 
@@ -444,7 +450,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        exec_valid_next = ~illegal_instruction & decode_valid & ~decode_stall & ~kill_valid;
+        exec_valid_next = ~illegal_instruction & decode_valid & ~decode_stall & ~kill_valid & ~exec_resteer;
     end
 
     always_comb begin
@@ -485,7 +491,7 @@ module RXVDecode #(
         commit_dispatch.pc             = decode_pc;
         commit_dispatch.have_writeback = exec_have_writeback_next;
 
-        commit_dispatch_valid          = exec_valid_next;
+        commit_dispatch_valid          = exec_valid_next | (decode_valid & illegal_instruction);
     end
 
     always_comb begin
@@ -514,10 +520,15 @@ module RXVDecode #(
     end
 
     always_comb begin
-        decode_exception_next.pc    = decode_pc;
-        decode_exception_next.val   = decode_instr;
+        decode_exception_next.pc = decode_pc;
+        decode_exception_next.val = decode_instr;
         decode_exception_next.cause = RXVCSR::MCAUSE_ILLEGAL_INSTR;
-        decode_exception_next.valid = decode_valid & illegal_instruction;
+        decode_exception_next.valid = ~kill_valid & ~exec_resteer & ~commit_buffer_full & decode_valid & illegal_instruction;
+    end
+
+    always_comb begin
+        decode_except_id_next = dispatch_id;
+        decode_except_valid_next = ~kill_valid & ~exec_resteer & ~commit_buffer_full & decode_valid & illegal_instruction;
     end
 
     RXVDFF #(
@@ -682,8 +693,29 @@ module RXVDecode #(
         .q    (decode_exception)
     );
 
+    RXVDFF decode_except_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_except_valid_next),
+        .q    (decode_except_valid)
+    );
+
+    RXVDFF #(
+        .width($bits(decode_except_id))
+    ) decode_except_id_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_except_id_next),
+        .q    (decode_except_id)
+    );
+
     always_ff @(posedge clk) begin
-        if (decode_valid && !decode_stall && !kill_valid) begin
+        if (decode_valid && !decode_stall && !kill_valid && !exec_resteer) begin
+            trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
+        end
+        if (decode_valid && decode_except_valid_next) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
         end
     end

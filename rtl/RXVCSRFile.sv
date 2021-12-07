@@ -18,50 +18,65 @@ import RXVCSR::pack_mtval;
 import RXVCSR::unpack_mtval;
 import RXVCSR::RXVException;
 import RXVCSR::MCAUSE_id;
+import RXVTrace::trace_write_csr;
 
 module RXVCSRFile #(
-    parameter logic [31:0] vendorid = 0,
-    parameter logic [31:0] archid   = 0,
-    parameter logic [31:0] impid    = 0
+    parameter logic [31:0] vendorid     = 0,
+    parameter logic [31:0] archid       = 0,
+    parameter logic [31:0] impid        = 0,
+    parameter int          commit_order = 3
 ) (
-    input  logic               clk,
-    input  logic               reset,
+    input  logic                           clk,
+    input  logic                           reset,
     // Read port
-    input  logic        [11:0] rd_addr,
-    output logic        [31:0] rd_data,
+    input  logic        [            11:0] rd_addr,
+    output logic        [            31:0] rd_data,
     // Write port
-    input  logic        [11:0] wr_addr,
-    input  logic        [31:0] wr_data,
-    input  logic               wr_en,
+    input  logic        [commit_width-1:0] writeback_id,
+    input  logic        [            11:0] wr_addr,
+    input  logic        [            31:0] wr_data,
+    input  logic                           wr_en,
     // Decode
-    output logic               valid_csr_out,
+    output logic                           valid_csr_out,
     // Exception handling
-    output logic        [31:2] mepc_out,
-    input  RXVException        decode_exception
+    output logic        [            31:2] mepc_out,
+    input  RXVException                    decode_exception,
+    input  logic        [commit_width-1:0] decode_except_id
 );
 
-    logic   [31:0] rd_data_next;
-    logic   [31:0] mscratch;
-    logic          mscratch_wren;
+    localparam int commit_num_entries = (1 << commit_order);
+    localparam int commit_width = $clog2(commit_num_entries);
 
-    mstatus        mstatus_reg;
-    logic          mstatus_wren;
-    mtvec          mtvec_reg;
-    logic          mtvec_wren;
-    mepc           mepc_reg;
-    logic          mepc_wren;
-    mcause         mcause_reg;
-    logic          mcause_wren;
-    mtval          mtval_reg;
-    logic          mtval_wren;
+    logic   [            31:0] rd_data_next;
+    logic   [            31:0] mscratch;
+    logic                      mscratch_wren;
 
-    logic          exception_write;
-    mepc           mepc_next;
-    mtval          mtval_next;
-    mcause         mcause_next;
+    mstatus                    mstatus_reg;
+    logic                      mstatus_wren;
+    mtvec                      mtvec_reg;
+    logic                      mtvec_wren;
+    mepc                       mepc_reg;
+    logic                      mepc_wren;
+    mcause                     mcause_reg;
+    logic                      mcause_wren;
+    mtval                      mtval_reg;
+    logic                      mtval_wren;
+
+    logic                      exception_write;
+    mepc                       mepc_next;
+    mtval                      mtval_next;
+    mcause                     mcause_next;
+    mstatus                    mstatus_next;
+    mtvec                      mtvec_next;
+
+    logic   [commit_width-1:0] except_id;
+    logic   [commit_width-1:0] writer_id;
 
     always_comb begin
         exception_write = decode_exception.valid;
+        except_id       = decode_except_id;
+
+        writer_id       = exception_write ? except_id : writeback_id;
     end
 
     always_comb begin
@@ -90,9 +105,7 @@ module RXVCSRFile #(
 
     always_comb begin
         mepc_next = pack_mepc(wr_data);
-        if (exception_write) begin
-            mepc_next.addr = decode_exception.pc;
-        end
+        if (exception_write) mepc_next.addr = decode_exception.pc;
     end
 
     always_comb begin
@@ -105,9 +118,15 @@ module RXVCSRFile #(
 
     always_comb begin
         mtval_next = pack_mtval(wr_data);
-        if (exception_write) begin
-            mtval_next.val = decode_exception.val;
-        end
+        if (exception_write) mtval_next.val = decode_exception.val;
+    end
+
+    always_comb begin
+        mstatus_next = pack_mstatus(wr_data);
+    end
+
+    always_comb begin
+        mtvec_next = pack_mtvec(wr_data);
     end
 
     always_comb begin
@@ -125,7 +144,20 @@ module RXVCSRFile #(
     end
 
 `ifdef verilator
-    always_ff @(posedge clk) if (wr_addr[11:10] == 2'b11) assert (!wr_en);
+    always_ff @(posedge clk) begin
+        if (wr_addr[11:10] == 2'b11) assert (!wr_en);
+    end
+
+    always_ff @(posedge clk) begin
+        int trace_id = 32'(writer_id);
+        if (mscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_MSCRATCH, wr_data);
+        if (mstatus_wren)
+            trace_write_csr(trace_id, RXVCSR::CSR_MSTATUS, unpack_mstatus(mstatus_next));
+        if (mtvec_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVEC, unpack_mtvec(mtvec_next));
+        if (mepc_wren) trace_write_csr(trace_id, RXVCSR::CSR_MEPC, unpack_mepc(mepc_next));
+        if (mcause_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCAUSE, unpack_mcause(mcause_next));
+        if (mtval_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVAL, unpack_mtval(mtval_next));
+    end
 `endif  // verilator
 
     RXVDFF #(
@@ -154,7 +186,7 @@ module RXVCSRFile #(
         .clk  (clk),
         .reset(reset),
         .en   (mstatus_wren),
-        .d    (pack_mstatus(wr_data)),
+        .d    (mstatus_next),
         .q    (mstatus_reg)
     );
 
@@ -164,7 +196,7 @@ module RXVCSRFile #(
         .clk  (clk),
         .reset(reset),
         .en   (mtvec_wren),
-        .d    (pack_mtvec(wr_data)),
+        .d    (mtvec_next),
         .q    (mtvec_reg)
     );
 

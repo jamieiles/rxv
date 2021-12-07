@@ -32,6 +32,8 @@ public:
 
     virtual void trace_write_csr(int id, int r, uint32_t v) override
     {
+        shadow_csrs[r] = v;
+
         SimTracer::trace_write_csr(id, r, v);
     }
 
@@ -70,6 +72,11 @@ public:
         return shadow_regs[id];
     }
 
+    uint32_t read_csr(RXV::Trace::CSRId id) const
+    {
+        return shadow_csrs[id];
+    }
+
     int get_num_instructions() const
     {
         return num_instructions;
@@ -82,6 +89,7 @@ public:
 
 private:
     uint32_t shadow_regs[32];
+    uint32_t shadow_csrs[4096];
     int num_instructions;
     uint32_t last_pc;
     std::map<int, uint32_t> pc_map;
@@ -357,4 +365,58 @@ TEST_F(RXVCoreEmulWrapperTest, MRET)
     }
 
     EXPECT_EQ(tracer->read_reg(1), 1);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, IllegalInstruction)
+{
+    load(R"objdump(
+          0:   00000013                nop
+          4:   00200073                uret
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_num_instructions() != 2; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000004);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x00200073);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x00000002);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, MTVECAlignVectored)
+{
+    load(R"objdump(
+          0:   fff00093                li      x1,-1
+          4:   30509073                csrw    mtvec,x1
+          8:   30502173                csrr    x2,mtvec
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0xffffffc1);
+    EXPECT_EQ(tracer->read_reg(2), 0xffffffc1);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, MTVECAlignDirect)
+{
+    load(R"objdump(
+          0:   ffe00093                li      x1,-2
+          4:   30509073                csrw    mtvec,x1
+          8:   30502173                csrr    x2,mtvec
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0xfffffffc);
+    EXPECT_EQ(tracer->read_reg(2), 0xfffffffc);
 }

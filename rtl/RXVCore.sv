@@ -12,6 +12,7 @@ import RXVTypes::rxv_csr_op;
 import RXVTypes::rxv_uop;
 import RXVTrace::trace_write_reg;
 import RXVTrace::trace_write_csr;
+import RXVCSR::RXVException;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -61,6 +62,7 @@ module RXVCore #(
     logic          [             31:1] exec_branch_target;
     logic          [             11:0] decode_csr_addr;
     logic                              decode_valid_csr;
+    RXVException                       decode_exception;
 
     logic                              exec_resteer;
     logic          [             31:2] exec_resteer_tgt;
@@ -259,7 +261,8 @@ module RXVCore #(
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction),
         .exec_branch_target         (exec_branch_target),
-        .kill_valid                 (kill_valid)
+        .kill_valid                 (kill_valid),
+        .decode_exception           (decode_exception)
     );
 
     RXVIntExec #(
@@ -319,15 +322,16 @@ module RXVCore #(
         .archid  (archid),
         .impid   (impid)
     ) RXVCSRFile (
-        .clk          (clk),
-        .reset        (reset),
-        .valid_csr_out(decode_valid_csr),
-        .rd_addr      (decode_csr_addr),
-        .rd_data      (exec_csr_rd_data),
-        .wr_addr      (exec_csr_wr_addr),
-        .wr_data      (exec_csr_wr_data),
-        .wr_en        (exec_csr_wr_en),
-        .mepc_out     (mepc_val)
+        .clk             (clk),
+        .reset           (reset),
+        .valid_csr_out   (decode_valid_csr),
+        .rd_addr         (decode_csr_addr),
+        .rd_data         (exec_csr_rd_data),
+        .wr_addr         (exec_csr_wr_addr),
+        .wr_data         (exec_csr_wr_data),
+        .wr_en           (exec_csr_wr_en),
+        .mepc_out        (mepc_val),
+        .decode_exception(decode_exception)
     );
 
     RXVRenameFile RXVRenameFile (

@@ -14,6 +14,8 @@ import RXVTypes::i_immed;
 import RXVTypes::j_immed;
 import RXVTypes::u_immed;
 import RXVTrace::trace_start_instruction;
+import RXVCSR::RXVException;
+import RXVCSR::MCAUSE_id;
 
 module RXVDecode #(
     parameter int commit_order = 3
@@ -78,7 +80,8 @@ module RXVDecode #(
     output logic          [             31:2] exec_next_pc,
     output rxv_prediction                     exec_prediction,
     output logic          [             31:1] exec_branch_target,
-    input  logic                              kill_valid
+    input  logic                              kill_valid,
+    output RXVException                       decode_exception
 );
 
     wire [ 6:0] funct7 = decode_instr[31:25];
@@ -103,6 +106,7 @@ module RXVDecode #(
     logic                                have_rs2;
     arch_reg_tag                         last_rd_arch;
     logic                                system_stall;
+    RXVException                         decode_exception_next;
 
     logic                                is_branch;
 
@@ -509,6 +513,13 @@ module RXVDecode #(
         decode_csr_addr = decode_instr[31:20];
     end
 
+    always_comb begin
+        decode_exception_next.pc    = decode_pc;
+        decode_exception_next.val   = decode_instr;
+        decode_exception_next.cause = RXVCSR::MCAUSE_ILLEGAL_INSTR;
+        decode_exception_next.valid = decode_valid & illegal_instruction;
+    end
+
     RXVDFF #(
         .width($bits(exec_alu_op))
     ) exec_alu_op_dff (
@@ -659,6 +670,16 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (exec_bypass_rs2_next),
         .q    (exec_bypass_rs2)
+    );
+
+    RXVDFF #(
+        .width($bits(RXVCSR::RXVException))
+    ) decode_exception_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (decode_exception_next),
+        .q    (decode_exception)
     );
 
     always_ff @(posedge clk) begin

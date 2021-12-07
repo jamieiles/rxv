@@ -61,6 +61,13 @@ package RXVCSR;
     } MCAUSE_id;
 
     typedef struct packed {
+        logic [31:2] pc;
+        logic [31:0] val;
+        MCAUSE_id cause;
+        logic valid;
+    } RXVException;
+
+    typedef struct packed {
         logic mpie;
         logic mie;
     } mstatus;

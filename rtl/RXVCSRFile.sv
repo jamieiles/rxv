@@ -16,25 +16,28 @@ import RXVCSR::pack_mcause;
 import RXVCSR::unpack_mcause;
 import RXVCSR::pack_mtval;
 import RXVCSR::unpack_mtval;
+import RXVCSR::RXVException;
+import RXVCSR::MCAUSE_id;
 
 module RXVCSRFile #(
     parameter logic [31:0] vendorid = 0,
     parameter logic [31:0] archid   = 0,
     parameter logic [31:0] impid    = 0
 ) (
-    input  logic        clk,
-    input  logic        reset,
+    input  logic               clk,
+    input  logic               reset,
     // Read port
-    input  logic [11:0] rd_addr,
-    output logic [31:0] rd_data,
+    input  logic        [11:0] rd_addr,
+    output logic        [31:0] rd_data,
     // Write port
-    input  logic [11:0] wr_addr,
-    input  logic [31:0] wr_data,
-    input  logic        wr_en,
+    input  logic        [11:0] wr_addr,
+    input  logic        [31:0] wr_data,
+    input  logic               wr_en,
     // Decode
-    output logic        valid_csr_out,
+    output logic               valid_csr_out,
     // Exception handling
-    output logic [31:2] mepc_out
+    output logic        [31:2] mepc_out,
+    input  RXVException        decode_exception
 );
 
     logic   [31:0] rd_data_next;
@@ -52,6 +55,15 @@ module RXVCSRFile #(
     mtval          mtval_reg;
     logic          mtval_wren;
 
+    logic          exception_write;
+    mepc           mepc_next;
+    mtval          mtval_next;
+    mcause         mcause_next;
+
+    always_comb begin
+        exception_write = decode_exception.valid;
+    end
+
     always_comb begin
         unique case (rd_addr)
             RXVCSR::CSR_MVENDORID: rd_data_next = vendorid;
@@ -68,22 +80,44 @@ module RXVCSRFile #(
     end
 
     always_comb begin
+        mscratch_wren = wr_en && wr_addr == RXVCSR::CSR_MSCRATCH;
+        mstatus_wren  = wr_en && wr_addr == RXVCSR::CSR_MSTATUS;
+        mtvec_wren    = wr_en && wr_addr == RXVCSR::CSR_MTVEC;
+        mepc_wren     = exception_write || (wr_en && wr_addr == RXVCSR::CSR_MEPC);
+        mcause_wren   = exception_write || (wr_en && wr_addr == RXVCSR::CSR_MCAUSE);
+        mtval_wren    = exception_write || (wr_en && wr_addr == RXVCSR::CSR_MTVAL);
+    end
+
+    always_comb begin
+        mepc_next = pack_mepc(wr_data);
+        if (exception_write) begin
+            mepc_next.addr = decode_exception.pc;
+        end
+    end
+
+    always_comb begin
+        mcause_next = pack_mcause(wr_data);
+        if (exception_write) begin
+            mcause_next.is_interrupt = 1'b0;
+            mcause_next.cause        = decode_exception.cause;
+        end
+    end
+
+    always_comb begin
+        mtval_next = pack_mtval(wr_data);
+        if (exception_write) begin
+            mtval_next.val = decode_exception.val;
+        end
+    end
+
+    always_comb begin
         unique case (rd_addr)
             RXVCSR::CSR_MVENDORID, RXVCSR::CSR_MARCHID, RXVCSR::CSR_MIMPID,
             RXVCSR::CSR_MSCRATCH, RXVCSR::CSR_MSTATUS, RXVCSR::CSR_MTVEC,
             RXVCSR::CSR_MEPC, RXVCSR::CSR_MCAUSE, RXVCSR::CSR_MTVAL:
-                valid_csr_out = 1'b1;
+            valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase
-    end
-
-    always_comb begin
-        mscratch_wren = wr_en && wr_addr == RXVCSR::CSR_MSCRATCH;
-        mstatus_wren  = wr_en && wr_addr == RXVCSR::CSR_MSTATUS;
-        mtvec_wren    = wr_en && wr_addr == RXVCSR::CSR_MTVEC;
-        mepc_wren     = wr_en && wr_addr == RXVCSR::CSR_MEPC;
-        mcause_wren   = wr_en && wr_addr == RXVCSR::CSR_MCAUSE;
-        mtval_wren    = wr_en && wr_addr == RXVCSR::CSR_MTVAL;
     end
 
     always_comb begin
@@ -140,7 +174,7 @@ module RXVCSRFile #(
         .clk  (clk),
         .reset(reset),
         .en   (mepc_wren),
-        .d    (pack_mepc(wr_data)),
+        .d    (mepc_next),
         .q    (mepc_reg)
     );
 
@@ -150,7 +184,7 @@ module RXVCSRFile #(
         .clk  (clk),
         .reset(reset),
         .en   (mcause_wren),
-        .d    (pack_mcause(wr_data)),
+        .d    (mcause_next),
         .q    (mcause_reg)
     );
 
@@ -160,7 +194,7 @@ module RXVCSRFile #(
         .clk  (clk),
         .reset(reset),
         .en   (mtval_wren),
-        .d    (pack_mtval(wr_data)),
+        .d    (mtval_next),
         .q    (mtval_reg)
     );
 

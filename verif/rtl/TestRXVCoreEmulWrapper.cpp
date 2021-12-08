@@ -540,6 +540,23 @@ TEST_F(RXVCoreEmulWrapperTest, JALRMisalign)
     EXPECT_EQ(tracer->read_reg(20), 1);
 }
 
+TEST_F(RXVCoreEmulWrapperTest, FENCE)
+{
+    load(R"objdump(
+         0:   0ff0000f                fence
+         4:   0a50000f                fence   ir,ow
+         8:   00100093                li      x1,1
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 1);
+}
+
 TEST_F(RXVCoreEmulWrapperTest, WFI)
 {
     load(R"objdump(

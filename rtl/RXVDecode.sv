@@ -159,6 +159,10 @@ module RXVDecode #(
     rxv_uop                              system_uop;
     logic                                system_have_writeback;
 
+    logic                                opc_misc_mem;
+    logic                                misc_mem_illegal_instr;
+    rxv_uop                              misc_mem_uop;
+
     always_comb begin
         opc_op          = 1'b0;
         opc_imm         = 1'b0;
@@ -168,6 +172,7 @@ module RXVDecode #(
         opc_lui         = 1'b0;
         opc_auipc       = 1'b0;
         opc_system      = 1'b0;
+        opc_misc_mem    = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
         have_rs1        = 1'b0;
@@ -221,6 +226,10 @@ module RXVDecode #(
                 exec_immed_next = u_immed(decode_instr);
                 // Only CSRRW/CSRRS/CSRRC have a source register
                 have_rs1        = funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011;
+            end
+            RXVTypes::OPC_MISC_MEM: begin
+                illegal_opcode = 1'b0;
+                opc_misc_mem   = 1'b1;
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -330,6 +339,18 @@ module RXVDecode #(
     end
 
     always_comb begin
+        misc_mem_uop = RXVTypes::UOP_ALU;
+
+        unique casez (decode_instr)
+            32'b0000_zzzz_zzzz_0000_0000_0000_0000_1111: begin  // FENCE
+                misc_mem_uop           = RXVTypes::UOP_ALU;
+                misc_mem_illegal_instr = 1'b0;
+            end
+            default: misc_mem_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
         system_illegal_instr  = 1'b0;
         csr_op_next           = RXVTypes::CSR_SWAP;
         system_uop            = RXVTypes::UOP_ALU;
@@ -433,6 +454,7 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_lui}} & lui_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_auipc}} & auipc_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_system}} & system_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_misc_mem}} & misc_mem_uop);
     end
 
     always_comb begin
@@ -440,6 +462,7 @@ module RXVDecode #(
             (opc_imm & imm_illegal_instr) |
             (opc_branch & branch_illegal_instr) |
             (opc_system & system_illegal_instr) |
+            (opc_misc_mem & misc_mem_illegal_instr) |
             illegal_opcode;
     end
 

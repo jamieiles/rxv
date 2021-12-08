@@ -5,11 +5,14 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
 import RXVTrace::trace_end_instruction;
 import RXVTrace::trace_exception;
+import RXVCSR::mtvec;
+import RXVCSR::mtvec_dest;
 
 module RXVCommitter #(
     parameter int commit_order = 3
 ) (
     input  logic                           clk,
+    input  logic                           reset,
     // Commit buffer
     input  logic                           commit_empty,
     // verilator lint_off UNUSED
@@ -26,13 +29,20 @@ module RXVCommitter #(
     output logic                           commit_rename_rollback,
     // To register allocator
     output logic                           commit_reg_push,
-    output phys_reg_tag                    commit_reg_reg
+    output phys_reg_tag                    commit_reg_reg,
+    // Exception handling
+    output logic                           exception_resteer,
+    output logic        [            31:2] exception_resteer_tgt,
+    input  mtvec                           mtvec_in,
+    input  mcause                          mcause_in
 );
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic commit_ready;
+    logic        commit_ready;
+    logic        exception_resteer_next;
+    logic [31:2] exception_resteer_tgt_next;
 
     always_comb begin
         commit_ready = ~commit_empty & (commit_complete | commit_killed | commit_excepted);
@@ -65,6 +75,29 @@ module RXVCommitter #(
     always_comb begin
         commit_valid = !commit_empty && commit_ready;
     end
+
+    always_comb begin
+        exception_resteer_tgt_next = mtvec_dest(mtvec_in, mcause_in);
+        exception_resteer_next     = commit_ready & commit_excepted;
+    end
+
+    RXVDFF exception_resteer_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exception_resteer_next),
+        .q    (exception_resteer)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) exception_resteer_tgt_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exception_resteer_tgt_next),
+        .q    (exception_resteer_tgt)
+    );
 
     always_ff @(posedge clk) begin
         if (((commit_valid && !commit_killed) || (commit_valid && commit_excepted))) begin

@@ -84,7 +84,6 @@ module RXVDecode #(
     input  logic                              exec_resteer,
     // Exception handling
     output RXVException                       decode_exception,
-    output logic                              decode_except_valid,
     output logic          [ commit_width-1:0] decode_except_id
 );
 
@@ -111,7 +110,6 @@ module RXVDecode #(
     arch_reg_tag                         last_rd_arch;
     logic                                system_stall;
     RXVException                         decode_exception_next;
-    logic                                decode_except_valid_next;
     logic        [     commit_width-1:0] decode_except_id_next;
 
     logic                                is_branch;
@@ -486,12 +484,12 @@ module RXVDecode #(
     end
 
     always_comb begin
-        commit_dispatch.stale_phys     = stale_phys_reg;
-        commit_dispatch.dest_reg       = rename_out;
-        commit_dispatch.pc             = decode_pc;
+        commit_dispatch.stale_phys = stale_phys_reg;
+        commit_dispatch.dest_reg = rename_out;
+        commit_dispatch.pc = decode_pc;
         commit_dispatch.have_writeback = exec_have_writeback_next;
 
-        commit_dispatch_valid          = exec_valid_next | (decode_valid & illegal_instruction);
+        commit_dispatch_valid = ~kill_valid & (exec_valid_next | (decode_valid & illegal_instruction));
     end
 
     always_comb begin
@@ -528,7 +526,6 @@ module RXVDecode #(
 
     always_comb begin
         decode_except_id_next = dispatch_id;
-        decode_except_valid_next = ~kill_valid & ~exec_resteer & ~commit_buffer_full & decode_valid & illegal_instruction;
     end
 
     RXVDFF #(
@@ -693,14 +690,6 @@ module RXVDecode #(
         .q    (decode_exception)
     );
 
-    RXVDFF decode_except_valid_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (decode_except_valid_next),
-        .q    (decode_except_valid)
-    );
-
     RXVDFF #(
         .width($bits(decode_except_id))
     ) decode_except_id_dff (
@@ -715,7 +704,7 @@ module RXVDecode #(
         if (decode_valid && !decode_stall && !kill_valid && !exec_resteer) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
         end
-        if (decode_valid && decode_except_valid_next) begin
+        if (decode_valid && decode_exception_next.valid) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
         end
     end

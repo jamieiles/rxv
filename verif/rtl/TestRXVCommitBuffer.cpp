@@ -212,8 +212,6 @@ TEST_F(RXVCommitBufferTest, EmptyDrainsException)
         commit();
 
     EXPECT_TRUE(this->dut.empty);
-    EXPECT_FALSE(this->dut.commit_excepted_out);
-    EXPECT_FALSE(this->dut.commit_killed_out);
 
     cycle();
     EXPECT_TRUE(this->dut.empty);
@@ -243,8 +241,6 @@ TEST_F(RXVCommitBufferTest, CommitClearsExceptKill)
         commit();
 
     EXPECT_TRUE(this->dut.empty);
-    EXPECT_FALSE(this->dut.commit_excepted_out);
-    EXPECT_FALSE(this->dut.commit_killed_out);
 
     for (int i = 0; i < 32; ++i) {
         int id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);

@@ -40,8 +40,10 @@ module RXVCSRFile #(
     output logic                           valid_csr_out,
     // Exception handling
     output logic        [            31:2] mepc_out,
-    input  RXVException                    decode_exception,
-    input  logic        [commit_width-1:0] decode_except_id
+    output mtvec                           mtvec_out,
+    output mcause                          mcause_out,
+    input  RXVException                    exec_exception,
+    input  logic        [commit_width-1:0] exec_except_id
 );
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -73,8 +75,8 @@ module RXVCSRFile #(
     logic   [commit_width-1:0] writer_id;
 
     always_comb begin
-        exception_write = decode_exception.valid;
-        except_id       = decode_except_id;
+        exception_write = exec_exception.valid;
+        except_id       = exec_except_id;
 
         writer_id       = exception_write ? except_id : writeback_id;
     end
@@ -105,20 +107,20 @@ module RXVCSRFile #(
 
     always_comb begin
         mepc_next = pack_mepc(wr_data);
-        if (exception_write) mepc_next.addr = decode_exception.pc;
+        if (exception_write) mepc_next.addr = exec_exception.pc;
     end
 
     always_comb begin
         mcause_next = pack_mcause(wr_data);
         if (exception_write) begin
             mcause_next.is_interrupt = 1'b0;
-            mcause_next.cause        = decode_exception.cause;
+            mcause_next.cause        = exec_exception.cause;
         end
     end
 
     always_comb begin
         mtval_next = pack_mtval(wr_data);
-        if (exception_write) mtval_next.val = decode_exception.val;
+        if (exception_write) mtval_next.val = exec_exception.val;
     end
 
     always_comb begin
@@ -141,6 +143,14 @@ module RXVCSRFile #(
 
     always_comb begin
         mepc_out = mepc_reg.addr;
+    end
+
+    always_comb begin
+        mtvec_out = mtvec_reg;
+    end
+
+    always_comb begin
+        mcause_out = mcause_reg;
     end
 
 `ifdef verilator

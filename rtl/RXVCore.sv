@@ -13,6 +13,8 @@ import RXVTypes::rxv_uop;
 import RXVTrace::trace_write_reg;
 import RXVTrace::trace_write_csr;
 import RXVCSR::RXVException;
+import RXVCSR::mtvec;
+import RXVCSR::mcause;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -63,7 +65,6 @@ module RXVCore #(
     logic          [             11:0] decode_csr_addr;
     logic                              decode_valid_csr;
     RXVException                       decode_exception;
-    logic                              decode_except_valid;
     logic          [ commit_width-1:0] decode_except_id;
 
     logic                              exec_resteer;
@@ -83,6 +84,8 @@ module RXVCore #(
     logic          [             31:0] exec_csr_wr_data;
     logic                              exec_csr_wr_en;
     logic          [             31:2] mepc_val;
+    RXVException                       exec_exception;
+    logic          [ commit_width-1:0] exec_except_id;
 
     rxv_alu_op                         exec_alu_op;
     rxv_csr_op                         exec_csr_op;
@@ -150,6 +153,10 @@ module RXVCore #(
     renamed_reg                        commit_rename_out;
     logic                              commit_rename_valid;
     logic          [ commit_width-1:0] commit_id;
+    logic                              exception_resteer;
+    logic          [             31:2] exception_resteer_tgt;
+    mtvec                              mtvec_val;
+    mcause                             mcause_val;
 
     phys_reg_tag                       busy_reg_in;
     logic                              busy_valid_in;
@@ -210,7 +217,9 @@ module RXVCore #(
         .decode_prediction     (decode_prediction),
         .decode_instr          (decode_instr),
         .exec_resteer          (exec_resteer),
-        .exec_resteer_tgt      (exec_resteer_tgt)
+        .exec_resteer_tgt      (exec_resteer_tgt),
+        .exception_resteer     (exception_resteer),
+        .exception_resteer_tgt (exception_resteer_tgt)
     );
 
     RXVDecode #(
@@ -269,7 +278,6 @@ module RXVCore #(
         .kill_valid                 (kill_valid),
         .exec_resteer               (exec_resteer),
         .decode_exception           (decode_exception),
-        .decode_except_valid        (decode_except_valid),
         .decode_except_id           (decode_except_id)
     );
 
@@ -310,7 +318,11 @@ module RXVCore #(
         .exec_update_predict_target (exec_update_predict_target),
         .exec_resteer               (exec_resteer),
         .exec_resteer_tgt           (exec_resteer_tgt),
-        .mepc_in                    (mepc_val)
+        .mepc_in                    (mepc_val),
+        .decode_exception           (decode_exception),
+        .decode_except_id           (decode_except_id),
+        .exec_exception             (exec_exception),
+        .exec_except_id             (exec_except_id)
     );
 
     RXVRegisterFile RXVRegisterFile (
@@ -331,18 +343,20 @@ module RXVCore #(
         .impid       (impid),
         .commit_order(commit_order)
     ) RXVCSRFile (
-        .clk             (clk),
-        .reset           (reset),
-        .valid_csr_out   (decode_valid_csr),
-        .rd_addr         (decode_csr_addr),
-        .rd_data         (exec_csr_rd_data),
-        .writeback_id    (complete_id),
-        .wr_addr         (exec_csr_wr_addr),
-        .wr_data         (exec_csr_wr_data),
-        .wr_en           (exec_csr_wr_en),
-        .mepc_out        (mepc_val),
-        .decode_exception(decode_exception),
-        .decode_except_id(decode_except_id)
+        .clk           (clk),
+        .reset         (reset),
+        .valid_csr_out (decode_valid_csr),
+        .rd_addr       (decode_csr_addr),
+        .rd_data       (exec_csr_rd_data),
+        .writeback_id  (complete_id),
+        .wr_addr       (exec_csr_wr_addr),
+        .wr_data       (exec_csr_wr_data),
+        .wr_en         (exec_csr_wr_en),
+        .mepc_out      (mepc_val),
+        .mtvec_out     (mtvec_val),
+        .mcause_out    (mcause_val),
+        .exec_exception(exec_exception),
+        .exec_except_id(exec_except_id)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -431,6 +445,7 @@ module RXVCore #(
         .commit_order(commit_order)
     ) RXVCommitter (
         .clk                   (clk),
+        .reset                 (reset),
         .commit_empty          (commit_empty),
         .commit_in             (commit_out),
         .commit_complete       (commit_complete_out),
@@ -442,7 +457,11 @@ module RXVCore #(
         .commit_rename_valid   (commit_rename_valid),
         .commit_rename_rollback(rename_rollback),
         .commit_reg_push       (reg_free),
-        .commit_reg_reg        (reg_free_phys)
+        .commit_reg_reg        (reg_free_phys),
+        .exception_resteer     (exception_resteer),
+        .exception_resteer_tgt (exception_resteer_tgt),
+        .mtvec_in              (mtvec_val),
+        .mcause_in             (mcause_val)
     );
 
     always_comb begin
@@ -463,12 +482,12 @@ module RXVCore #(
     end
 
     always_comb begin
-        kill_valid = exec_valid & exec_resteer;
+        kill_valid = exec_resteer | exec_exception.valid;
     end
 
     always_comb begin
-        except_valid = decode_except_valid & ~exec_resteer;
-        except_id    = decode_except_id;
+        except_valid = exec_exception.valid & ~exec_resteer;
+        except_id    = exec_except_id;
     end
 
 `ifdef verilator

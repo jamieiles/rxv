@@ -177,4 +177,14 @@ package RXVCSR;
         end
     endfunction
 
+    function logic [31:2] mtvec_dest;
+        input mtvec vec;
+        input mcause cause;
+
+        begin
+            if (!cause.is_interrupt || vec.mode == MTVEC_DIRECT) mtvec_dest = vec.base;
+            else mtvec_dest = vec.base | 30'(cause.cause);
+        end
+    endfunction
+
 endpackage

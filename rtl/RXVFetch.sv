@@ -30,7 +30,10 @@ module RXVFetch #(
     output rxv_prediction        decode_prediction,
     // Exec branch resolution
     input  logic                 exec_resteer,
-    input  logic          [31:2] exec_resteer_tgt
+    input  logic          [31:2] exec_resteer_tgt,
+    // Exception
+    input  logic                 exception_resteer,
+    input  logic          [31:2] exception_resteer_tgt
 );
 
     /*
@@ -85,7 +88,7 @@ module RXVFetch #(
     end
 
     always_comb begin
-        resteer = exec_resteer | decode_resteer;
+        resteer = exception_resteer | exec_resteer | decode_resteer;
     end
 
     always_comb begin
@@ -106,6 +109,7 @@ module RXVFetch #(
         if (resteer_pending && icache_busy) next_pc = resteer_target;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
+        if (exception_resteer) next_pc = exception_resteer_tgt;
     end
 
     always_comb begin
@@ -113,6 +117,7 @@ module RXVFetch #(
         if (decode_stall) resteer_target_next = decode_resume_tgt;
         if (decode_resteer) resteer_target_next = decode_resteer_tgt;
         if (exec_resteer) resteer_target_next = exec_resteer_tgt;
+        if (exception_resteer) resteer_target_next = exception_resteer_tgt;
     end
 
     always_comb begin

@@ -383,6 +383,8 @@ TEST_F(RXVCoreEmulWrapperTest, IllegalInstruction)
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000004);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x00200073);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x00000002);
+
+    cycle(128);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, MTVECAlignVectored)
@@ -419,4 +421,121 @@ TEST_F(RXVCoreEmulWrapperTest, MTVECAlignDirect)
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0xfffffffc);
     EXPECT_EQ(tracer->read_reg(2), 0xfffffffc);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, ExceptionHandling)
+{
+    load(R"objdump(
+            0:   00000097                auipc   x1,0x0
+            4:   01c08093                addi    x1,x1,28 # 0x1c
+            8:   30509073                csrw    mtvec,x1
+            c:   00200113                li      x2,2
+           10:   00200073                uret
+           14:   00300193                li      x3,3
+           18:   0000006f                j       0x18
+           1c:   00a00513                li      x10,10
+           20:   341025f3                csrr    x11,mepc
+           24:   00458593                addi    x11,x11,4
+           28:   34159073                csrw    mepc,x11
+           2c:   001a0a13                addi    x20,x20,1
+           30:   30200073                mret
+    )objdump");
+
+    for (int i = 0; i < 512; ++i) {
+        cycle();
+        if (i == 511 && tracer->get_last_pc() != 0x80000018)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0x8000001c);
+    EXPECT_EQ(tracer->read_reg(2), 2);
+    EXPECT_EQ(tracer->read_reg(3), 3);
+    EXPECT_EQ(tracer->read_reg(10), 10);
+    EXPECT_EQ(tracer->read_reg(11), 0x80000014);
+    EXPECT_EQ(tracer->read_reg(20), 1);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, RepeatedExceptionHandling)
+{
+    load(R"objdump(
+         0:   00000097                auipc   x1,0x0
+         4:   02008093                addi    x1,x1,32 # 0x20
+         8:   30509073                csrw    mtvec,x1
+         c:   00200113                li      x2,2
+        10:   00200073                uret
+        14:   00200073                uret
+        18:   00300193                li      x3,3
+        1c:   0000006f                j       0x1c
+        20:   00a00513                li      x10,10
+        24:   341025f3                csrr    x11,mepc
+        28:   00458593                addi    x11,x11,4
+        2c:   34159073                csrw    mepc,x11
+        30:   001a0a13                addi    x20,x20,1
+        34:   30200073                mret
+    )objdump");
+
+    for (int i = 0; i < 512; ++i) {
+        cycle();
+        if (i == 511 && tracer->get_last_pc() != 0x8000001c)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0x80000020);
+    EXPECT_EQ(tracer->read_reg(2), 2);
+    EXPECT_EQ(tracer->read_reg(3), 3);
+    EXPECT_EQ(tracer->read_reg(10), 10);
+    EXPECT_EQ(tracer->read_reg(11), 0x80000018);
+    EXPECT_EQ(tracer->read_reg(20), 2);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, KilledIllegal)
+{
+    load(R"objdump(
+         0:   0000006f                j       0x0
+         4:   00200073                uret
+    )objdump");
+
+    for (int i = 0; i < 512; ++i)
+        cycle();
+
+    EXPECT_GT(tracer->get_num_instructions(), 16);
+    EXPECT_EQ(tracer->get_last_pc(), 0x80000000);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, JALRMisalign)
+{
+    load(R"objdump(
+         0:   00000097                auipc   x1,0x0
+         4:   03008093                addi    x1,x1,48 # 0x30
+         8:   30509073                csrw    mtvec,x1
+         c:   00000097                auipc   x1,0x0
+        10:   01c08093                addi    x1,x1,28 # 0x28
+        14:   00308093                addi    x1,x1,3
+        18:   000080e7                jalr    x1
+        1c:   00100113                li      x2,1
+        20:   0000006f                j       0x20
+        24:   00300193                li      x3,3
+        28:   00400213                li      x4,4
+        2c:   0000006f                j       0x2c
+        30:   00a00513                li      x10,10
+        34:   341025f3                csrr    x11,mepc
+        38:   00458593                addi    x11,x11,4
+        3c:   34159073                csrw    mepc,x11
+        40:   001a0a13                addi    x20,x20,1
+        44:   30200073                mret
+    )objdump");
+
+    for (int i = 0; i < 512; ++i) {
+        cycle();
+        if (i == 511 && tracer->get_last_pc() != 0x80000020)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0x80000030);
+    EXPECT_EQ(tracer->read_reg(2), 1);
+    EXPECT_EQ(tracer->read_reg(4), 0);
+    EXPECT_EQ(tracer->read_reg(10), 10);
+    EXPECT_EQ(tracer->read_reg(20), 1);
 }

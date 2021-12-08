@@ -64,8 +64,8 @@ module RXVCommitBuffer #(
 
     always_comb begin
         killing_next = killing;
-        if (commit_valid && killed[commit_id]) killing_next = 1'b0;
         if (commit_valid && excepted[commit_id]) killing_next = 1'b1;
+        if (~|killed) killing_next = 1'b0;
     end
 
     always_comb begin

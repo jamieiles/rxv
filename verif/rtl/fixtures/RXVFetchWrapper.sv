@@ -36,7 +36,10 @@ module RXVFetchWrapper #(
     output logic [31:2] decode_prediction,
     // Exec branch resolution
     input  logic        exec_resteer,
-    input  logic [31:2] exec_resteer_tgt
+    input  logic [31:2] exec_resteer_tgt,
+    // Exception handling
+    input  logic        exception_resteer,
+    input  logic [31:2] exception_resteer_tgt
 );
 
     rxv_prediction predict_in;

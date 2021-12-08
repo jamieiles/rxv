@@ -5,7 +5,8 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_uop;
-// verilator lint_off UNUSED
+import RXVCSR::RXVException;
+
 module RXVIntExec #(
     parameter int commit_order = 3
 ) (
@@ -46,41 +47,52 @@ module RXVIntExec #(
     output logic                             exec_resteer,
     output logic          [            31:2] exec_resteer_tgt,
     // Exception return
-    input  logic          [            31:2] mepc_in
+    input  logic          [            31:2] mepc_in,
+    // Exception handling
+    input  RXVException                      decode_exception,
+    input  logic          [commit_width-1:0] decode_except_id,
+    // Exception handling
+    output RXVException                      exec_exception,
+    output logic          [commit_width-1:0] exec_except_id
 );
 
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic        valid;
-    logic [31:0] alu_q;
-    logic [31:0] alu_op2;
-    logic        zero;
-    logic        alu_op2_immed;
-    logic        branch_taken;
-    logic        branch_mispredict;
+    logic                           valid;
+    logic        [            31:0] alu_q;
+    logic        [            31:0] alu_op2;
+    logic                           zero;
+    logic                           alu_op2_immed;
+    logic                           branch_taken;
+    logic                           branch_mispredict;
 
-    logic [31:0] csr_q;
-    logic [31:0] csr_alu_op2;
-    logic [ 4:0] csr_immed_val;
-    logic [11:0] csr_addr;
+    logic        [            31:0] csr_q;
+    logic        [            31:0] csr_alu_op2;
+    logic        [             4:0] csr_immed_val;
+    logic        [            11:0] csr_addr;
 
-    logic        exec_predict_update_next;
-    logic [ 1:0] exec_predict_prev_strength_next;
-    logic        exec_update_predict_taken_next;
-    logic [31:2] exec_update_predict_address_next;
-    logic [31:2] exec_update_predict_target_next;
-    logic        exec_resteer_next;
-    logic [31:2] exec_resteer_tgt_next;
-    logic [31:0] exec_reg_wr_data_next;
+    logic                           exec_predict_update_next;
+    logic        [             1:0] exec_predict_prev_strength_next;
+    logic                           exec_update_predict_taken_next;
+    logic        [            31:2] exec_update_predict_address_next;
+    logic        [            31:2] exec_update_predict_target_next;
+    logic                           exec_resteer_next;
+    logic        [            31:2] exec_resteer_tgt_next;
+    logic        [            31:0] exec_reg_wr_data_next;
     // verilator lint_off UNUSED
-    logic [31:0] branch_target;
+    logic        [            31:0] branch_target;
+    logic        [            31:0] jalr_target;
     // verilator lint_on UNUSED
-    logic        unconditional_branch;
+    logic                           unconditional_branch;
+    logic                           branch_misalign;
 
-    logic [11:0] exec_csr_wr_addr_next;
-    logic [31:0] exec_csr_wr_data_next;
-    logic        exec_csr_wr_en_next;
+    logic        [            11:0] exec_csr_wr_addr_next;
+    logic        [            31:0] exec_csr_wr_data_next;
+    logic                           exec_csr_wr_en_next;
+
+    RXVException                    exec_exception_next;
+    logic        [commit_width-1:0] exec_except_id_next;
 
     RXVALU RXVALU (
         .a   (op1),
@@ -106,7 +118,7 @@ module RXVIntExec #(
     end
 
     always_comb begin
-        csr_alu_op2 = exec_uop == RXVTypes::UOP_CSRI ? {27'b0, exec_immed[19:15]} : op1;
+        csr_alu_op2 = exec_uop == RXVTypes::UOP_CSRI ? {27'b0, csr_immed_val} : op1;
     end
 
     always_comb begin
@@ -116,6 +128,10 @@ module RXVIntExec #(
     always_comb begin
         csr_immed_val = exec_immed[19:15];
         csr_addr      = exec_immed[31:20];
+    end
+
+    always_comb begin
+        jalr_target = op1 + exec_immed;
     end
 
     always_comb begin
@@ -147,10 +163,14 @@ module RXVIntExec #(
 
     always_comb begin
         unique case (exec_uop)
-            RXVTypes::UOP_JALR: branch_target = {alu_q[31:1], 1'b0};
+            RXVTypes::UOP_JALR: branch_target = {jalr_target[31:1], 1'b0};
             RXVTypes::UOP_MRET: branch_target = {mepc_in, 2'b0};
             default: branch_target = {exec_branch_target, 1'b0};
         endcase
+    end
+
+    always_comb begin
+        branch_misalign = branch_taken & |branch_target[1:0];
     end
 
     always_comb begin
@@ -163,12 +183,12 @@ module RXVIntExec #(
     end
 
     always_comb begin
-        exec_predict_update_next = valid && branch_taken;
+        exec_predict_update_next = valid && branch_taken && !branch_misalign;
         exec_predict_prev_strength_next  = unconditional_branch ? 2'b01 : exec_prediction.predict_strength;
         exec_update_predict_taken_next = branch_taken;
         exec_update_predict_address_next = exec_pc;
         exec_update_predict_target_next = branch_target[31:2];
-        exec_resteer_next = valid && (branch_mispredict || exec_uop == RXVTypes::UOP_MRET);
+        exec_resteer_next = valid && (branch_mispredict || exec_uop == RXVTypes::UOP_MRET) && !branch_misalign;
         exec_resteer_tgt_next = branch_taken || exec_uop == RXVTypes::UOP_MRET ? branch_target[31:2] : exec_next_pc;
     end
 
@@ -178,6 +198,20 @@ module RXVIntExec #(
         exec_csr_wr_en_next = |csr_addr && valid &&
             (exec_uop == RXVTypes::UOP_CSR || exec_uop == RXVTypes::UOP_CSRI) &&
             exec_csr_op != RXVTypes::CSR_READ;
+    end
+
+    always_comb begin
+        exec_exception_next = decode_exception;
+        exec_except_id_next = decode_except_id;
+
+        if (kill_valid || exec_resteer) exec_exception_next.valid = 1'b0;
+
+        if (branch_misalign) begin
+            exec_exception_next.pc    = exec_pc;
+            exec_exception_next.val   = branch_target;
+            exec_exception_next.cause = RXVCSR::MCAUSE_INSTR_MISALIGN;
+            exec_exception_next.valid = 1'b1;
+        end
     end
 
     RXVDFF #(
@@ -316,6 +350,26 @@ module RXVIntExec #(
         .en   (1'b1),
         .d    (exec_csr_wr_en_next),
         .q    (exec_csr_wr_en)
+    );
+
+    RXVDFF #(
+        .width($bits(RXVCSR::RXVException))
+    ) exec_exception_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_exception_next),
+        .q    (exec_exception)
+    );
+
+    RXVDFF #(
+        .width($bits(exec_except_id))
+    ) exec_except_id_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exec_except_id_next),
+        .q    (exec_except_id)
     );
 
 `ifdef FORMAL

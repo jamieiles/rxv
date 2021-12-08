@@ -337,11 +337,16 @@ module RXVDecode #(
 
         unique case (funct3)
             3'b000: begin
-                system_illegal_instr = 1'b1;
-                if (funct7 == 7'b0011000 && rs2 == 5'b00010 && ~|rs1 && ~|rd) begin
-                    system_uop           = RXVTypes::UOP_MRET;
-                    system_illegal_instr = 1'b0;
-                end
+                unique casez (decode_instr)
+                    32'b0011_0000_0010_0000_0000_0000_0111_0011: begin  // MRET
+                        system_uop           = RXVTypes::UOP_MRET;
+                        system_illegal_instr = 1'b0;
+                    end
+                    32'b0001_0000_0101_0000_0000_0000_0111_0011: begin  // WFI
+                        system_illegal_instr = 1'b0;
+                    end
+                    default: system_illegal_instr = 1'b1;
+                endcase
             end
             3'b001: begin  // CSRRW
                 system_uop            = RXVTypes::UOP_CSR;

@@ -212,6 +212,20 @@ module RXVIntExec #(
             exec_exception_next.cause = RXVCSR::MCAUSE_INSTR_MISALIGN;
             exec_exception_next.valid = 1'b1;
         end
+
+        if (valid && exec_uop == RXVTypes::UOP_ECALL) begin
+            exec_exception_next.pc    = exec_pc;
+            exec_exception_next.val   = 32'b0;
+            exec_exception_next.cause = RXVCSR::MCAUSE_M_ECALL;
+            exec_exception_next.valid = 1'b1;
+        end
+
+        if (valid && exec_uop == RXVTypes::UOP_EBREAK) begin
+            exec_exception_next.pc    = exec_pc;
+            exec_exception_next.val   = 32'b0;
+            exec_exception_next.cause = RXVCSR::MCAUSE_BREAKPOINT;
+            exec_exception_next.valid = 1'b1;
+        end
     end
 
     RXVDFF #(

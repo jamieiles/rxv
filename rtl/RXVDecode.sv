@@ -359,6 +359,14 @@ module RXVDecode #(
         unique case (funct3)
             3'b000: begin
                 unique casez (decode_instr)
+                    32'b0000_0000_0000_0000_0000_0000_0111_0011: begin  // ECALL
+                        system_uop           = RXVTypes::UOP_ECALL;
+                        system_illegal_instr = 1'b0;
+                    end
+                    32'b0000_0000_0001_0000_0000_0000_0111_0011: begin  // EBREAK
+                        system_uop           = RXVTypes::UOP_EBREAK;
+                        system_illegal_instr = 1'b0;
+                    end
                     32'b0011_0000_0010_0000_0000_0000_0111_0011: begin  // MRET
                         system_uop           = RXVTypes::UOP_MRET;
                         system_illegal_instr = 1'b0;

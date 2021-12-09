@@ -591,3 +591,45 @@ TEST_F(RXVCoreEmulWrapperTest, WFI)
 
     EXPECT_EQ(tracer->read_reg(1), 1);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, ECALL)
+{
+    load(R"objdump(
+          0:   00000097                auipc   x1,0x0
+          4:   01408093                addi    x1,x1,20 # 0x14
+          8:   30509073                csrw    mtvec,x1
+          c:   00000073                ecall
+         10:   0000006f                j       0x10
+         14:   00a00513                li      x10,10
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(10), 10);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x0000000b);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, EBREAK)
+{
+    load(R"objdump(
+          0:   00000097                auipc   x1,0x0
+          4:   01408093                addi    x1,x1,20 # 0x14
+          8:   30509073                csrw    mtvec,x1
+          c:   00100073                ebreak
+         10:   0000006f                j       0x10
+         14:   00a00513                li      x10,10
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(10), 10);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x00000003);
+}

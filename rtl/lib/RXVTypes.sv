@@ -90,7 +90,9 @@ package RXVTypes;
         UOP_AUIPC,
         UOP_CSR,
         UOP_CSRI,
-        UOP_MRET
+        UOP_MRET,
+        UOP_ECALL,
+        UOP_EBREAK
     } rxv_uop;
 
     // verilator lint_off UNUSED

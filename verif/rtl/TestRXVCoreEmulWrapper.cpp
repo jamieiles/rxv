@@ -14,6 +14,13 @@
 #include "MockMemoryBus.h"
 #include "SimTracer.h"
 
+struct InstructionRecord {
+    uint32_t pc;
+    std::pair<int, uint32_t> reg_write;
+    std::vector<std::pair<int, uint32_t>> csr_writes;
+    bool excepted;
+};
+
 class TestbenchTracer : public SimTracer
 {
 public:
@@ -22,17 +29,19 @@ public:
     {
         for (auto i = 0; i < 32; ++i)
             shadow_regs[i] = 0;
+        for (auto i = 0; i < (1 << 12); ++i)
+            shadow_csrs[i] = 0;
     }
 
     virtual void trace_write_reg(int id, int r, uint32_t v) override
     {
         SimTracer::trace_write_reg(id, r, v);
-        shadow_regs[r] = v;
+        instruction_map[id].reg_write = std::make_pair(r, v);
     }
 
     virtual void trace_write_csr(int id, int r, uint32_t v) override
     {
-        shadow_csrs[r] = v;
+        instruction_map[id].csr_writes.emplace_back(std::make_pair(r, v));
 
         SimTracer::trace_write_csr(id, r, v);
     }
@@ -49,19 +58,28 @@ public:
                                          PrivilegeLevel level) override
     {
         SimTracer::trace_start_instruction(id, pc, instr, cycle, level);
-        pc_map[id] = pc;
+        instruction_map[id] = InstructionRecord();
+        instruction_map[id].pc = pc;
     }
 
     virtual void trace_exception(int id) override
     {
+        instruction_map[id].excepted = true;
         SimTracer::trace_exception(id);
     }
 
     virtual void trace_end_instruction(int id) override
     {
         SimTracer::trace_end_instruction(id);
+
+        auto &instr = instruction_map[id];
+        if (instr.reg_write.first)
+            shadow_regs[instr.reg_write.first] = instr.reg_write.second;
+        for (auto &csr : instr.csr_writes)
+            shadow_csrs[csr.first] = csr.second;
+        last_pc = instr.pc;
+
         ++num_instructions;
-        last_pc = pc_map[id];
     }
 
     uint32_t read_reg(int id) const
@@ -92,7 +110,7 @@ private:
     uint32_t shadow_csrs[4096];
     int num_instructions;
     uint32_t last_pc;
-    std::map<int, uint32_t> pc_map;
+    std::map<int, InstructionRecord> instruction_map;
 };
 
 class RXVCoreEmulWrapperTest

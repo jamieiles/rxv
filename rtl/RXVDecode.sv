@@ -537,11 +537,11 @@ module RXVDecode #(
 
     always_comb begin
         busy_reg_out   = rename_out.phys;
-        busy_valid_out = exec_valid_next & |rename_out.arch & exec_have_writeback_next;
+        busy_valid_out = exec_valid_next & |rd & exec_have_writeback_next;
     end
 
     always_comb begin
-        reg_alloc_valid = exec_valid_next & |rename_out.arch & exec_have_writeback_next;
+        reg_alloc_valid = exec_valid_next & |rd & exec_have_writeback_next;
     end
 
     always_comb begin

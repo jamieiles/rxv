@@ -43,7 +43,14 @@ module RXVCSRFile #(
     output mtvec                           mtvec_out,
     output mcause                          mcause_out,
     input  RXVException                    exec_exception,
-    input  logic        [commit_width-1:0] exec_except_id
+    input  logic        [commit_width-1:0] exec_except_id,
+    // PMU
+    output logic                           cyclesh_wren,
+    output logic                           cyclesl_wren,
+    output logic                           instreth_wren,
+    output logic                           instretl_wren,
+    input  logic        [            63:0] pmu_cycles,
+    input  logic        [            63:0] pmu_instret
 );
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -92,6 +99,10 @@ module RXVCSRFile #(
             RXVCSR::CSR_MEPC: rd_data_next = unpack_mepc(mepc_reg);
             RXVCSR::CSR_MCAUSE: rd_data_next = unpack_mcause(mcause_reg);
             RXVCSR::CSR_MTVAL: rd_data_next = unpack_mtval(mtval_reg);
+            RXVCSR::CSR_MCYCLE: rd_data_next = pmu_cycles[31:0];
+            RXVCSR::CSR_MCYCLEH: rd_data_next = pmu_cycles[63:32];
+            RXVCSR::CSR_MINSTRET: rd_data_next = pmu_instret[31:0];
+            RXVCSR::CSR_MINSTRETH: rd_data_next = pmu_instret[63:32];
             default: rd_data_next = 32'b0;
         endcase
     end
@@ -100,6 +111,10 @@ module RXVCSRFile #(
         mscratch_wren = wr_en && wr_addr == RXVCSR::CSR_MSCRATCH;
         mstatus_wren  = wr_en && wr_addr == RXVCSR::CSR_MSTATUS;
         mtvec_wren    = wr_en && wr_addr == RXVCSR::CSR_MTVEC;
+        cyclesl_wren  = wr_en && wr_addr == RXVCSR::CSR_MCYCLE;
+        cyclesh_wren  = wr_en && wr_addr == RXVCSR::CSR_MCYCLEH;
+        instretl_wren = wr_en && wr_addr == RXVCSR::CSR_MINSTRET;
+        instreth_wren = wr_en && wr_addr == RXVCSR::CSR_MINSTRETH;
         mepc_wren     = exception_write || (wr_en && wr_addr == RXVCSR::CSR_MEPC);
         mcause_wren   = exception_write || (wr_en && wr_addr == RXVCSR::CSR_MCAUSE);
         mtval_wren    = exception_write || (wr_en && wr_addr == RXVCSR::CSR_MTVAL);
@@ -135,7 +150,9 @@ module RXVCSRFile #(
         unique case (rd_addr)
             RXVCSR::CSR_MVENDORID, RXVCSR::CSR_MARCHID, RXVCSR::CSR_MIMPID,
             RXVCSR::CSR_MSCRATCH, RXVCSR::CSR_MSTATUS, RXVCSR::CSR_MTVEC,
-            RXVCSR::CSR_MEPC, RXVCSR::CSR_MCAUSE, RXVCSR::CSR_MTVAL:
+            RXVCSR::CSR_MEPC, RXVCSR::CSR_MCAUSE, RXVCSR::CSR_MTVAL,
+            RXVCSR::CSR_MCYCLE, RXVCSR::CSR_MCYCLEH, RXVCSR::CSR_MINSTRET,
+            RXVCSR::CSR_MINSTRETH:
             valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase
@@ -161,6 +178,10 @@ module RXVCSRFile #(
     always_ff @(posedge clk) begin
         int trace_id = 32'(writer_id);
         if (mscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_MSCRATCH, wr_data);
+        if (cyclesl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCYCLE, wr_data);
+        if (cyclesh_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCYCLEH, wr_data);
+        if (instretl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MINSTRET, wr_data);
+        if (instretl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MINSTRETH, wr_data);
         if (mstatus_wren)
             trace_write_csr(trace_id, RXVCSR::CSR_MSTATUS, unpack_mstatus(mstatus_next));
         if (mtvec_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVEC, unpack_mtvec(mtvec_next));

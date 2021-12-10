@@ -153,6 +153,7 @@ module RXVCore #(
     renamed_reg                        commit_rename_out;
     logic                              commit_rename_valid;
     logic          [ commit_width-1:0] commit_id;
+    logic                              retired;
     logic                              exception_resteer;
     logic          [             31:2] exception_resteer_tgt;
     mtvec                              mtvec_val;
@@ -161,6 +162,13 @@ module RXVCore #(
     phys_reg_tag                       busy_reg_in;
     logic                              busy_valid_in;
     logic          [num_phys_regs-1:0] scoreboard_busy;
+
+    logic                              pmu_cyclesh_wren;
+    logic                              pmu_cyclesl_wren;
+    logic                              pmu_instreth_wren;
+    logic                              pmu_instretl_wren;
+    logic          [             63:0] pmu_cycles;
+    logic          [             63:0] pmu_instret;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -356,7 +364,13 @@ module RXVCore #(
         .mtvec_out     (mtvec_val),
         .mcause_out    (mcause_val),
         .exec_exception(exec_exception),
-        .exec_except_id(exec_except_id)
+        .exec_except_id(exec_except_id),
+        .cyclesh_wren  (pmu_cyclesh_wren),
+        .cyclesl_wren  (pmu_cyclesl_wren),
+        .instreth_wren (pmu_instreth_wren),
+        .instretl_wren (pmu_instretl_wren),
+        .pmu_cycles    (pmu_cycles),
+        .pmu_instret   (pmu_instret)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -453,6 +467,7 @@ module RXVCore #(
         .commit_excepted       (commit_excepted_out),
         .commit_valid          (commit_valid),
         .commit_id             (commit_id),
+        .retired               (retired),
         .commit_rename_out     (commit_rename_out),
         .commit_rename_valid   (commit_rename_valid),
         .commit_rename_rollback(rename_rollback),
@@ -462,6 +477,19 @@ module RXVCore #(
         .exception_resteer_tgt (exception_resteer_tgt),
         .mtvec_in              (mtvec_val),
         .mcause_in             (mcause_val)
+    );
+
+    RXVPMU RXVPMU (
+        .clk          (clk),
+        .reset        (reset),
+        .retire_valid (retired),
+        .cyclesh_wren (pmu_cyclesh_wren),
+        .cyclesl_wren (pmu_cyclesl_wren),
+        .instreth_wren(pmu_instreth_wren),
+        .instretl_wren(pmu_instretl_wren),
+        .csr_wrval    (exec_csr_wr_data),
+        .pmu_cycles   (pmu_cycles),
+        .pmu_instret  (pmu_instret)
     );
 
     always_comb begin

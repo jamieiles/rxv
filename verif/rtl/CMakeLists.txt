@@ -237,6 +237,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv

@@ -633,3 +633,54 @@ TEST_F(RXVCoreEmulWrapperTest, EBREAK)
     EXPECT_EQ(tracer->read_reg(10), 10);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x00000003);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, PMU)
+{
+    load(R"objdump(
+           0:   b00020f3                csrr    x1,mcycle
+           4:   b8002173                csrr    x2,mcycleh
+           8:   00a00513                li      x10,10
+           c:   00158593                addi    x11,x11,1
+          10:   fea5cee3                blt     x11,x10,0xc
+          14:   b00021f3                csrr    x3,mcycle
+          18:   b8002273                csrr    x4,mcycleh
+          1c:   b02022f3                csrr    x5,minstret
+          20:   b8202373                csrr    x6,minstreth
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000020; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_NE(tracer->read_reg(1), 0);
+    EXPECT_EQ(tracer->read_reg(2), 0);
+    EXPECT_NE(tracer->read_reg(3), 0);
+    EXPECT_EQ(tracer->read_reg(4), 0);
+    EXPECT_NE(tracer->read_reg(5), 0);
+    EXPECT_EQ(tracer->read_reg(6), 0);
+
+    EXPECT_NE(tracer->read_reg(1), tracer->read_reg(3));
+    EXPECT_EQ(tracer->read_reg(5), 24);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, PMUWrite)
+{
+    load(R"objdump(
+          0:   fff00093                li      x1,-1
+          4:   b8209073                csrw    minstreth,x1
+          8:   b8009073                csrw    mcycleh,x1
+          c:   b8202173                csrr    x2,minstreth
+         10:   b80021f3                csrr    x3,mcycleh
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0xffffffff);
+    EXPECT_EQ(tracer->read_reg(3), 0xffffffff);
+}

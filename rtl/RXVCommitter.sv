@@ -23,6 +23,7 @@ module RXVCommitter #(
     input  logic                           commit_excepted,
     output logic                           commit_valid,
     input  logic        [commit_width-1:0] commit_id,
+    output logic                           retired,
     // To rename file
     output renamed_reg                     commit_rename_out,
     output logic                           commit_rename_valid,
@@ -46,6 +47,10 @@ module RXVCommitter #(
 
     always_comb begin
         commit_ready = ~commit_empty & (commit_complete | commit_killed | commit_excepted);
+    end
+
+    always_comb begin
+        retired = commit_ready & ~commit_killed;
     end
 
     always_comb begin

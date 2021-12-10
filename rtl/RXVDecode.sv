@@ -177,58 +177,50 @@ module RXVDecode #(
         is_branch       = 1'b0;
         have_rs1        = 1'b0;
         have_rs2        = 1'b0;
+        illegal_opcode = 1'b0;
 
         unique case (opcode[6:2])
             RXVTypes::OPC_OP: begin
-                illegal_opcode = 1'b0;
-                opc_op         = 1'b1;
-                have_rs1       = 1'b1;
-                have_rs2       = 1'b1;
+                opc_op   = 1'b1;
+                have_rs1 = 1'b1;
+                have_rs2 = 1'b1;
             end
             RXVTypes::OPC_IMM: begin
-                illegal_opcode  = 1'b0;
                 opc_imm         = 1'b1;
                 have_rs1        = 1'b1;
                 exec_immed_next = i_immed(decode_instr);
             end
             RXVTypes::OPC_BRANCH: begin
-                illegal_opcode = 1'b0;
-                opc_branch     = 1'b1;
-                is_branch      = 1'b1;
-                have_rs1       = 1'b1;
-                have_rs2       = 1'b1;
+                opc_branch = 1'b1;
+                is_branch  = 1'b1;
+                have_rs1   = 1'b1;
+                have_rs2   = 1'b1;
             end
             RXVTypes::OPC_JAL: begin
-                illegal_opcode = 1'b0;
-                opc_jal        = 1'b1;
-                is_branch      = 1'b1;
+                opc_jal   = 1'b1;
+                is_branch = 1'b1;
             end
             RXVTypes::OPC_JALR: begin
-                illegal_opcode  = 1'b0;
                 opc_jalr        = 1'b1;
                 is_branch       = 1'b1;
                 have_rs1        = 1'b1;
                 exec_immed_next = i_immed(decode_instr);
             end
             RXVTypes::OPC_LUI: begin
-                illegal_opcode  = 1'b0;
                 opc_lui         = 1'b1;
                 exec_immed_next = u_immed(decode_instr);
             end
             RXVTypes::OPC_AUIPC: begin
-                illegal_opcode  = 1'b0;
                 opc_auipc       = 1'b1;
                 exec_immed_next = u_immed(decode_instr);
             end
             RXVTypes::OPC_SYSTEM: begin
-                illegal_opcode  = 1'b0;
                 opc_system      = 1'b1;
                 exec_immed_next = u_immed(decode_instr);
                 // Only CSRRW/CSRRS/CSRRC have a source register
                 have_rs1        = funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011;
             end
             RXVTypes::OPC_MISC_MEM: begin
-                illegal_opcode = 1'b0;
                 opc_misc_mem   = 1'b1;
             end
             default: illegal_opcode = 1'b1;

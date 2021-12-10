@@ -148,7 +148,7 @@ public:
             auto addr = strtoul(tokens[0].c_str(), NULL, 16);
             auto instr = strtoul(tokens[1].c_str(), NULL, 16);
 
-            bus->write(0x80000000 + addr, instr, 0xf);
+            bus->write(addr, instr, 0xf);
         }
     }
 
@@ -159,12 +159,12 @@ public:
 TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
 {
     load(R"objdump(
-         0:   00000093                li      x1,0
-         4:   00a00113                li      x2,10
-         8:   00108093                addi    x1,x1,1
-         c:   fe20cee3                blt     x1,x2,0x8
-        10:   0f000513                li      x10,240
-        14:   000005ef                jal     x11,0x14
+        80000000:   00000093                li      x1,0
+        80000004:   00a00113                li      x2,10
+        80000008:   00108093                addi    x1,x1,1
+        8000000c:   fe20cee3                blt     x1,x2,0x8
+        80000010:   0f000513                li      x10,240
+        80000014:   000005ef                jal     x11,0x14
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i)
@@ -179,11 +179,11 @@ TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
 TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
 {
     load(R"objdump(
-         0:   00108093                addi    x1,x1,1
-         4:   00108093                addi    x1,x1,1
-         8:   00108093                addi    x1,x1,1
-         c:   00108093                addi    x1,x1,1
-        10:   00108093                addi    x1,x1,1
+        80000000:   00108093                addi    x1,x1,1
+        80000004:   00108093                addi    x1,x1,1
+        80000008:   00108093                addi    x1,x1,1
+        8000000c:   00108093                addi    x1,x1,1
+        80000010:   00108093                addi    x1,x1,1
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i)
@@ -195,11 +195,11 @@ TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
 TEST_F(RXVCoreEmulWrapperTest, NoBypassX0)
 {
     load(R"objdump(
-         0:   00100013                add     x0,x0,1
-         4:   00100013                add     x0,x0,1
-         8:   00100013                add     x0,x0,1
-         c:   00100013                add     x0,x0,1
-        10:   000080b3                add     x1,x1,x0
+        80000000:   00100013                add     x0,x0,1
+        80000004:   00100013                add     x0,x0,1
+        80000008:   00100013                add     x0,x0,1
+        8000000c:   00100013                add     x0,x0,1
+        80000010:   000080b3                add     x1,x1,x0
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i)
@@ -211,12 +211,12 @@ TEST_F(RXVCoreEmulWrapperTest, NoBypassX0)
 TEST_F(RXVCoreEmulWrapperTest, JALR)
 {
     load(R"objdump(
-         0:   00100093                li      x1,1
-         4:   00c000ef                jal     x1,0x10
-         8:   0dc00193                li      x3,220
-         c:   0000006f                j       0xc
-        10:   0ac00113                li      x2,172
-        14:   00008067                ret
+        80000000:   00100093                li      x1,1
+        80000004:   00c000ef                jal     x1,0x10
+        80000008:   0dc00193                li      x3,220
+        8000000c:   0000006f                j       0xc
+        80000010:   0ac00113                li      x2,172
+        80000014:   00008067                ret
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000000c; ++i)
@@ -230,11 +230,11 @@ TEST_F(RXVCoreEmulWrapperTest, JALR)
 TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
 {
     load(R"objdump(
-         0:   0040006f                j       0x4
-         4:   0040006f                j       0x8
-         8:   0040006f                j       0xc
-         c:   00150513                addi    x10,x10,1
-        10:   ff1ff06f                j       0x0
+        80000000:   0040006f                j       0x4
+        80000004:   0040006f                j       0x8
+        80000008:   0040006f                j       0xc
+        8000000c:   00150513                addi    x10,x10,1
+        80000010:   ff1ff06f                j       0x0
     )objdump");
 
     while (tracer->get_num_instructions() != 5)
@@ -246,8 +246,8 @@ TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
 TEST_F(RXVCoreEmulWrapperTest, LUI)
 {
     load(R"objdump(
-         0:   800010b7                lui     x1,0x80001
-         4:   fffff137                lui     x2,0xfffff
+        80000000:   800010b7                lui     x1,0x80001
+        80000004:   fffff137                lui     x2,0xfffff
     )objdump");
 
     while (tracer->get_num_instructions() != 2)
@@ -260,9 +260,9 @@ TEST_F(RXVCoreEmulWrapperTest, LUI)
 TEST_F(RXVCoreEmulWrapperTest, AUIPC)
 {
     load(R"objdump(
-         0:   00000013                nop
-         4:   00008097                auipc   x1,0x8
-         8:   00000013                nop
+         80000000:   00000013                nop
+         80000004:   00008097                auipc   x1,0x8
+         80000008:   00000013                nop
     )objdump");
 
     while (tracer->get_num_instructions() != 3)
@@ -274,14 +274,14 @@ TEST_F(RXVCoreEmulWrapperTest, AUIPC)
 TEST_F(RXVCoreEmulWrapperTest, CSRRW)
 {
     load(R"objdump(
-         0:   deadc0b7                lui     x1,0xdeadc
-         4:   eef08093                addi    x1,x1,-273 # 0xdeadbeef
-         8:   34009173                csrrw   x2,mscratch,x1
-         c:   aa55a137                lui     x2,0xaa55a
-        10:   5a510113                addi    x2,x2,1445 # 0xaa55a5a5
-        14:   340111f3                csrrw   x3,mscratch,x2
-        18:   34002273                csrr    x4,mscratch
-        1c:   00000013                nop
+        80000000:   deadc0b7                lui     x1,0xdeadc
+        80000004:   eef08093                addi    x1,x1,-273 # 0xdeadbeef
+        80000008:   34009173                csrrw   x2,mscratch,x1
+        8000000c:   aa55a137                lui     x2,0xaa55a
+        80000010:   5a510113                addi    x2,x2,1445 # 0xaa55a5a5
+        80000014:   340111f3                csrrw   x3,mscratch,x2
+        80000018:   34002273                csrr    x4,mscratch
+        8000001c:   00000013                nop
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
@@ -298,14 +298,14 @@ TEST_F(RXVCoreEmulWrapperTest, CSRRW)
 TEST_F(RXVCoreEmulWrapperTest, CSRRS)
 {
     load(R"objdump(
-          0:   000010b7                lui     x1,0x1
-          4:   f0108093                addi    x1,x1,-255 # 0xf01
-          8:   11111137                lui     x2,0x11111
-          c:   11110113                addi    x2,x2,273 # 0x11111111
-         10:   34011073                csrw    mscratch,x2
-         14:   3400b1f3                csrrc   x3,mscratch,x1
-         18:   34002273                csrr    x4,mscratch
-         1c:   00000013                nop
+        80000000:   000010b7                lui     x1,0x1
+        80000004:   f0108093                addi    x1,x1,-255 # 0xf01
+        80000008:   11111137                lui     x2,0x11111
+        8000000c:   11110113                addi    x2,x2,273 # 0x11111111
+        80000010:   34011073                csrw    mscratch,x2
+        80000014:   3400b1f3                csrrc   x3,mscratch,x1
+        80000018:   34002273                csrr    x4,mscratch
+        8000001c:   00000013                nop
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
@@ -323,14 +323,14 @@ TEST_F(RXVCoreEmulWrapperTest, CSRRS)
 TEST_F(RXVCoreEmulWrapperTest, CSRZeroNoWrite)
 {
     load(R"objdump(
-          0:   111110b7                lui     x1,0x11111
-          4:   11108093                addi    x1,x1,273 # 0x11111111
-          8:   34009073                csrw    mscratch,x1
-          c:   34003073                csrc    mscratch,x0
-         10:   34002173                csrr    x2,mscratch
-         14:   34007073                csrci   mscratch,0
-         18:   340021f3                csrr    x3,mscratch
-         1c:   00000013                nop
+        80000000:   111110b7                lui     x1,0x11111
+        80000004:   11108093                addi    x1,x1,273 # 0x11111111
+        80000008:   34009073                csrw    mscratch,x1
+        8000000c:   34003073                csrc    mscratch,x0
+        80000010:   34002173                csrr    x2,mscratch
+        80000014:   34007073                csrci   mscratch,0
+        80000018:   340021f3                csrr    x3,mscratch
+        8000001c:   00000013                nop
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
@@ -347,8 +347,8 @@ TEST_F(RXVCoreEmulWrapperTest, CSRZeroNoWrite)
 TEST_F(RXVCoreEmulWrapperTest, ReadVendorId)
 {
     load(R"objdump(
-          0:   f11020f3                csrr    x1,mvendorid
-          4:   00000013                nop
+        80000000:   f11020f3                csrr    x1,mvendorid
+        80000004:   00000013                nop
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000004; ++i) {
@@ -363,17 +363,17 @@ TEST_F(RXVCoreEmulWrapperTest, ReadVendorId)
 TEST_F(RXVCoreEmulWrapperTest, MRET)
 {
     load(R"objdump(
-          0:   00000097                auipc   x1,0x0
-          4:   02408093                addi    x1,x1,36 # 0x24
-          8:   34109073                csrw    mepc,x1
-          c:   00000013                nop
-         10:   30200073                mret
-         14:   00f00093                li      x1,15
-         18:   0000006f                j       0x18
-         1c:   00000013                nop
-         20:   00000013                nop
-         24:   00100093                li      x1,1
-         28:   ffdff06f                j       0x24
+        80000000:   00000097                auipc   x1,0x0
+        80000004:   02408093                addi    x1,x1,36 # 0x24
+        80000008:   34109073                csrw    mepc,x1
+        8000000c:   00000013                nop
+        80000010:   30200073                mret
+        80000014:   00f00093                li      x1,15
+        80000018:   0000006f                j       0x18
+        8000001c:   00000013                nop
+        80000020:   00000013                nop
+        80000024:   00100093                li      x1,1
+        80000028:   ffdff06f                j       0x24
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
@@ -388,8 +388,8 @@ TEST_F(RXVCoreEmulWrapperTest, MRET)
 TEST_F(RXVCoreEmulWrapperTest, IllegalInstruction)
 {
     load(R"objdump(
-          0:   00000013                nop
-          4:   00200073                uret
+        80000000:   00000013                nop
+        80000004:   00200073                uret
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_num_instructions() != 2; ++i) {
@@ -408,9 +408,9 @@ TEST_F(RXVCoreEmulWrapperTest, IllegalInstruction)
 TEST_F(RXVCoreEmulWrapperTest, MTVECAlignVectored)
 {
     load(R"objdump(
-          0:   fff00093                li      x1,-1
-          4:   30509073                csrw    mtvec,x1
-          8:   30502173                csrr    x2,mtvec
+        80000000:   fff00093                li      x1,-1
+        80000004:   30509073                csrw    mtvec,x1
+        80000008:   30502173                csrr    x2,mtvec
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
@@ -426,9 +426,9 @@ TEST_F(RXVCoreEmulWrapperTest, MTVECAlignVectored)
 TEST_F(RXVCoreEmulWrapperTest, MTVECAlignDirect)
 {
     load(R"objdump(
-          0:   ffe00093                li      x1,-2
-          4:   30509073                csrw    mtvec,x1
-          8:   30502173                csrr    x2,mtvec
+        80000000:   ffe00093                li      x1,-2
+        80000004:   30509073                csrw    mtvec,x1
+        80000008:   30502173                csrr    x2,mtvec
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
@@ -444,19 +444,19 @@ TEST_F(RXVCoreEmulWrapperTest, MTVECAlignDirect)
 TEST_F(RXVCoreEmulWrapperTest, ExceptionHandling)
 {
     load(R"objdump(
-            0:   00000097                auipc   x1,0x0
-            4:   01c08093                addi    x1,x1,28 # 0x1c
-            8:   30509073                csrw    mtvec,x1
-            c:   00200113                li      x2,2
-           10:   00200073                uret
-           14:   00300193                li      x3,3
-           18:   0000006f                j       0x18
-           1c:   00a00513                li      x10,10
-           20:   341025f3                csrr    x11,mepc
-           24:   00458593                addi    x11,x11,4
-           28:   34159073                csrw    mepc,x11
-           2c:   001a0a13                addi    x20,x20,1
-           30:   30200073                mret
+        80000000:   00000097                auipc   x1,0x0
+        80000004:   01c08093                addi    x1,x1,28 # 0x1c
+        80000008:   30509073                csrw    mtvec,x1
+        8000000c:   00200113                li      x2,2
+        80000010:   00200073                uret
+        80000014:   00300193                li      x3,3
+        80000018:   0000006f                j       0x18
+        8000001c:   00a00513                li      x10,10
+        80000020:   341025f3                csrr    x11,mepc
+        80000024:   00458593                addi    x11,x11,4
+        80000028:   34159073                csrw    mepc,x11
+        8000002c:   001a0a13                addi    x20,x20,1
+        80000030:   30200073                mret
     )objdump");
 
     for (int i = 0; i < 512; ++i) {
@@ -476,20 +476,20 @@ TEST_F(RXVCoreEmulWrapperTest, ExceptionHandling)
 TEST_F(RXVCoreEmulWrapperTest, RepeatedExceptionHandling)
 {
     load(R"objdump(
-         0:   00000097                auipc   x1,0x0
-         4:   02008093                addi    x1,x1,32 # 0x20
-         8:   30509073                csrw    mtvec,x1
-         c:   00200113                li      x2,2
-        10:   00200073                uret
-        14:   00200073                uret
-        18:   00300193                li      x3,3
-        1c:   0000006f                j       0x1c
-        20:   00a00513                li      x10,10
-        24:   341025f3                csrr    x11,mepc
-        28:   00458593                addi    x11,x11,4
-        2c:   34159073                csrw    mepc,x11
-        30:   001a0a13                addi    x20,x20,1
-        34:   30200073                mret
+        80000000:   00000097                auipc   x1,0x0
+        80000004:   02008093                addi    x1,x1,32 # 0x20
+        80000008:   30509073                csrw    mtvec,x1
+        8000000c:   00200113                li      x2,2
+        80000010:   00200073                uret
+        80000014:   00200073                uret
+        80000018:   00300193                li      x3,3
+        8000001c:   0000006f                j       0x1c
+        80000020:   00a00513                li      x10,10
+        80000024:   341025f3                csrr    x11,mepc
+        80000028:   00458593                addi    x11,x11,4
+        8000002c:   34159073                csrw    mepc,x11
+        80000030:   001a0a13                addi    x20,x20,1
+        80000034:   30200073                mret
     )objdump");
 
     for (int i = 0; i < 512; ++i) {
@@ -509,8 +509,8 @@ TEST_F(RXVCoreEmulWrapperTest, RepeatedExceptionHandling)
 TEST_F(RXVCoreEmulWrapperTest, KilledIllegal)
 {
     load(R"objdump(
-         0:   0000006f                j       0x0
-         4:   00200073                uret
+         80000000:   0000006f                j       0x0
+         80000004:   00200073                uret
     )objdump");
 
     for (int i = 0; i < 512; ++i)
@@ -525,24 +525,24 @@ TEST_F(RXVCoreEmulWrapperTest, KilledIllegal)
 TEST_F(RXVCoreEmulWrapperTest, JALRMisalign)
 {
     load(R"objdump(
-         0:   00000097                auipc   x1,0x0
-         4:   03008093                addi    x1,x1,48 # 0x30
-         8:   30509073                csrw    mtvec,x1
-         c:   00000097                auipc   x1,0x0
-        10:   01c08093                addi    x1,x1,28 # 0x28
-        14:   00308093                addi    x1,x1,3
-        18:   000080e7                jalr    x1
-        1c:   00100113                li      x2,1
-        20:   0000006f                j       0x20
-        24:   00300193                li      x3,3
-        28:   00400213                li      x4,4
-        2c:   0000006f                j       0x2c
-        30:   00a00513                li      x10,10
-        34:   341025f3                csrr    x11,mepc
-        38:   00458593                addi    x11,x11,4
-        3c:   34159073                csrw    mepc,x11
-        40:   001a0a13                addi    x20,x20,1
-        44:   30200073                mret
+        80000000:   00000097                auipc   x1,0x0
+        80000004:   03008093                addi    x1,x1,48 # 0x30
+        80000008:   30509073                csrw    mtvec,x1
+        8000000c:   00000097                auipc   x1,0x0
+        80000010:   01c08093                addi    x1,x1,28 # 0x28
+        80000014:   00308093                addi    x1,x1,3
+        80000018:   000080e7                jalr    x1
+        8000001c:   00100113                li      x2,1
+        80000020:   0000006f                j       0x20
+        80000024:   00300193                li      x3,3
+        80000028:   00400213                li      x4,4
+        8000002c:   0000006f                j       0x2c
+        80000030:   00a00513                li      x10,10
+        80000034:   341025f3                csrr    x11,mepc
+        80000038:   00458593                addi    x11,x11,4
+        8000003c:   34159073                csrw    mepc,x11
+        80000040:   001a0a13                addi    x20,x20,1
+        80000044:   30200073                mret
     )objdump");
 
     for (int i = 0; i < 512; ++i) {
@@ -561,9 +561,9 @@ TEST_F(RXVCoreEmulWrapperTest, JALRMisalign)
 TEST_F(RXVCoreEmulWrapperTest, FENCE)
 {
     load(R"objdump(
-         0:   0ff0000f                fence
-         4:   0a50000f                fence   ir,ow
-         8:   00100093                li      x1,1
+         80000000:   0ff0000f                fence
+         80000004:   0a50000f                fence   ir,ow
+         80000008:   00100093                li      x1,1
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
@@ -578,9 +578,9 @@ TEST_F(RXVCoreEmulWrapperTest, FENCE)
 TEST_F(RXVCoreEmulWrapperTest, WFI)
 {
     load(R"objdump(
-         0:   10500073                wfi
-         4:   10500073                wfi
-         8:   00100093                li      x1,1
+         80000000:   10500073                wfi
+         80000004:   10500073                wfi
+         80000008:   00100093                li      x1,1
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
@@ -595,12 +595,12 @@ TEST_F(RXVCoreEmulWrapperTest, WFI)
 TEST_F(RXVCoreEmulWrapperTest, ECALL)
 {
     load(R"objdump(
-          0:   00000097                auipc   x1,0x0
-          4:   01408093                addi    x1,x1,20 # 0x14
-          8:   30509073                csrw    mtvec,x1
-          c:   00000073                ecall
-         10:   0000006f                j       0x10
-         14:   00a00513                li      x10,10
+         80000000:   00000097                auipc   x1,0x0
+         80000004:   01408093                addi    x1,x1,20 # 0x14
+         80000008:   30509073                csrw    mtvec,x1
+         8000000c:   00000073                ecall
+         80000010:   0000006f                j       0x10
+         80000014:   00a00513                li      x10,10
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
@@ -616,12 +616,12 @@ TEST_F(RXVCoreEmulWrapperTest, ECALL)
 TEST_F(RXVCoreEmulWrapperTest, EBREAK)
 {
     load(R"objdump(
-          0:   00000097                auipc   x1,0x0
-          4:   01408093                addi    x1,x1,20 # 0x14
-          8:   30509073                csrw    mtvec,x1
-          c:   00100073                ebreak
-         10:   0000006f                j       0x10
-         14:   00a00513                li      x10,10
+        80000000:   00000097                auipc   x1,0x0
+        80000004:   01408093                addi    x1,x1,20 # 0x14
+        80000008:   30509073                csrw    mtvec,x1
+        8000000c:   00100073                ebreak
+        80000010:   0000006f                j       0x10
+        80000014:   00a00513                li      x10,10
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
@@ -637,15 +637,15 @@ TEST_F(RXVCoreEmulWrapperTest, EBREAK)
 TEST_F(RXVCoreEmulWrapperTest, PMU)
 {
     load(R"objdump(
-           0:   b00020f3                csrr    x1,mcycle
-           4:   b8002173                csrr    x2,mcycleh
-           8:   00a00513                li      x10,10
-           c:   00158593                addi    x11,x11,1
-          10:   fea5cee3                blt     x11,x10,0xc
-          14:   b00021f3                csrr    x3,mcycle
-          18:   b8002273                csrr    x4,mcycleh
-          1c:   b02022f3                csrr    x5,minstret
-          20:   b8202373                csrr    x6,minstreth
+        80000000:   b00020f3                csrr    x1,mcycle
+        80000004:   b8002173                csrr    x2,mcycleh
+        80000008:   00a00513                li      x10,10
+        8000000c:   00158593                addi    x11,x11,1
+        80000010:   fea5cee3                blt     x11,x10,0xc
+        80000014:   b00021f3                csrr    x3,mcycle
+        80000018:   b8002273                csrr    x4,mcycleh
+        8000001c:   b02022f3                csrr    x5,minstret
+        80000020:   b8202373                csrr    x6,minstreth
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000020; ++i) {
@@ -668,11 +668,11 @@ TEST_F(RXVCoreEmulWrapperTest, PMU)
 TEST_F(RXVCoreEmulWrapperTest, PMUWrite)
 {
     load(R"objdump(
-          0:   fff00093                li      x1,-1
-          4:   b8209073                csrw    minstreth,x1
-          8:   b8009073                csrw    mcycleh,x1
-          c:   b8202173                csrr    x2,minstreth
-         10:   b80021f3                csrr    x3,mcycleh
+        80000000:   fff00093                li      x1,-1
+        80000004:   b8209073                csrw    minstreth,x1
+        80000008:   b8009073                csrw    mcycleh,x1
+        8000000c:   b8202173                csrr    x2,minstreth
+        80000010:   b80021f3                csrr    x3,mcycleh
     )objdump");
 
     for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {

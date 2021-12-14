@@ -4,6 +4,10 @@ package RXVTypes;
     localparam num_phys_regs  /* verilator public */ = 48;
     localparam arch_reg_bits  /* verilator public */ = $clog2(num_arch_regs);
     localparam phys_reg_bits  /* verilator public */ = $clog2(num_phys_regs);
+    // verilator lint_off UNUSED
+    localparam int_latency = 1;
+    localparam lsu_latency = 3;
+    // verilator lint_on UNUSED
 
     typedef logic [arch_reg_bits-1:0] arch_reg_tag;
     typedef logic [phys_reg_bits-1:0] phys_reg_tag;

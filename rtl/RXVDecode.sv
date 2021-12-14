@@ -75,7 +75,7 @@ module RXVDecode #(
     // To exec
     output rxv_alu_op                         exec_alu_op,
     output rxv_csr_op                         exec_csr_op,
-    output logic                              exec_valid,
+    output logic                              int_exec_valid,
     output logic                              exec_have_writeback,
     output phys_reg_tag                       exec_rd,
     output                [ commit_width-1:0] exec_id,
@@ -108,69 +108,77 @@ module RXVDecode #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic                                rs1_busy;
-    logic                                rs2_busy;
-    logic                                src_regs_ready;
-    logic                                illegal_instruction;
-    logic                                illegal_opcode;
-    logic                                int_bypass_valid;
-    logic                                have_rs1;
-    logic                                have_rs2;
-    arch_reg_tag                         last_rd_arch;
-    logic                                system_stall;
-    RXVException                         decode_exception_next;
-    logic        [     commit_width-1:0] decode_except_id_next;
+    typedef enum bit [1:0] {
+        EXEC_PIPE_INT = 2'b01,
+        EXEC_PIPE_LSU = 2'b10
+    } exec_pipe_sel;
 
-    logic                                is_branch;
+    logic                                 rs1_busy;
+    logic                                 rs2_busy;
+    logic                                 src_regs_ready;
+    logic                                 illegal_instruction;
+    logic                                 illegal_opcode;
+    logic                                 int_bypass_valid;
+    logic                                 have_rs1;
+    logic                                 have_rs2;
+    arch_reg_tag                          last_rd_arch;
+    logic                                 system_stall;
+    RXVException                          decode_exception_next;
+    logic         [     commit_width-1:0] decode_except_id_next;
 
-    logic        [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
-    logic                                exec_valid_next;
-    logic                                exec_have_writeback_next;
-    logic        [                 31:0] exec_immed_next;
-    logic        [                 31:0] exec_branch_target_next;
-    logic        [   $bits(rxv_uop)-1:0] exec_uop_next;
-    logic                                exec_bypass_rs1_next;
-    logic                                exec_bypass_rs2_next;
+    logic                                 is_branch;
 
-    logic                                opc_op;
-    rxv_alu_op                           op_alu_op;
-    logic                                op_illegal_instr;
-    rxv_uop                              op_uop;
+    logic         [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
+    logic                                 int_exec_valid_next;
+    logic                                 exec_have_writeback_next;
+    logic         [                 31:0] exec_immed_next;
+    logic         [                 31:0] exec_branch_target_next;
+    logic         [   $bits(rxv_uop)-1:0] exec_uop_next;
+    logic                                 exec_bypass_rs1_next;
+    logic                                 exec_bypass_rs2_next;
 
-    logic                                opc_imm;
-    rxv_alu_op                           imm_alu_op;
-    logic                                imm_illegal_instr;
-    rxv_uop                              imm_uop;
+    logic                                 opc_op;
+    rxv_alu_op                            op_alu_op;
+    logic                                 op_illegal_instr;
+    rxv_uop                               op_uop;
 
-    logic                                opc_branch;
-    rxv_alu_op                           branch_alu_op;
-    logic                                branch_illegal_instr;
-    logic        [                 31:0] branch_target;
-    rxv_uop                              branch_uop;
+    logic                                 opc_imm;
+    rxv_alu_op                            imm_alu_op;
+    logic                                 imm_illegal_instr;
+    rxv_uop                               imm_uop;
 
-    logic                                opc_jal;
-    logic        [                 31:0] jal_target;
-    rxv_uop                              jal_uop;
+    logic                                 opc_branch;
+    rxv_alu_op                            branch_alu_op;
+    logic                                 branch_illegal_instr;
+    logic         [                 31:0] branch_target;
+    rxv_uop                               branch_uop;
 
-    logic                                opc_jalr;
-    rxv_alu_op                           jalr_alu_op;
-    rxv_uop                              jalr_uop;
+    logic                                 opc_jal;
+    logic         [                 31:0] jal_target;
+    rxv_uop                               jal_uop;
 
-    logic                                opc_lui;
-    rxv_uop                              lui_uop;
+    logic                                 opc_jalr;
+    rxv_alu_op                            jalr_alu_op;
+    rxv_uop                               jalr_uop;
 
-    logic                                opc_auipc;
-    rxv_uop                              auipc_uop;
+    logic                                 opc_lui;
+    rxv_uop                               lui_uop;
 
-    logic                                opc_system;
-    rxv_csr_op                           csr_op_next;
-    logic                                system_illegal_instr;
-    rxv_uop                              system_uop;
-    logic                                system_have_writeback;
+    logic                                 opc_auipc;
+    rxv_uop                               auipc_uop;
 
-    logic                                opc_misc_mem;
-    logic                                misc_mem_illegal_instr;
-    rxv_uop                              misc_mem_uop;
+    logic                                 opc_system;
+    rxv_csr_op                            csr_op_next;
+    logic                                 system_illegal_instr;
+    rxv_uop                               system_uop;
+    logic                                 system_have_writeback;
+
+    logic                                 opc_misc_mem;
+    logic                                 misc_mem_illegal_instr;
+    rxv_uop                               misc_mem_uop;
+
+    exec_pipe_sel                         exec_pipe_en;
+    logic                                 dispatch_ready;
 
     always_comb begin
         opc_op          = 1'b0;
@@ -186,7 +194,8 @@ module RXVDecode #(
         is_branch       = 1'b0;
         have_rs1        = 1'b0;
         have_rs2        = 1'b0;
-        illegal_opcode = 1'b0;
+        illegal_opcode  = 1'b0;
+        exec_pipe_en    = EXEC_PIPE_INT;
 
         unique case (opcode[6:2])
             RXVTypes::OPC_OP: begin
@@ -230,7 +239,7 @@ module RXVDecode #(
                 have_rs1        = funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011;
             end
             RXVTypes::OPC_MISC_MEM: begin
-                opc_misc_mem   = 1'b1;
+                opc_misc_mem = 1'b1;
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -485,9 +494,10 @@ module RXVDecode #(
     end
 
     always_comb begin
-        exec_valid_next =
+        int_exec_valid_next = exec_pipe_en == EXEC_PIPE_INT &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer && int_ready;
+        dispatch_int = int_exec_valid_next;
     end
 
     always_comb begin
@@ -496,7 +506,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        int_bypass_valid = exec_valid && exec_have_writeback &&
+        int_bypass_valid = int_exec_valid && exec_have_writeback &&
             (exec_uop == RXVTypes::UOP_ALU || exec_uop == RXVTypes::UOP_AUIPC ||
              exec_uop == RXVTypes::UOP_LUI);
     end
@@ -523,28 +533,32 @@ module RXVDecode #(
     end
 
     always_comb begin
+        dispatch_ready = int_exec_valid_next;
+    end
+
+    always_comb begin
         commit_dispatch.stale_phys = stale_phys_reg;
         commit_dispatch.dest_reg = rename_out;
         commit_dispatch.pc = decode_pc;
         commit_dispatch.have_writeback = exec_have_writeback_next;
 
-        commit_dispatch_valid = ~kill_valid & (exec_valid_next | (decode_valid & illegal_instruction));
+        commit_dispatch_valid = ~kill_valid & (dispatch_ready | (decode_valid & illegal_instruction));
     end
 
     always_comb begin
         rename_out.arch  = rd;
         rename_out.phys  = allocated_reg;
 
-        rename_out_valid = exec_valid_next & |rd & exec_have_writeback_next;
+        rename_out_valid = dispatch_ready & |rd & exec_have_writeback_next;
     end
 
     always_comb begin
         busy_reg_out   = rename_out.phys;
-        busy_valid_out = exec_valid_next & |rd & exec_have_writeback_next;
+        busy_valid_out = dispatch_ready & |rd & exec_have_writeback_next;
     end
 
     always_comb begin
-        reg_alloc_valid = exec_valid_next & |rd & exec_have_writeback_next;
+        reg_alloc_valid = dispatch_ready & |rd & exec_have_writeback_next;
     end
 
     always_comb begin
@@ -607,12 +621,12 @@ module RXVDecode #(
         .q    (exec_id)
     );
 
-    RXVDFF exec_valid_dff (
+    RXVDFF int_exec_valid_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_valid_next),
-        .q    (exec_valid)
+        .d    (int_exec_valid_next),
+        .q    (int_exec_valid)
     );
 
     RXVDFF exec_have_writeback_dff (

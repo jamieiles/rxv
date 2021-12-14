@@ -94,7 +94,7 @@ module RXVCore #(
 
     rxv_alu_op                         exec_alu_op;
     rxv_csr_op                         exec_csr_op;
-    logic                              exec_valid;
+    logic                              int_exec_valid;
     logic                              exec_have_writeback;
     phys_reg_tag                       exec_rd;
     logic          [ commit_width-1:0] exec_id;
@@ -279,7 +279,7 @@ module RXVCore #(
         .rb_phys                    (rd_addr_b),
         .exec_alu_op                (exec_alu_op),
         .exec_csr_op                (exec_csr_op),
-        .exec_valid                 (exec_valid),
+        .int_exec_valid             (int_exec_valid),
         .exec_have_writeback        (exec_have_writeback),
         .exec_rd                    (exec_rd),
         .exec_id                    (exec_id),
@@ -304,7 +304,7 @@ module RXVCore #(
         .clk                        (clk),
         .reset                      (reset),
         .kill_valid                 (kill_valid),
-        .exec_valid                 (exec_valid),
+        .exec_valid                 (int_exec_valid),
         .exec_alu_op                (exec_alu_op),
         .exec_csr_op                (exec_csr_op),
         .exec_have_writeback        (exec_have_writeback),

@@ -1,7 +1,7 @@
 FROM rxv-build-quartus:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
-ARG VERILATOR_VERSION=4.214
+ARG VERILATOR_VERSION=4.216
 RUN apt-get update && apt-get install --no-install-recommends -y \
 	autoconf \
         bison \

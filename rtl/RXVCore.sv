@@ -50,6 +50,11 @@ module RXVCore #(
     logic          [             31:2] fetch_predict_address;
     rxv_prediction                     fetch_prediction;
 
+    logic                              dispatch_int;
+    logic                              dispatch_lsu;
+    logic                              int_ready;
+    logic                              lsu_ready;
+
     logic                              decode_resteer;
     logic          [             31:2] decode_resteer_tgt;
     logic                              decode_stall;
@@ -261,6 +266,10 @@ module RXVCore #(
         .busy_reg_out               (busy_reg_in),
         .busy_valid_out             (busy_valid_in),
         .busy_status                (scoreboard_busy),
+        .int_ready                  (int_ready),
+        .lsu_ready                  (lsu_ready),
+        .dispatch_int               (dispatch_int),
+        .dispatch_lsu               (dispatch_lsu),
         .rename_out                 (rename_in),
         .rename_out_valid           (rename_valid),
         .stale_phys_reg             (stale_phys_reg),
@@ -453,6 +462,15 @@ module RXVCore #(
         .writeback_reg_in  (reg_wr_addr),
         .writeback_valid_in(reg_wr_en),
         .busy_out          (scoreboard_busy)
+    );
+
+    RXVScheduler RXVScheduler (
+        .clk         (clk),
+        .reset       (reset),
+        .dispatch_int(dispatch_int),
+        .dispatch_lsu(dispatch_lsu),
+        .int_ready   (int_ready),
+        .lsu_ready   (lsu_ready)
     );
 
     RXVCommitter #(

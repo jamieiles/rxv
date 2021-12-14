@@ -54,6 +54,15 @@ module RXVDecode #(
     output phys_reg_tag                       busy_reg_out,
     output logic                              busy_valid_out,
     input  logic          [num_phys_regs-1:0] busy_status,
+    // Scheduler
+    output logic                              dispatch_int,
+    input  logic                              int_ready,
+    // verilator lint_off UNUSED
+    // verilator lint_off UNDRIVEN
+    output logic                              dispatch_lsu,
+    input  logic                              lsu_ready,
+    // verilator lint_on UNUSED
+    // verilator lint_on UNDRIVEN
     // To renamer
     output renamed_reg                        rename_out,
     output logic                              rename_out_valid,
@@ -476,7 +485,9 @@ module RXVDecode #(
     end
 
     always_comb begin
-        exec_valid_next = ~illegal_instruction & decode_valid & ~decode_stall & ~kill_valid & ~exec_resteer;
+        exec_valid_next =
+            !illegal_instruction && decode_valid && !decode_stall &&
+            !kill_valid && !exec_resteer && int_ready;
     end
 
     always_comb begin

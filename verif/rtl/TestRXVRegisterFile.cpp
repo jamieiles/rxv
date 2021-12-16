@@ -62,3 +62,12 @@ TEST_F(RegFileTestbench, RegX0WritesIgnored)
     EXPECT_EQ(0, read(0, PORT_A));
     EXPECT_EQ(0, read(0, PORT_B));
 }
+
+TEST_F(RegFileTestbench, NoWriteIdle)
+{
+    this->dut.wr_addr = 1;
+    this->dut.wr_data = 0xffffffff;
+    cycle(8);
+
+    EXPECT_EQ(0, read(1, PORT_A));
+}

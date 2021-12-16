@@ -46,7 +46,7 @@ module RXVRegisterFile (
     endgenerate
 
     always_comb begin
-        reg_wren = {{(num_phys_regs - 1) {1'b1}}, 1'b0} & reg_wren_encoded;
+        reg_wren = {{(num_phys_regs - 1) {wr_en}}, 1'b0} & reg_wren_encoded;
     end
 
     always_comb begin

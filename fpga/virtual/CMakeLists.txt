@@ -40,10 +40,10 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/PosedgeDetect.sv
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv)
 set(FPGA_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/SysPLL.v
+    ${CMAKE_CURRENT_SOURCE_DIR}/RAMBE.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/RXVCoreSynthTop.sv)
 
 set(ALL_SOURCES ${CORE_SOURCES} ${FPGA_SOURCES})

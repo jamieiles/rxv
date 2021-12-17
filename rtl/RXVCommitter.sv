@@ -62,7 +62,7 @@ module RXVCommitter #(
             commit_rename_valid = 1'b1;
         end
 
-        if (!commit_empty && (commit_killed || commit_excepted)) begin
+        if (!commit_empty && commit_excepted) begin
             commit_rename_rollback = 1'b1;
         end
     end

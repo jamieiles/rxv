@@ -16,7 +16,8 @@ module RXVRenameFileWrapper (
     input  logic [phys_reg_bits-1:0] commit_in_phys,
     input  logic                     commit_valid,
     // Rollback
-    input  logic                     rollback
+    input  logic                     rollback,
+    input logic kill
 );
 
     renamed_reg rename_in;
@@ -37,7 +38,8 @@ module RXVRenameFileWrapper (
         .lookup_tag_out(lookup_tag_out),
         .commit_in     (commit_in),
         .commit_valid  (commit_valid),
-        .rollback      (rollback)
+        .rollback      (rollback),
+        .kill          (kill)
     );
 
 endmodule

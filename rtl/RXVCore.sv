@@ -392,7 +392,8 @@ module RXVCore #(
         .lookup_tag_out(lookup_tag_out),
         .commit_in     (commit_rename_out),
         .commit_valid  (commit_rename_valid),
-        .rollback      (rename_rollback)
+        .rollback      (rename_rollback),
+        .kill          (kill_valid)
     );
 
     RXVRegisterAllocator #(

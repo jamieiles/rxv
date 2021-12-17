@@ -98,9 +98,9 @@ module RXVCoreSynthTop (
 
     RXVCore #(
         .icache_nr_ways (2),
-        .icache_nr_lines(16),
+        .icache_nr_lines(128),
         .dcache_nr_ways (2),
-        .dcache_nr_lines(16)
+        .dcache_nr_lines(128)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),

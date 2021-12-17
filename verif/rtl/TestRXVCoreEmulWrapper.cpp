@@ -9,7 +9,7 @@
 #include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper_BusTransactor.h"
-#include "VRXVCoreEmulWrapper_RXVCore.h"
+// #include "VRXVCoreEmulWrapper_RXVCore.h"
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
 #include "SimTracer.h"
@@ -19,6 +19,34 @@ struct InstructionRecord {
     std::pair<int, uint32_t> reg_write;
     std::vector<std::pair<int, uint32_t>> csr_writes;
     bool excepted;
+};
+
+class NCPeripheral : public IOPeripheral
+{
+public:
+    NCPeripheral(uint32_t base, size_t len) : IOPeripheral(base, len)
+    {
+        memset(regs, 0, sizeof(regs));
+    }
+
+    void write(uint32_t offset, const char *v, size_t len)
+    {
+        if (offset + len > sizeof(regs) || len != 4)
+            return;
+
+        memcpy(&regs[offset / 4], v, sizeof(uint32_t));
+    }
+
+    void read(uint32_t offset, char *v, size_t len)
+    {
+        if (offset + len > sizeof(regs) || len != 4)
+            return;
+
+        memcpy(v, &regs[offset / 4], sizeof(uint32_t));
+    }
+
+private:
+    uint32_t regs[1024];
 };
 
 class TestbenchTracer : public SimTracer
@@ -683,4 +711,195 @@ TEST_F(RXVCoreEmulWrapperTest, PMUWrite)
 
     EXPECT_EQ(tracer->read_reg(2), 0xffffffff);
     EXPECT_EQ(tracer->read_reg(3), 0xffffffff);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, StoreWord)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0020a023                sw      x2,0(x1) # 0x80001000
+        80000010:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+}
+
+TEST_F(RXVCoreEmulWrapperTest, LoadWord)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0000a103                lw      x2,0(x1) # 0x80001000
+        80000010:       00000013                nop
+    )objdump");
+    bus->write(0x80001000, 0xdeadbeef, 0xf);
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0xdeadbeef);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, LoadByteSigned)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       00108103                lb      x2,1(x1) # 0x80001001
+        80000010:       00000013                nop
+    )objdump");
+    bus->write(0x80001000, 0x0000c000, 0xf);
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0xffffffc0);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, LoadByteUnsigned)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0010c103                lbu     x2,1(x1) # 0x80001001
+        80000010:       00000013                nop
+    )objdump");
+    bus->write(0x80001000, 0x0000c000, 0xf);
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0x000000c0);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, BackToBackReads)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0000a103                lw      x2,0(x1) # 0x80001000
+        80000010:       0040a183                lw      x3,4(x1)
+        80000014:       00000013                nop
+    )objdump");
+    bus->write(0x80001000, 0xdeadbeef, 0xf);
+    bus->write(0x80001004, 0xaa55a5a5, 0xf);
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0xdeadbeef);
+    EXPECT_EQ(tracer->read_reg(3), 0xaa55a5a5);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, StoreByte)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       00208023                sb      x2,0(x1) # 0x80001000
+        80000010:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+}
+
+TEST_F(RXVCoreEmulWrapperTest, StoreWordUncached)
+{
+    load(R"objdump(
+        80000000:       f00000b7                lui     x1,0xf0000
+        80000004:       aa55a137                lui     x2,0xaa55a
+        80000008:       5a510113                addi    x2,x2,1445 # 0xaa55a5a5
+        8000000c:       0020a023                sw      x2,0(x1) # 0xf0000000
+        80000010:       00000013                nop
+    )objdump");
+    bus->add_peripheral(std::make_unique<NCPeripheral>(0xf0000000, 4096));
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(bus->read(0xf0000000), 0xaa55a5a5);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, LoadUnalignedExcepts)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02008093                addi    x1,x1,32 # 0x80000020
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       800010b7                lui     x1,0x80001
+        80000010:       deadc137                lui     x2,0xdeadc
+        80000014:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        80000018:       0010a103                lw      x2,1(x1) # 0x80001001
+        8000001c:       00a00513                li      x10,10
+        80000020:       00b00593                li      x11,11
+        80000024:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(10), 0);
+    EXPECT_EQ(tracer->read_reg(11), 11);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x4);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000018);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x80001001);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, OOOCompletion)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0000a103                lw      x2,0(x1) # 0x80001000
+        80000010:       00118193                addi    x3,x3,1
+        80000014:       00118193                addi    x3,x3,1
+        80000018:       0080006f                j       0x80000020
+        8000001c:       00120213                addi    x4,x4,1 # 0x1
+        80000020:       00118193                addi    x3,x3,1
+        80000024:       00000013                nop
+    )objdump");
+    bus->write(0x80001000, 0xf00ff00f, 0xf);
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(3), 3);
+    EXPECT_EQ(tracer->read_reg(4), 0);
+    EXPECT_EQ(tracer->read_reg(2), 0xf00ff00f);
 }

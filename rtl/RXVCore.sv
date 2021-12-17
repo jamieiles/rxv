@@ -29,13 +29,14 @@ module RXVCore #(
     parameter logic [31:0] reset_address          = 32'h80000000,
     parameter logic [31:0] vendorid               = 0,
     parameter logic [31:0] archid                 = 0,
-    parameter logic [31:0] impid                  = 0
+    parameter logic [31:0] impid                  = 0,
+    parameter logic [31:0] device_base            = 32'hf0000000,
+    parameter logic [31:0] device_end             = 32'hffffffff
 ) (
     input logic                clk,
     input logic                reset,
-    // Instruction bus
-          MemInterface.Manager instruction_bus,
-          MemInterface.Manager data_bus
+    MemInterface.Manager instruction_bus,
+    MemInterface.Manager data_bus
 );
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -74,6 +75,8 @@ module RXVCore #(
 
     logic                              exec_resteer;
     logic          [             31:2] exec_resteer_tgt;
+    logic                              int_exec_resteer;
+    logic          [             31:2] int_exec_resteer_tgt;
     logic                              exec_predict_update;
     logic          [              1:0] exec_predict_prev_strength;
     logic                              exec_update_predict_taken;
@@ -91,6 +94,11 @@ module RXVCore #(
     logic          [             31:2] mepc_val;
     RXVException                       exec_exception;
     logic          [ commit_width-1:0] exec_except_id;
+    logic          [ commit_width-1:0] int_exec_complete_id;
+    logic                              int_exec_complete_valid;
+    logic                              int_exec_reg_wr_en;
+    phys_reg_tag                       int_exec_reg_wr_addr;
+    logic          [             31:0] int_exec_reg_wr_data;
 
     rxv_alu_op                         exec_alu_op;
     rxv_csr_op                         exec_csr_op;
@@ -101,6 +109,21 @@ module RXVCore #(
     logic          [             31:2] exec_pc;
     logic          [             31:2] exec_next_pc;
     rxv_prediction                     exec_prediction;
+
+    logic                              lsu_exec_valid;
+    logic                              lsu_busy;
+    RXVException                       lsu_exception;
+    logic          [ commit_width-1:0] lsu_except_id;
+    logic                              lsu_resteer;
+    logic          [             31:2] lsu_resteer_tgt;
+
+    logic          [ commit_width-1:0] lsu_complete_id;
+    logic                              lsu_complete_valid;
+    logic                              lsu_reg_wr_en;
+    phys_reg_tag                       lsu_reg_wr_addr;
+    logic          [             31:0] lsu_reg_wr_data;
+    logic                              lsu_reg_busy;
+    logic                              lsu_busy_kill;
 
     phys_reg_tag                       rd_addr_a;
     phys_reg_tag                       rd_addr_b;
@@ -126,7 +149,6 @@ module RXVCore #(
     phys_reg_tag                       reg_alloc_phys;
     phys_reg_tag                       reg_free_phys;
 
-    // verilator lint_off UNUSED
     logic          [             31:2] dcache_address;
     logic                              dcache_valid;
     logic                              dcache_busy;
@@ -138,7 +160,6 @@ module RXVCore #(
     logic                              dcache_clean;
     logic          [             31:0] dcache_phys_out;
     logic                              dcache_device_memory;
-    // verilator lint_on UNUSED
 
     logic                              commit_full;
     commit_entry                       dispatch_in;
@@ -270,6 +291,7 @@ module RXVCore #(
         .lsu_ready                  (lsu_ready),
         .dispatch_int               (dispatch_int),
         .dispatch_lsu               (dispatch_lsu),
+        .lsu_busy                   (lsu_busy),
         .rename_out                 (rename_in),
         .rename_out_valid           (rename_valid),
         .stale_phys_reg             (stale_phys_reg),
@@ -280,6 +302,7 @@ module RXVCore #(
         .exec_alu_op                (exec_alu_op),
         .exec_csr_op                (exec_csr_op),
         .int_exec_valid             (int_exec_valid),
+        .lsu_exec_valid             (lsu_exec_valid),
         .exec_have_writeback        (exec_have_writeback),
         .exec_rd                    (exec_rd),
         .exec_id                    (exec_id),
@@ -312,11 +335,11 @@ module RXVCore #(
         .exec_id                    (exec_id),
         .op1                        (rs1_data),
         .op2                        (rs2_data),
-        .exec_reg_addr              (reg_wr_addr),
-        .exec_reg_wr_en             (reg_wr_en),
-        .exec_reg_wr_data           (reg_wr_data),
-        .exec_complete              (complete_valid),
-        .exec_complete_id           (complete_id),
+        .exec_reg_addr              (int_exec_reg_wr_addr),
+        .exec_reg_wr_en             (int_exec_reg_wr_en),
+        .exec_reg_wr_data           (int_exec_reg_wr_data),
+        .exec_complete              (int_exec_complete_valid),
+        .exec_complete_id           (int_exec_complete_id),
         .exec_immed                 (exec_immed),
         .exec_opcode                (exec_opcode),
         .exec_branch_target         (exec_branch_target),
@@ -333,13 +356,51 @@ module RXVCore #(
         .exec_update_predict_taken  (exec_update_predict_taken),
         .exec_update_predict_address(exec_update_predict_address),
         .exec_update_predict_target (exec_update_predict_target),
-        .exec_resteer               (exec_resteer),
-        .exec_resteer_tgt           (exec_resteer_tgt),
+        .exec_resteer               (int_exec_resteer),
+        .exec_resteer_tgt           (int_exec_resteer_tgt),
         .mepc_in                    (mepc_val),
         .decode_exception           (decode_exception),
         .decode_except_id           (decode_except_id),
         .exec_exception             (exec_exception),
         .exec_except_id             (exec_except_id)
+    );
+
+    RXVLSU #(
+        .commit_order(commit_order)
+    ) RXVLSU (
+        .clk                (clk),
+        .reset              (reset),
+        .kill_valid         (kill_valid),
+        .exec_valid         (lsu_exec_valid),
+        .exec_have_writeback(exec_have_writeback),
+        .exec_rd            (exec_rd),
+        .exec_id            (exec_id),
+        .op1                (rs1_data),
+        .op2                (rs2_data),
+        .exec_immed         (exec_immed),
+        .exec_pc            (exec_pc),
+        .exec_uop           (exec_uop),
+        .lsu_busy           (lsu_busy),
+        .lsu_reg_busy       (lsu_reg_busy),
+        .lsu_reg_addr       (lsu_reg_wr_addr),
+        .lsu_reg_wr_en      (lsu_reg_wr_en),
+        .lsu_reg_wr_data    (lsu_reg_wr_data),
+        .lsu_complete       (lsu_complete_valid),
+        .lsu_complete_id    (lsu_complete_id),
+        .dcache_address     (dcache_address),
+        .dcache_valid       (dcache_valid),
+        .dcache_busy        (dcache_busy),
+        .dcache_rdata       (dcache_dout),
+        .dcache_wren        (dcache_wren),
+        .dcache_bytesel     (dcache_bytesel),
+        .dcache_wdata       (dcache_din),
+        .dcache_invalidate  (dcache_invalidate),
+        .dcache_clean       (dcache_clean),
+        .lsu_exception      (lsu_exception),
+        .lsu_except_id      (lsu_except_id),
+        .lsu_busy_kill      (lsu_busy_kill),
+        .lsu_resteer        (lsu_resteer),
+        .lsu_resteer_tgt    (lsu_resteer_tgt)
     );
 
     RXVRegisterFile RXVRegisterFile (
@@ -374,6 +435,8 @@ module RXVCore #(
         .mcause_out    (mcause_val),
         .exec_exception(exec_exception),
         .exec_except_id(exec_except_id),
+        .lsu_exception (lsu_exception),
+        .lsu_except_id (lsu_except_id),
         .cyclesh_wren  (pmu_cyclesh_wren),
         .cyclesl_wren  (pmu_cyclesl_wren),
         .instreth_wren (pmu_instreth_wren),
@@ -512,15 +575,7 @@ module RXVCore #(
     );
 
     always_comb begin
-        icache_invalidate    = 'b0;
-        dcache_address       = 'b0;
-        dcache_wren          = 'b0;
-        dcache_bytesel       = 'b0;
-        dcache_invalidate    = 'b0;
-        dcache_clean         = 'b0;
-        dcache_device_memory = 'b0;
-        dcache_valid         = 'b0;
-        dcache_din           = 'b0;
+        icache_invalidate = 'b0;
     end
 
     always_comb begin
@@ -529,12 +584,48 @@ module RXVCore #(
     end
 
     always_comb begin
-        kill_valid = exec_resteer | exec_exception.valid;
+        kill_valid = exec_resteer | exec_exception.valid | lsu_exception.valid | lsu_busy_kill;
     end
 
     always_comb begin
-        except_valid = exec_exception.valid & ~exec_resteer;
-        except_id    = exec_except_id;
+        except_valid = lsu_exception.valid | (exec_exception.valid & ~exec_resteer);
+        except_id    = exec_exception.valid ? exec_except_id : lsu_except_id;
+    end
+
+    always_comb begin
+        complete_id    = 'b0;
+        complete_valid = 'b0;
+        reg_wr_en      = 'b0;
+        reg_wr_addr    = 'b0;
+        reg_wr_data    = 'b0;
+
+        if (lsu_complete_valid) begin
+            complete_id    = lsu_complete_id;
+            complete_valid = lsu_complete_valid;
+            reg_wr_en      = lsu_reg_wr_en;
+            reg_wr_addr    = lsu_reg_wr_addr;
+            reg_wr_data    = lsu_reg_wr_data;
+        end
+
+        if (int_exec_complete_valid) begin
+            complete_id    = int_exec_complete_id;
+            complete_valid = int_exec_complete_valid;
+            reg_wr_en      = int_exec_reg_wr_en;
+            reg_wr_addr    = int_exec_reg_wr_addr;
+            reg_wr_data    = int_exec_reg_wr_data;
+        end
+
+        lsu_reg_busy = int_exec_complete_valid;
+    end
+
+    always_comb begin
+        dcache_device_memory = dcache_phys_out >= device_base && dcache_phys_out < device_end;
+    end
+
+    always_comb begin
+        exec_resteer = int_exec_resteer | lsu_resteer;
+        exec_resteer_tgt = ({30{int_exec_resteer}} & int_exec_resteer_tgt) |
+                           ({30{lsu_resteer}} & lsu_resteer_tgt);
     end
 
 `ifdef verilator

@@ -44,6 +44,8 @@ module RXVCSRFile #(
     output mcause                          mcause_out,
     input  RXVException                    exec_exception,
     input  logic        [commit_width-1:0] exec_except_id,
+    input  RXVException                    lsu_exception,
+    input  logic        [commit_width-1:0] lsu_except_id,
     // PMU
     output logic                           cyclesh_wren,
     output logic                           cyclesl_wren,
@@ -56,36 +58,48 @@ module RXVCSRFile #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic   [            31:0] rd_data_next;
-    logic   [            31:0] mscratch;
-    logic                      mscratch_wren;
+    logic        [            31:0] rd_data_next;
+    logic        [            31:0] mscratch;
+    logic                           mscratch_wren;
 
-    mstatus                    mstatus_reg;
-    logic                      mstatus_wren;
-    mtvec                      mtvec_reg;
-    logic                      mtvec_wren;
-    mepc                       mepc_reg;
-    logic                      mepc_wren;
-    mcause                     mcause_reg;
-    logic                      mcause_wren;
-    mtval                      mtval_reg;
-    logic                      mtval_wren;
+    mstatus                         mstatus_reg;
+    logic                           mstatus_wren;
+    mtvec                           mtvec_reg;
+    logic                           mtvec_wren;
+    mepc                            mepc_reg;
+    logic                           mepc_wren;
+    mcause                          mcause_reg;
+    logic                           mcause_wren;
+    mtval                           mtval_reg;
+    logic                           mtval_wren;
 
-    logic                      exception_write;
-    mepc                       mepc_next;
-    mtval                      mtval_next;
-    mcause                     mcause_next;
-    mstatus                    mstatus_next;
-    mtvec                      mtvec_next;
+    logic                           exception_write;
+    mepc                            mepc_next;
+    mtval                           mtval_next;
+    mcause                          mcause_next;
+    mstatus                         mstatus_next;
+    mtvec                           mtvec_next;
 
-    logic   [commit_width-1:0] except_id;
-    logic   [commit_width-1:0] writer_id;
+    logic        [commit_width-1:0] writer_id;
+    RXVException                    exception;
+    logic        [commit_width-1:0] except_id;
 
     always_comb begin
-        exception_write = exec_exception.valid;
-        except_id       = exec_except_id;
+        exception = exec_exception;
+        except_id = exec_except_id;
 
-        writer_id       = exception_write ? except_id : writeback_id;
+        if (lsu_exception.valid) begin
+            exception = lsu_exception;
+            except_id = lsu_except_id;
+        end
+
+        assert (!(lsu_exception.valid & exec_exception.valid));
+
+        exception_write = exception.valid;
+    end
+
+    always_comb begin
+        writer_id = exception_write ? except_id : writeback_id;
     end
 
     always_comb begin
@@ -122,20 +136,20 @@ module RXVCSRFile #(
 
     always_comb begin
         mepc_next = pack_mepc(wr_data);
-        if (exception_write) mepc_next.addr = exec_exception.pc;
+        if (exception_write) mepc_next.addr = exception.pc;
     end
 
     always_comb begin
         mcause_next = pack_mcause(wr_data);
         if (exception_write) begin
             mcause_next.is_interrupt = 1'b0;
-            mcause_next.cause        = exec_exception.cause;
+            mcause_next.cause        = exception.cause;
         end
     end
 
     always_comb begin
         mtval_next = pack_mtval(wr_data);
-        if (exception_write) mtval_next.val = exec_exception.val;
+        if (exception_write) mtval_next.val = exception.val;
     end
 
     always_comb begin

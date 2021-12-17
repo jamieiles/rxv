@@ -58,7 +58,7 @@ package RXVCSR;
         MCAUSE_INSTR_PAGE_FAULT = 4'd12,
         MCAUSE_LOAD_PAGE_FAULT = 4'd13,
         MCAUSE_STORE_PAGE_FAULT = 4'd15
-    } MCAUSE_id;
+    } MCAUSE_id  /* verilator public */;
 
     typedef struct packed {
         logic [31:2] pc;
@@ -66,6 +66,38 @@ package RXVCSR;
         MCAUSE_id cause;
         logic valid;
     } RXVException;
+
+    // verilator lint_off UNUSED
+
+    function logic [31:2] exception_pc;
+        // verilator public
+        input RXVException e;
+
+        exception_pc = e.pc;
+    endfunction
+
+    function logic [31:0] exception_val;
+        // verilator public
+        input RXVException e;
+
+        exception_val = e.val;
+    endfunction
+
+    function MCAUSE_id exception_cause;
+        // verilator public
+        input RXVException e;
+
+        exception_cause = e.cause;
+    endfunction
+
+    function logic exception_valid;
+        // verilator public
+        input RXVException e;
+
+        exception_valid = e.valid;
+    endfunction
+
+    // verilator lint_on UNUSED
 
     typedef struct packed {
         logic mpie;

@@ -82,7 +82,7 @@ package RXVTypes;
         OPC_CUSTOM_3 = 5'b11110
     } rxv_opcode;
 
-    typedef enum logic [3:0] {
+    typedef enum logic [4:0] {
         UOP_ALU,
         UOP_BEQ,
         UOP_BNE,
@@ -96,8 +96,16 @@ package RXVTypes;
         UOP_CSRI,
         UOP_MRET,
         UOP_ECALL,
-        UOP_EBREAK
-    } rxv_uop;
+        UOP_EBREAK,
+        UOP_LB,
+        UOP_LH,
+        UOP_LW,
+        UOP_LBU,
+        UOP_LHU,
+        UOP_SB,
+        UOP_SH,
+        UOP_SW
+    } rxv_uop  /* verilator public */;
 
     // verilator lint_off UNUSED
     function logic [31:0] i_immed;
@@ -122,6 +130,12 @@ package RXVTypes;
         input logic [31:0] instr;
 
         u_immed = {instr[31:12], 12'b0};
+    endfunction
+
+    function logic [31:0] s_immed;
+        input logic [31:0] instr;
+
+        s_immed = 32'($signed({instr[31:25], instr[11:7]}));
     endfunction
     // verilator lint_on UNUSED
 

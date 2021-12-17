@@ -44,6 +44,7 @@ add_executable(rtl-unittest
                TestRXVALU.cpp
                TestRXVBranchPredictor.cpp
                TestRXVCommitBuffer.cpp
+               TestRXVLSU.cpp
                TestRXVRegisterAllocator.cpp
                TestRXVRegisterFile.cpp
                TestRXVRenameFile.cpp
@@ -139,6 +140,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVRenameFileWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFFPipe.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRenameFileWrapper
@@ -229,6 +231,23 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVScheduler
          PREFIX VRXVScheduler
+         TRACE_FST)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVLSUWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFFPipe.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVLSU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVLSUWrapper
+         PREFIX VRXVLSUWrapper
          TRACE_FST)
 
 verilate(rtl-unittest

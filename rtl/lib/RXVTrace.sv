@@ -39,9 +39,21 @@ package RXVTrace;
         input logic [31:0] virt;
         input logic [31:0] phys;
         input logic [31:0] val;
+        input int size;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_write_mem(", instr_id, ", ", virt, ", ", phys, ",", val, ");");
+        case (size)
+            1:
+            $c("this->tracer->trace_write_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
+               val, ");");
+            2:
+            $c("this->tracer->trace_write_mem<uint16_t>(", instr_id, ", ", virt, ", ", phys, ",",
+               val, ");");
+            4:
+            $c("this->tracer->trace_write_mem<uint32_t>(", instr_id, ", ", virt, ", ", phys, ",",
+               val, ");");
+            default: assert (1'b0);
+        endcase
 `endif
     endfunction
 

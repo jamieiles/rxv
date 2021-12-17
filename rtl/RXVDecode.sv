@@ -12,6 +12,7 @@ import RXVTypes::rxv_uop;
 import RXVTypes::b_immed;
 import RXVTypes::i_immed;
 import RXVTypes::j_immed;
+import RXVTypes::s_immed;
 import RXVTypes::u_immed;
 import RXVTrace::trace_start_instruction;
 import RXVCSR::RXVException;
@@ -57,12 +58,9 @@ module RXVDecode #(
     // Scheduler
     output logic                              dispatch_int,
     input  logic                              int_ready,
-    // verilator lint_off UNUSED
-    // verilator lint_off UNDRIVEN
     output logic                              dispatch_lsu,
     input  logic                              lsu_ready,
-    // verilator lint_on UNUSED
-    // verilator lint_on UNDRIVEN
+    input  logic                              lsu_busy,
     // To renamer
     output renamed_reg                        rename_out,
     output logic                              rename_out_valid,
@@ -76,6 +74,7 @@ module RXVDecode #(
     output rxv_alu_op                         exec_alu_op,
     output rxv_csr_op                         exec_csr_op,
     output logic                              int_exec_valid,
+    output logic                              lsu_exec_valid,
     output logic                              exec_have_writeback,
     output phys_reg_tag                       exec_rd,
     output                [ commit_width-1:0] exec_id,
@@ -108,77 +107,86 @@ module RXVDecode #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    typedef enum bit [1:0] {
-        EXEC_PIPE_INT = 2'b01,
-        EXEC_PIPE_LSU = 2'b10
+    typedef enum bit {
+        EXEC_PIPE_INT = 1'b0,
+        EXEC_PIPE_LSU = 1'b1
     } exec_pipe_sel;
 
-    logic                                 rs1_busy;
-    logic                                 rs2_busy;
-    logic                                 src_regs_ready;
-    logic                                 illegal_instruction;
-    logic                                 illegal_opcode;
-    logic                                 int_bypass_valid;
-    logic                                 have_rs1;
-    logic                                 have_rs2;
-    arch_reg_tag                          last_rd_arch;
-    logic                                 system_stall;
-    RXVException                          decode_exception_next;
-    logic         [     commit_width-1:0] decode_except_id_next;
+    logic                                rs1_busy;
+    logic                                rs2_busy;
+    logic                                src_regs_ready;
+    logic                                illegal_instruction;
+    logic                                illegal_opcode;
+    logic                                int_bypass_valid;
+    logic                                have_rs1;
+    logic                                have_rs2;
+    arch_reg_tag                         last_rd_arch;
+    logic                                system_stall;
+    RXVException                         decode_exception_next;
+    logic        [     commit_width-1:0] decode_except_id_next;
 
-    logic                                 is_branch;
+    logic                                is_branch;
 
-    logic         [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
-    logic                                 int_exec_valid_next;
-    logic                                 exec_have_writeback_next;
-    logic         [                 31:0] exec_immed_next;
-    logic         [                 31:0] exec_branch_target_next;
-    logic         [   $bits(rxv_uop)-1:0] exec_uop_next;
-    logic                                 exec_bypass_rs1_next;
-    logic                                 exec_bypass_rs2_next;
+    logic        [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
+    logic                                int_exec_valid_next;
+    logic                                lsu_exec_valid_next;
+    logic                                exec_have_writeback_next;
+    logic        [                 31:0] exec_immed_next;
+    logic        [                 31:0] exec_branch_target_next;
+    logic        [   $bits(rxv_uop)-1:0] exec_uop_next;
+    logic                                exec_bypass_rs1_next;
+    logic                                exec_bypass_rs2_next;
 
-    logic                                 opc_op;
-    rxv_alu_op                            op_alu_op;
-    logic                                 op_illegal_instr;
-    rxv_uop                               op_uop;
+    logic                                opc_op;
+    rxv_alu_op                           op_alu_op;
+    logic                                op_illegal_instr;
+    rxv_uop                              op_uop;
 
-    logic                                 opc_imm;
-    rxv_alu_op                            imm_alu_op;
-    logic                                 imm_illegal_instr;
-    rxv_uop                               imm_uop;
+    logic                                opc_imm;
+    rxv_alu_op                           imm_alu_op;
+    logic                                imm_illegal_instr;
+    rxv_uop                              imm_uop;
 
-    logic                                 opc_branch;
-    rxv_alu_op                            branch_alu_op;
-    logic                                 branch_illegal_instr;
-    logic         [                 31:0] branch_target;
-    rxv_uop                               branch_uop;
+    logic                                opc_branch;
+    rxv_alu_op                           branch_alu_op;
+    logic                                branch_illegal_instr;
+    logic        [                 31:0] branch_target;
+    rxv_uop                              branch_uop;
 
-    logic                                 opc_jal;
-    logic         [                 31:0] jal_target;
-    rxv_uop                               jal_uop;
+    logic                                opc_jal;
+    logic        [                 31:0] jal_target;
+    rxv_uop                              jal_uop;
 
-    logic                                 opc_jalr;
-    rxv_alu_op                            jalr_alu_op;
-    rxv_uop                               jalr_uop;
+    logic                                opc_jalr;
+    rxv_alu_op                           jalr_alu_op;
+    rxv_uop                              jalr_uop;
 
-    logic                                 opc_lui;
-    rxv_uop                               lui_uop;
+    logic                                opc_lui;
+    rxv_uop                              lui_uop;
 
-    logic                                 opc_auipc;
-    rxv_uop                               auipc_uop;
+    logic                                opc_auipc;
+    rxv_uop                              auipc_uop;
 
-    logic                                 opc_system;
-    rxv_csr_op                            csr_op_next;
-    logic                                 system_illegal_instr;
-    rxv_uop                               system_uop;
-    logic                                 system_have_writeback;
+    logic                                opc_system;
+    rxv_csr_op                           csr_op_next;
+    logic                                system_illegal_instr;
+    rxv_uop                              system_uop;
+    logic                                system_have_writeback;
 
-    logic                                 opc_misc_mem;
-    logic                                 misc_mem_illegal_instr;
-    rxv_uop                               misc_mem_uop;
+    logic                                opc_misc_mem;
+    logic                                misc_mem_illegal_instr;
+    rxv_uop                              misc_mem_uop;
 
-    exec_pipe_sel                         exec_pipe_en;
-    logic                                 dispatch_ready;
+    logic                                opc_store;
+    logic                                store_illegal_instr;
+    rxv_uop                              store_uop;
+
+    logic                                opc_load;
+    logic                                load_illegal_instr;
+    rxv_uop                              load_uop;
+
+    logic        [                  1:0] exec_pipe_en;
+    logic                                dispatch_ready;
 
     always_comb begin
         opc_op          = 1'b0;
@@ -195,51 +203,76 @@ module RXVDecode #(
         have_rs1        = 1'b0;
         have_rs2        = 1'b0;
         illegal_opcode  = 1'b0;
-        exec_pipe_en    = EXEC_PIPE_INT;
+        opc_store       = 1'b0;
+        opc_load        = 1'b0;
+        exec_pipe_en    = 2'b0;
 
         unique case (opcode[6:2])
             RXVTypes::OPC_OP: begin
-                opc_op   = 1'b1;
-                have_rs1 = 1'b1;
-                have_rs2 = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_op                      = 1'b1;
+                have_rs1                    = 1'b1;
+                have_rs2                    = 1'b1;
             end
             RXVTypes::OPC_IMM: begin
-                opc_imm         = 1'b1;
-                have_rs1        = 1'b1;
-                exec_immed_next = i_immed(decode_instr);
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_imm                     = 1'b1;
+                have_rs1                    = 1'b1;
+                exec_immed_next             = i_immed(decode_instr);
             end
             RXVTypes::OPC_BRANCH: begin
-                opc_branch = 1'b1;
-                is_branch  = 1'b1;
-                have_rs1   = 1'b1;
-                have_rs2   = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_branch                  = 1'b1;
+                is_branch                   = 1'b1;
+                have_rs1                    = 1'b1;
+                have_rs2                    = 1'b1;
             end
             RXVTypes::OPC_JAL: begin
-                opc_jal   = 1'b1;
-                is_branch = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_jal                     = 1'b1;
+                is_branch                   = 1'b1;
             end
             RXVTypes::OPC_JALR: begin
-                opc_jalr        = 1'b1;
-                is_branch       = 1'b1;
-                have_rs1        = 1'b1;
-                exec_immed_next = i_immed(decode_instr);
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_jalr                    = 1'b1;
+                is_branch                   = 1'b1;
+                have_rs1                    = 1'b1;
+                exec_immed_next             = i_immed(decode_instr);
             end
             RXVTypes::OPC_LUI: begin
-                opc_lui         = 1'b1;
-                exec_immed_next = u_immed(decode_instr);
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_lui                     = 1'b1;
+                exec_immed_next             = u_immed(decode_instr);
             end
             RXVTypes::OPC_AUIPC: begin
-                opc_auipc       = 1'b1;
-                exec_immed_next = u_immed(decode_instr);
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_auipc                   = 1'b1;
+                exec_immed_next             = u_immed(decode_instr);
             end
             RXVTypes::OPC_SYSTEM: begin
-                opc_system      = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                opc_system = 1'b1;
                 exec_immed_next = u_immed(decode_instr);
                 // Only CSRRW/CSRRS/CSRRC have a source register
-                have_rs1        = funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011;
+                have_rs1 = (funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011);
             end
             RXVTypes::OPC_MISC_MEM: begin
-                opc_misc_mem = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+
+                opc_misc_mem                = 1'b1;
+            end
+            RXVTypes::OPC_STORE: begin
+                exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+                opc_store                   = 1'b1;
+                have_rs1                    = 1'b1;
+                have_rs2                    = 1'b1;
+                exec_immed_next             = s_immed(decode_instr);
+            end
+            RXVTypes::OPC_LOAD: begin
+                exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+                opc_load                    = 1'b1;
+                have_rs1                    = 1'b1;
+                exec_immed_next             = i_immed(decode_instr);
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -328,6 +361,32 @@ module RXVDecode #(
                 branch_uop    = RXVTypes::UOP_BGE;
             end  // BGEU
             default: branch_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
+        store_illegal_instr = 1'b0;
+        store_uop           = RXVTypes::UOP_SW;
+
+        unique case (funct3)
+            3'b000:  store_uop = RXVTypes::UOP_SB;
+            3'b001:  store_uop = RXVTypes::UOP_SH;
+            3'b010:  store_uop = RXVTypes::UOP_SW;
+            default: store_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
+        load_illegal_instr = 1'b0;
+        load_uop           = RXVTypes::UOP_LW;
+
+        unique case (funct3)
+            3'b000:  load_uop = RXVTypes::UOP_LB;
+            3'b001:  load_uop = RXVTypes::UOP_LH;
+            3'b010:  load_uop = RXVTypes::UOP_LW;
+            3'b100:  load_uop = RXVTypes::UOP_LBU;
+            3'b101:  load_uop = RXVTypes::UOP_LHU;
+            default: load_illegal_instr = 1'b1;
         endcase
     end
 
@@ -458,6 +517,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_lui;
         exec_have_writeback_next |= opc_auipc;
         exec_have_writeback_next |= opc_system & system_have_writeback;
+        exec_have_writeback_next |= opc_load;
 
         if (~|rd) exec_have_writeback_next = 1'b0;
     end
@@ -473,6 +533,8 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_auipc}} & auipc_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_system}} & system_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_misc_mem}} & misc_mem_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_store}} & store_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_load}} & load_uop);
     end
 
     always_comb begin
@@ -481,6 +543,8 @@ module RXVDecode #(
             (opc_branch & branch_illegal_instr) |
             (opc_system & system_illegal_instr) |
             (opc_misc_mem & misc_mem_illegal_instr) |
+            (opc_store & store_illegal_instr) |
+            (opc_load & load_illegal_instr) |
             illegal_opcode;
     end
 
@@ -489,15 +553,28 @@ module RXVDecode #(
     end
 
     always_comb begin
-        decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full | ~src_regs_ready | system_stall);
+        logic lsu_stall;
+        logic int_stall;
+
+        lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy);
+        int_stall = exec_pipe_en[EXEC_PIPE_INT] && !int_ready;
+        decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
+                                            ~src_regs_ready | system_stall | lsu_stall | int_stall);
         decode_resume_tgt = decode_pc;
     end
 
     always_comb begin
-        int_exec_valid_next = exec_pipe_en == EXEC_PIPE_INT &&
+        int_exec_valid_next = exec_pipe_en[EXEC_PIPE_INT] &&
             !illegal_instruction && decode_valid && !decode_stall &&
-            !kill_valid && !exec_resteer && int_ready;
+            !kill_valid && !exec_resteer;
         dispatch_int = int_exec_valid_next;
+    end
+
+    always_comb begin
+        lsu_exec_valid_next = exec_pipe_en[EXEC_PIPE_LSU] &&
+            !illegal_instruction && decode_valid && !decode_stall &&
+            !kill_valid && !exec_resteer;
+        dispatch_lsu = lsu_exec_valid_next;
     end
 
     always_comb begin
@@ -533,7 +610,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        dispatch_ready = int_exec_valid_next;
+        dispatch_ready = int_exec_valid_next | lsu_exec_valid_next;
     end
 
     always_comb begin
@@ -627,6 +704,14 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (int_exec_valid_next),
         .q    (int_exec_valid)
+    );
+
+    RXVDFF lsu_exec_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (lsu_exec_valid_next),
+        .q    (lsu_exec_valid)
     );
 
     RXVDFF exec_have_writeback_dff (

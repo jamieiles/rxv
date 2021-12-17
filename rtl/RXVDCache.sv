@@ -93,7 +93,6 @@ module RXVDCache #(
     logic                      data_write_en;
     logic [      way_bits-1:0] data_way_sel;
     logic [               3:0] write_bytesel;
-    logic [              31:0] write_din;
     logic                      write_wren;
     logic                      write_wren_update;
     logic [               3:0] data_write_bytesel;
@@ -262,7 +261,7 @@ module RXVDCache #(
         bus_address = uncached_access ? lookup_address :
             bus_wren ? {way_tag[lru], addr_index(lookup_address), offset_bits'('b0)} :
             {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)};
-        bus_wdata = uncached_access ? write_din : dout_cached;
+        bus_wdata = uncached_access ? din : dout_cached;
         bus_bytesel = uncached_access ? write_bytesel : 4'b1111;
     end
 
@@ -413,16 +412,6 @@ module RXVDCache #(
         .en   (start_access),
         .d    (bytesel),
         .q    (write_bytesel)
-    );
-
-    RXVDFF #(
-        .width(32)
-    ) write_din_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (start_access),
-        .d    (din),
-        .q    (write_din)
     );
 
     RXVDFF write_wren_dff (

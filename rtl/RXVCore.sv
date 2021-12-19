@@ -26,6 +26,7 @@ module RXVCore #(
     parameter int          btb_num_entries        = 256,
     parameter int          btb_tag_bits           = 10,
     parameter int          commit_order           = 4,
+    parameter int          banked_register_file   = 0,
     parameter logic [31:0] reset_address          = 32'h80000000,
     parameter logic [31:0] vendorid               = 0,
     parameter logic [31:0] archid                 = 0,
@@ -35,8 +36,8 @@ module RXVCore #(
 ) (
     input logic                clk,
     input logic                reset,
-    MemInterface.Manager instruction_bus,
-    MemInterface.Manager data_bus
+          MemInterface.Manager instruction_bus,
+          MemInterface.Manager data_bus
 );
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -403,7 +404,9 @@ module RXVCore #(
         .lsu_resteer_tgt    (lsu_resteer_tgt)
     );
 
-    RXVRegisterFile RXVRegisterFile (
+    RXVRegisterFile #(
+        .banked(banked_register_file)
+    ) RXVRegisterFile (
         .clk      (clk),
         .reset    (reset),
         .rd_addr_a(rd_addr_a),

@@ -93,14 +93,17 @@ module RXVCoreSynthTop (
         .refclk(refclk),
         .reset (reset),
         .clk   (clk),
+        // verilator lint_off PINCONNECTEMPTY
         .locked()
+        // verilator lint_on PINCONNECTEMPTY
     );
 
     RXVCore #(
-        .icache_nr_ways (2),
-        .icache_nr_lines(128),
-        .dcache_nr_ways (2),
-        .dcache_nr_lines(128)
+        .icache_nr_ways      (2),
+        .icache_nr_lines     (128),
+        .dcache_nr_ways      (2),
+        .dcache_nr_lines     (128),
+        .banked_register_file(1)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),

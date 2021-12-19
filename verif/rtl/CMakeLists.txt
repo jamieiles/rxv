@@ -82,6 +82,8 @@ verilate(rtl-unittest
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileBanked.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
@@ -271,6 +273,8 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileBanked.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScheduler.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScoreboard.sv

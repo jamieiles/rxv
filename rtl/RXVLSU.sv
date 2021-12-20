@@ -123,7 +123,7 @@ module RXVLSU #(
     end
 
     always_comb begin
-        lsu_stall = dcache_busy | fencei_pending;
+        lsu_stall = dcache_busy | fencei_pending | dcache_clean | icache_invalidate;
     end
 
     always_comb begin
@@ -148,7 +148,7 @@ module RXVLSU #(
     end
 
     always_comb begin
-        lsu_busy_kill_next = exec_valid & lsu_stall & ~kill_valid;
+        lsu_busy_kill_next = ((exec_valid & lsu_stall) | fencei_pending) & ~kill_valid;
         valid              = exec_valid & ~lsu_busy_kill_next;
     end
 

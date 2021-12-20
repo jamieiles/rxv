@@ -122,6 +122,7 @@ module RXVDecode #(
     logic                                have_rs2;
     arch_reg_tag                         last_rd_arch;
     logic                                system_stall;
+    logic                                misc_mem_stall;
     RXVException                         decode_exception_next;
     logic        [     commit_width-1:0] decode_except_id_next;
 
@@ -554,7 +555,8 @@ module RXVDecode #(
     end
 
     always_comb begin
-        system_stall = opcode[6:2] == RXVTypes::OPC_SYSTEM && ~commit_buffer_empty;
+        system_stall   = opcode[6:2] == RXVTypes::OPC_SYSTEM && ~commit_buffer_empty;
+        misc_mem_stall = opcode[6:2] == RXVTypes::OPC_MISC_MEM && ~commit_buffer_empty;
     end
 
     always_comb begin
@@ -564,7 +566,8 @@ module RXVDecode #(
         lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy);
         int_stall = exec_pipe_en[EXEC_PIPE_INT] && !int_ready;
         decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
-                                            ~src_regs_ready | system_stall | lsu_stall | int_stall);
+                                            ~src_regs_ready | system_stall | lsu_stall |
+                                            int_stall | misc_mem_stall);
         decode_resume_tgt = decode_pc;
     end
 

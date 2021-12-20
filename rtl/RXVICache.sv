@@ -173,7 +173,7 @@ module RXVICache #(
         filling_next = filling;
 
         start_access = valid && !miss && !filling && !(invalidate || invalidating);
-        need_fill    = miss && !filling;
+        need_fill    = miss && !filling && !(invalidate || invalidating);
 
         if (need_fill || fill_complete) begin
             filling_next = need_fill;

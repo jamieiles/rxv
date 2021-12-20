@@ -41,13 +41,23 @@ module RXVScheduler (
         lsu_ready = ~commit_schedule[lsu_latency] & ~global_stall;
     end
 
-`ifdef verilator
-    always_ff @(posedge clk) begin
-        if (dispatch_int) assert (!commit_schedule[int_latency]);
-        if (dispatch_lsu) assert (!commit_schedule[lsu_latency]);
-        assert (!(dispatch_int && dispatch_lsu));
-    end
-`endif
+    RXVAssert dispatch_int_idle (
+        .clk      (clk),
+        .en       (dispatch_int),
+        .condition(!commit_schedule[int_latency])
+    );
+
+    RXVAssert dispatch_lsu_idle (
+        .clk      (clk),
+        .en       (dispatch_lsu),
+        .condition(!commit_schedule[lsu_latency])
+    );
+
+    RXVAssert no_simultaneous_dispatch (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!(dispatch_int && dispatch_lsu))
+    );
 
     RXVDFF #(
         .width($bits(commit_schedule))

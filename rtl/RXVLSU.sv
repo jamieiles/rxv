@@ -237,11 +237,17 @@ module RXVLSU #(
             lsu_complete_next    = op_pipe_out.valid;
             lsu_complete_id_next = op_pipe_out.id;
         end
-
-        // If there is completion contention then we should have already killed
-        // any newer uop
-        // if (lsu_complete && lsu_reg_busy) assert (!op_pipe_out.valid);
     end
+
+    // If there is completion contention then we should have already killed
+    // any newer uop
+    RXVAssert #(
+        .message("no LSU completion overflow")
+    ) lsu_complete_overflow (
+        .clk      (clk),
+        .en       (lsu_complete && lsu_reg_busy),
+        .condition(!op_pipe_out.valid)
+    );
 
     always_comb begin
         lsu_exception_next.pc = exec_pc;

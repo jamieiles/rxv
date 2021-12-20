@@ -69,21 +69,28 @@ module RXVRegisterAllocator #(
         .q    (free_map)
     );
 
-`ifdef verilator
-    /*
-     * Ensure that we don't push an free register or pop one that is
-     * already allocated.
-     */
-    always_ff @(posedge clk) begin
-        if (push) begin
-            assert (!free_map[push_reg]);
-            assert (|push_reg);
-        end
-        if (pop) begin
-            assert (free_map[pop_reg]);
-            assert (|pop_reg);
-        end
-    end
-`endif  // verilator
+    RXVAssert double_free (
+        .clk      (clk),
+        .en       (push),
+        .condition(!free_map[push_reg])
+    );
+
+    RXVAssert push_zero (
+        .clk      (clk),
+        .en       (push),
+        .condition(|push_reg)
+    );
+
+    RXVAssert double_alloc (
+        .clk      (clk),
+        .en       (pop),
+        .condition(free_map[pop_reg])
+    );
+
+    RXVAssert pop_zero (
+        .clk      (clk),
+        .en       (pop),
+        .condition(|pop_reg)
+    );
 
 endmodule

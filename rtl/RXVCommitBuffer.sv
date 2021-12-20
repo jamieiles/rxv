@@ -87,9 +87,15 @@ module RXVCommitBuffer #(
             if (except_id == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) killed_next[i] = 1'b0;
         end
-
-        assert (!(kill_valid && dispatch_valid));
     end
+
+    RXVAssert #(
+        .message("no kill during dispatch")
+    ) no_kill_during_dispatch (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!(kill_valid && dispatch_valid))
+    );
 
     always_comb begin
         integer i;
@@ -113,12 +119,21 @@ module RXVCommitBuffer #(
         if (except_valid) exception_pending_next = 1'b1;
     end
 
-`ifdef verilator
-    always_ff @(posedge clk) begin
-        if (full) assert (!dispatch_valid);
-        if (empty) assert (!commit_valid);
-    end
-`endif
+    RXVAssert #(
+        .message("no dispatch during full commit buffer")
+    ) no_dispatch_during_full (
+        .clk      (clk),
+        .en       (full),
+        .condition(!dispatch_valid)
+    );
+
+    RXVAssert #(
+        .message("no commit during empty commit buffer")
+    ) no_commit_during_empty (
+        .clk      (clk),
+        .en       (empty),
+        .condition(!commit_valid)
+    );
 
     RXVDFF #(
         .width(num_entries)

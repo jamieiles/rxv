@@ -93,10 +93,16 @@ module RXVCSRFile #(
             except_id = lsu_except_id;
         end
 
-        assert (!(lsu_exception.valid & exec_exception.valid));
-
         exception_write = exception.valid;
     end
+
+    RXVAssert #(
+        .message("no simultaneous exceptions raised")
+    ) simultaneous_except (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!(lsu_exception.valid & exec_exception.valid))
+    );
 
     always_comb begin
         writer_id = exception_write ? except_id : writeback_id;
@@ -184,11 +190,15 @@ module RXVCSRFile #(
         mcause_out = mcause_reg;
     end
 
-`ifdef verilator
-    always_ff @(posedge clk) begin
-        if (wr_addr[11:10] == 2'b11) assert (!wr_en);
-    end
+    RXVAssert #(
+        .message("no write to read-only CSRs")
+    ) no_write_ro_csr (
+        .clk      (clk),
+        .en       (wr_addr[11:10] == 2'b11),
+        .condition(!wr_en)
+    );
 
+`ifdef verilator
     always_ff @(posedge clk) begin
         int trace_id = 32'(writer_id);
         if (mscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_MSCRATCH, wr_data);

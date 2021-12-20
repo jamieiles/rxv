@@ -116,9 +116,11 @@ module RXVRenameFile (
         if (kill && last_rename.valid) latest_next[last_rename.renamed.arch] = last_rename.stale;
     end
 
-    always_ff @(posedge clk) begin
-        if (kill) assert (!rename_valid);
-    end
+    RXVAssert no_rename_during_kill (
+        .clk      (clk),
+        .en       (kill),
+        .condition(!rename_valid)
+    );
 
     always_comb begin
         lookup_tag_out[0] = latest_map[lookup_tag_in[0]];
@@ -140,10 +142,10 @@ module RXVRenameFile (
         .q    (last_rename)
     );
 
-`ifdef verilator
-    always_ff @(posedge clk) begin
-        if (rename_valid) assert (rename_in.arch != 0);
-    end
-`endif
+    RXVAssert no_rename_x0 (
+        .clk      (clk),
+        .en       (rename_valid),
+        .condition(rename_in.arch != 0)
+    );
 
 endmodule

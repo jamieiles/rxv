@@ -181,7 +181,7 @@ module RXVICache #(
 
         invalidating_update   = invalidate || &invalidate_index;
         invalidate_index_next = invalidate_index + 1'b1;
-        bus_address           = lookup_address;
+        bus_address           = {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)};
         bus_valid             = need_fill;
     end
 

@@ -71,6 +71,7 @@ module RXVDCache #(
     logic                      lru_update;
     logic [      way_bits-1:0] lru_way_sel;
     logic [    index_bits-1:0] tag_ram_index;
+    logic [    index_bits-1:0] dirty_ram_index;
     logic [    index_bits-1:0] cmo_index;
     logic [    index_bits-1:0] cmo_index_next;
     logic [        tag_bits:0] tag_write_val;
@@ -171,7 +172,7 @@ module RXVDCache #(
                 .width(1)
             ) DirtyRam (
                 .clk (clk),
-                .addr(index),
+                .addr(dirty_ram_index),
                 .wren(dirty_wren[way]),
                 .din (dirty_next),
                 .dout(dirty[way])
@@ -235,12 +236,17 @@ module RXVDCache #(
     always_comb begin
         integer i;
         tag_write_val = {~invalidating, addr_tag(lookup_address)};
-        tag_ram_index = invalidating ? cmo_index :
+        tag_ram_index = invalidating || cleaning ? cmo_index :
             busy ? addr_index(lookup_address) : addr_index(address);
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             tag_write_en[i] = invalidating ||
                 (filling && bus_complete && way_bits'(i) == lru) && ~device_memory;
         end
+    end
+
+    // Dirty RAM control
+    always_comb begin
+        dirty_ram_index = invalidating || cleaning ? cmo_index : addr_index(lookup_address);
     end
 
     // LRU update
@@ -259,6 +265,7 @@ module RXVDCache #(
         bus_active_next = filling | writing_back | uncached_access;
         bus_len = uncached_access ? 4'b0 : fill_beats;
         bus_address = uncached_access ? lookup_address :
+            cleaning ? {way_tag[cmo_way], cmo_index, offset_bits'('b0)} :
             bus_wren ? {way_tag[lru], addr_index(lookup_address), offset_bits'('b0)} :
             {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)};
         bus_wdata = uncached_access ? din : dout_cached;
@@ -271,14 +278,14 @@ module RXVDCache #(
         data_write_bytesel = filling ? 4'b1111 : write_bytesel;
         data_way_sel = cleaning ? cmo_way : filling || writing_back ? lru : hit_way;
         data_din = busy ? bus_rdata : din;
-        data_offset = (writing_back && !bus_beat_ack) || filling ? offset_bits'(bus_beat_num) :
+        data_offset = ((writing_back || cleaning) && !bus_beat_ack) || filling ? offset_bits'(bus_beat_num) :
             writing_back && bus_beat_ack ? offset_bits'(bus_beat_num_next) :
             addr_offset(lookup_address);
     end
 
     // Cycle + fill/writeback control
     always_comb begin
-        index = addr_index(lookup_address);
+        index = cleaning ? cmo_index : addr_index(lookup_address);
         start_access = valid & ~busy;
         write_wren_update = start_access | ~busy;
 

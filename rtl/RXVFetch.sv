@@ -8,6 +8,7 @@ module RXVFetch #(
     input  logic                 reset,
     input  logic                 except_valid,
     input  logic                 exception_pending,
+    input logic global_stall_active,
     // To instruction cache
     output logic          [31:2] icache_address,
     output logic                 icache_valid,
@@ -76,15 +77,16 @@ module RXVFetch #(
 
     always_comb begin
         fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall &
-            ~exception_pending & ~except_valid & ~(resteer_pending & icache_busy);
+            ~exception_pending & ~except_valid & ~(resteer_pending & icache_busy) &
+            ~global_stall_active;
     end
 
     always_comb begin
-        stalling = decode_stall | icache_busy;
+        stalling = decode_stall | icache_busy | global_stall_active;
     end
 
     always_comb begin
-        decode_valid_next = fetched & ~stalling & ~resteer & ~resteer_pending & ~exception_pending & ~except_valid;
+        decode_valid_next = fetched & ~stalling & ~resteer & ~resteer_pending & ~exception_pending & ~except_valid & ~global_stall_active;
     end
 
     always_comb begin
@@ -96,14 +98,14 @@ module RXVFetch #(
     end
 
     always_comb begin
-        icache_valid_next = ~decode_stall & ~exception_pending & ~except_valid;
+        icache_valid_next = ~decode_stall & ~global_stall_active & ~exception_pending & ~except_valid;
     end
 
     always_comb begin
         next_seq_pc = pc + 1'b1;
         next_pc     = !icache_busy && icache_valid ? next_seq_pc : pc;
 
-        if (icache_busy_start) next_pc = fetched_pc;
+        if (icache_busy_start || global_stall_active) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
         if (decode_stall) next_pc = decode_resume_tgt;
         if (resteer_pending && icache_busy) next_pc = resteer_target;

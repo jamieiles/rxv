@@ -903,3 +903,29 @@ TEST_F(RXVCoreEmulWrapperTest, OOOCompletion)
     EXPECT_EQ(tracer->read_reg(4), 0);
     EXPECT_EQ(tracer->read_reg(2), 0xf00ff00f);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, FenceI)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02808093                addi    x1,x1,40 # 0x80000028
+        80000008:       00000117                auipc   x2,0x0
+        8000000c:       02410113                addi    x2,x2,36 # 0x8000002c
+        80000010:       00012183                lw      x3,0(x2)
+        80000014:       00000013                nop
+        80000018:       00000013                nop
+        8000001c:       00000013                nop
+        80000020:       0030a023                sw      x3,0(x1)
+        80000024:       0000100f                fence.i
+        80000028:       00a00513                li      x10,10
+        8000002c:       fff00513                li      x10,-1
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000028; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(10), 0xffffffff);
+}

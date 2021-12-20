@@ -104,7 +104,8 @@ package RXVTypes;
         UOP_LHU,
         UOP_SB,
         UOP_SH,
-        UOP_SW
+        UOP_SW,
+        UOP_FENCEI
     } rxv_uop  /* verilator public */;
 
     // verilator lint_off UNUSED

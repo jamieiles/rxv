@@ -125,6 +125,8 @@ module RXVCore #(
     logic          [             31:0] lsu_reg_wr_data;
     logic                              lsu_reg_busy;
     logic                              lsu_busy_kill;
+    logic                              lsu_global_stall_start;
+    logic                              lsu_global_stall_end;
 
     phys_reg_tag                       rd_addr_a;
     phys_reg_tag                       rd_addr_b;
@@ -172,6 +174,7 @@ module RXVCore #(
     logic          [ commit_width-1:0] except_id;
     logic                              except_valid;
     logic                              exception_pending;
+    logic                              global_stall_active;
     logic                              commit_empty;
     commit_entry                       commit_out;
     logic                              commit_complete_out;
@@ -236,6 +239,7 @@ module RXVCore #(
         .reset                 (reset),
         .except_valid          (except_valid),
         .exception_pending     (exception_pending),
+        .global_stall_active   (global_stall_active),
         .icache_address        (icache_address),
         .icache_valid          (icache_valid),
         .icache_busy           (icache_busy),
@@ -371,6 +375,8 @@ module RXVCore #(
     ) RXVLSU (
         .clk                (clk),
         .reset              (reset),
+        .icache_busy        (icache_busy),
+        .icache_invalidate  (icache_invalidate),
         .kill_valid         (kill_valid),
         .exec_valid         (lsu_exec_valid),
         .exec_have_writeback(exec_have_writeback),
@@ -380,6 +386,7 @@ module RXVCore #(
         .op2                (rs2_data),
         .exec_immed         (exec_immed),
         .exec_pc            (exec_pc),
+        .exec_next_pc       (exec_next_pc),
         .exec_uop           (exec_uop),
         .lsu_busy           (lsu_busy),
         .lsu_reg_busy       (lsu_reg_busy),
@@ -401,7 +408,9 @@ module RXVCore #(
         .lsu_except_id      (lsu_except_id),
         .lsu_busy_kill      (lsu_busy_kill),
         .lsu_resteer        (lsu_resteer),
-        .lsu_resteer_tgt    (lsu_resteer_tgt)
+        .lsu_resteer_tgt    (lsu_resteer_tgt),
+        .global_stall_start (lsu_global_stall_start),
+        .global_stall_end   (lsu_global_stall_end)
     );
 
     RXVRegisterFile #(
@@ -532,12 +541,15 @@ module RXVCore #(
     );
 
     RXVScheduler RXVScheduler (
-        .clk         (clk),
-        .reset       (reset),
-        .dispatch_int(dispatch_int),
-        .dispatch_lsu(dispatch_lsu),
-        .int_ready   (int_ready),
-        .lsu_ready   (lsu_ready)
+        .clk                (clk),
+        .reset              (reset),
+        .dispatch_int       (dispatch_int),
+        .dispatch_lsu       (dispatch_lsu),
+        .global_stall_start (lsu_global_stall_start),
+        .global_stall_end   (lsu_global_stall_end),
+        .global_stall_active(global_stall_active),
+        .int_ready          (int_ready),
+        .lsu_ready          (lsu_ready)
     );
 
     RXVCommitter #(
@@ -576,10 +588,6 @@ module RXVCore #(
         .pmu_cycles   (pmu_cycles),
         .pmu_instret  (pmu_instret)
     );
-
-    always_comb begin
-        icache_invalidate = 'b0;
-    end
 
     always_comb begin
         rs1_data = exec_bypass_rs1 ? reg_wr_data : rd_data_a;

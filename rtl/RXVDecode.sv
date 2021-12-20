@@ -257,7 +257,8 @@ module RXVDecode #(
                 have_rs1 = (funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011);
             end
             RXVTypes::OPC_MISC_MEM: begin
-                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = funct3 == 3'b000;  // FENCE
+                exec_pipe_en[EXEC_PIPE_LSU] = funct3 == 3'b001;  // FENCE.I
 
                 opc_misc_mem                = 1'b1;
             end
@@ -413,6 +414,10 @@ module RXVDecode #(
         unique casez (decode_instr)
             32'b0000_zzzz_zzzz_0000_0000_0000_0000_1111: begin  // FENCE
                 misc_mem_uop           = RXVTypes::UOP_ALU;
+                misc_mem_illegal_instr = 1'b0;
+            end
+            32'b0000_0000_0000_0000_0001_0000_0000_1111: begin  // FENCE.I
+                misc_mem_uop           = RXVTypes::UOP_FENCEI;
                 misc_mem_illegal_instr = 1'b0;
             end
             default: misc_mem_illegal_instr = 1'b1;

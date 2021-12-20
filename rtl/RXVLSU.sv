@@ -10,6 +10,8 @@ module RXVLSU #(
 ) (
     input  logic                           clk,
     input  logic                           reset,
+    input  logic                           icache_busy,
+    output logic                           icache_invalidate,
     // From decode
     input  logic                           kill_valid,
     input  logic                           exec_valid,
@@ -20,6 +22,7 @@ module RXVLSU #(
     input  logic        [            31:0] op2,
     input  logic        [            31:0] exec_immed,
     input  logic        [            31:2] exec_pc,
+    input  logic        [            31:2] exec_next_pc,
     input  rxv_uop                         exec_uop,
     // Decode stall feedback, only set on cache-miss or uncached access where
     // it becomes a variable latency access
@@ -46,7 +49,9 @@ module RXVLSU #(
     output logic        [commit_width-1:0] lsu_except_id,
     output logic                           lsu_busy_kill,
     output logic                           lsu_resteer,
-    output logic        [            31:2] lsu_resteer_tgt
+    output logic        [            31:2] lsu_resteer_tgt,
+    output logic                           global_stall_start,
+    output logic                           global_stall_end
 );
 
     localparam int commit_num_entries = (1 << commit_order);
@@ -87,6 +92,8 @@ module RXVLSU #(
     logic        [            31:0] address;
     logic        [            31:0] dcache_wdata_next;
     logic                           is_load;
+    logic                           is_store;
+    logic                           is_fencei;
     lsu_op                          op_pipe_in;
     lsu_op                          op_pipe_out;
     logic        [            31:0] lsu_reg_wr_data_next;
@@ -102,19 +109,51 @@ module RXVLSU #(
     logic                           valid;
     logic                           lsu_resteer_next;
     logic        [            31:2] lsu_resteer_tgt_next;
+    logic                           lsu_resteer_tgt_update;
+    logic                           lsu_stall;
+    logic                           fencei_pending;
+    logic                           fencei_pending_next;
+    logic                           dcache_clean_next;
+    logic                           icache_invalidate_next;
+    logic                           global_stall_start_next;
+    logic                           global_stall_end_next;
 
     always_comb begin
         dcache_invalidate = 1'b0;
-        dcache_clean      = 1'b0;
     end
 
     always_comb begin
-        lsu_busy_kill_next = exec_valid & dcache_busy & ~kill_valid;
+        lsu_stall = dcache_busy | fencei_pending;
+    end
+
+    always_comb begin
+        global_stall_start_next = valid & is_fencei;
+        global_stall_end_next   = fencei_pending & ~icache_busy & ~dcache_busy;
+    end
+
+    always_comb begin
+        fencei_pending_next = fencei_pending;
+        if (valid && is_fencei) fencei_pending_next = 1'b1;
+        if (fencei_pending && !icache_busy && !dcache_busy) fencei_pending_next = 1'b0;
+    end
+
+    always_comb begin
+        dcache_clean_next      = 1'b0;
+        icache_invalidate_next = 1'b0;
+
+        if (fencei_pending && !icache_busy && !dcache_busy) begin
+            dcache_clean_next      = 1'b1;
+            icache_invalidate_next = 1'b1;
+        end
+    end
+
+    always_comb begin
+        lsu_busy_kill_next = exec_valid & lsu_stall & ~kill_valid;
         valid              = exec_valid & ~lsu_busy_kill_next;
     end
 
     always_comb begin
-        lsu_busy_next = dcache_busy;
+        lsu_busy_next = lsu_stall;
     end
 
     always_comb begin
@@ -137,9 +176,27 @@ module RXVLSU #(
         endcase
 
         unique case (exec_uop)
-            RXVTypes::UOP_LB, RXVTypes::UOP_LH, RXVTypes::UOP_LW, RXVTypes::UOP_LBU,RXVTypes::UOP_LHU:
-            is_load = 1'b1;
-            default: is_load = 1'b0;
+            RXVTypes::UOP_LB, RXVTypes::UOP_LH, RXVTypes::UOP_LW, RXVTypes::UOP_LBU,
+            RXVTypes::UOP_LHU: begin
+                is_load   = 1'b1;
+                is_store  = 1'b0;
+                is_fencei = 1'b0;
+            end
+            RXVTypes::UOP_SB, RXVTypes::UOP_SH, RXVTypes::UOP_SW: begin
+                is_store  = 1'b1;
+                is_load   = 1'b0;
+                is_fencei = 1'b0;
+            end
+            RXVTypes::UOP_FENCEI: begin
+                is_fencei = 1'b1;
+                is_load   = 1'b0;
+                is_store  = 1'b0;
+            end
+            default: begin
+                is_load   = 1'b0;
+                is_store  = 1'b0;
+                is_fencei = 1'b0;
+            end
         endcase
 
         unique case (exec_uop)
@@ -153,7 +210,7 @@ module RXVLSU #(
         op_pipe_in.id          = exec_id;
         op_pipe_in.read_mask   = dcache_bytesel;
         op_pipe_in.addr_offset = address[1:0];
-        op_pipe_in.valid       = valid & ~is_unaligned;
+        op_pipe_in.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
         op_pipe_in.width       = width;
         op_pipe_in.is_signed   = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
     end
@@ -183,14 +240,14 @@ module RXVLSU #(
 
         // If there is completion contention then we should have already killed
         // any newer uop
-        if (lsu_complete && lsu_reg_busy) assert (!op_pipe_out.valid);
+        // if (lsu_complete && lsu_reg_busy) assert (!op_pipe_out.valid);
     end
 
     always_comb begin
         lsu_exception_next.pc = exec_pc;
         lsu_exception_next.val = address;
         lsu_exception_next.cause = is_load ? RXVCSR::MCAUSE_LOAD_MISALIGN : RXVCSR::MCAUSE_STORE_MISALIGN;
-        lsu_exception_next.valid = valid & is_unaligned;
+        lsu_exception_next.valid = (is_load | is_store) & valid & is_unaligned;
     end
 
     always_comb begin
@@ -202,22 +259,23 @@ module RXVLSU #(
     end
 
     always_comb begin
-        dcache_wren = ~is_load;
+        dcache_wren = is_store;
     end
 
     always_comb begin
-        dcache_valid = valid & ~is_unaligned;
+        dcache_valid = (is_load | is_store) & valid & ~is_unaligned;
     end
 
     always_comb begin
-        lsu_resteer_next     = lsu_busy_kill_next;
-        lsu_resteer_tgt_next = exec_pc;
+        lsu_resteer_next       = lsu_busy_kill_next | global_stall_end;
+        lsu_resteer_tgt_next   = valid && is_fencei ? exec_next_pc : exec_pc;
+        lsu_resteer_tgt_update = valid;
     end
 
 `ifdef verilator
     always_ff @(posedge clk) begin
         int size;
-        if (valid && !is_unaligned && !is_load) begin
+        if (valid && !is_unaligned && is_store) begin
             case (exec_uop)
                 RXVTypes::UOP_SB: size = 1;
                 RXVTypes::UOP_SH: size = 2;
@@ -234,7 +292,7 @@ module RXVLSU #(
     ) dcache_wdata_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (~dcache_busy),
+        .en   (~lsu_stall),
         .d    (dcache_wdata_next),
         .q    (dcache_wdata)
     );
@@ -245,7 +303,7 @@ module RXVLSU #(
     ) lsu_op_pipe (
         .clk  (clk),
         .reset(reset),
-        .en   (~dcache_busy),
+        .en   (~lsu_stall),
         .d    (op_pipe_in),
         .q    (op_pipe_out)
     );
@@ -345,9 +403,49 @@ module RXVLSU #(
     ) lsu_resteer_tgt_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (1'b1),
+        .en   (lsu_resteer_tgt_update),
         .d    (lsu_resteer_tgt_next),
         .q    (lsu_resteer_tgt)
+    );
+
+    RXVDFF fencei_pending_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (fencei_pending_next),
+        .q    (fencei_pending)
+    );
+
+    RXVDFF dcache_clean_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (dcache_clean_next),
+        .q    (dcache_clean)
+    );
+
+    RXVDFF icache_invalidate_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (icache_invalidate_next),
+        .q    (icache_invalidate)
+    );
+
+    RXVDFF global_stall_start_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (global_stall_start_next),
+        .q    (global_stall_start)
+    );
+
+    RXVDFF global_stall_end_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (global_stall_end_next),
+        .q    (global_stall_end)
     );
 
 endmodule

@@ -12,6 +12,8 @@ module RXVLSUWrapper #(
 ) (
     input  logic                           clk,
     input  logic                           reset,
+    input  logic                           icache_busy,
+    output logic                           icache_invalidate,
     // From decode
     input  logic                           kill_valid,
     input  logic                           exec_valid,
@@ -22,6 +24,7 @@ module RXVLSUWrapper #(
     input  logic        [            31:0] op2,
     input  logic        [            31:0] exec_immed,
     input  logic        [            31:2] exec_pc,
+    input  logic        [            31:2] exec_next_pc,
     input  rxv_uop                         exec_uop,
     // Decode stall feedback, only set on cache-miss or uncached access where
     // it becomes a variable latency access
@@ -38,7 +41,9 @@ module RXVLSUWrapper #(
     output logic        [commit_width-1:0] lsu_except_id,
     output logic                           lsu_busy_kill,
     output logic                           lsu_resteer,
-    output logic        [            31:2] lsu_resteer_tgt
+    output logic        [            31:2] lsu_resteer_tgt,
+    output logic                           global_stall_start,
+    output logic                           global_stall_end
 );
 
     localparam int commit_num_entries = (1 << commit_order);

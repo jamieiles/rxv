@@ -94,8 +94,10 @@ module RXVLSU #(
     logic                           is_load;
     logic                           is_store;
     logic                           is_fencei;
-    lsu_op                          op_pipe_in;
-    lsu_op                          op_pipe_out;
+    lsu_op                          op_stage1_next;
+    lsu_op                          op_stage1;
+    lsu_op                          op_stage2_next;
+    lsu_op                          op_stage2;
     logic        [            31:0] lsu_reg_wr_data_next;
     phys_reg_tag                    lsu_reg_addr_next;
     logic                           lsu_reg_wr_en_next;
@@ -205,37 +207,42 @@ module RXVLSU #(
             default: width = WIDTH_32;
         endcase
 
-        op_pipe_in.rd          = exec_rd;
-        op_pipe_in.reg_wr_en   = exec_have_writeback;
-        op_pipe_in.id          = exec_id;
-        op_pipe_in.read_mask   = dcache_bytesel;
-        op_pipe_in.addr_offset = address[1:0];
-        op_pipe_in.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
-        op_pipe_in.width       = width;
-        op_pipe_in.is_signed   = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
+        op_stage1_next.rd          = exec_rd;
+        op_stage1_next.reg_wr_en   = exec_have_writeback;
+        op_stage1_next.id          = exec_id;
+        op_stage1_next.read_mask   = dcache_bytesel;
+        op_stage1_next.addr_offset = address[1:0];
+        op_stage1_next.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
+        op_stage1_next.width       = width;
+        op_stage1_next.is_signed   = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
+    end
+
+    always_comb begin
+        op_stage2_next = op_stage1;
+        if (lsu_stall) op_stage2_next = 'b0;
     end
 
     always_comb begin
         integer i;
 
-        lsu_reg_wr_data_next = lsu_reg_wr_data;
-        lsu_reg_addr_next    = lsu_reg_addr;
-        lsu_reg_wr_en_next   = lsu_reg_wr_en;
-        lsu_complete_next    = lsu_complete;
-        lsu_complete_id_next = lsu_complete_id;
+        for (i = 0; i < 4; i = i + 1)
+            lsu_reg_wr_data_next[8*i+:8] = dcache_rdata[8*i+:8] & {8{op_stage2.read_mask[i]}};
+        lsu_reg_wr_data_next = lsu_reg_wr_data_next >> (5'(op_stage2.addr_offset) * 8);
+        if (op_stage2.width == WIDTH_8 && op_stage2.is_signed)
+            lsu_reg_wr_data_next = 32'($signed(lsu_reg_wr_data_next[7:0]));
+        if (op_stage2.width == WIDTH_16 && op_stage2.is_signed)
+            lsu_reg_wr_data_next = 32'($signed(lsu_reg_wr_data_next[15:0]));
+        lsu_reg_addr_next    = op_stage2.rd;
+        lsu_reg_wr_en_next   = op_stage2.valid & op_stage2.reg_wr_en;
+        lsu_complete_next    = op_stage2.valid;
+        lsu_complete_id_next = op_stage2.id;
 
-        if (!lsu_complete || !lsu_reg_busy) begin
-            for (i = 0; i < 4; i = i + 1)
-                lsu_reg_wr_data_next[8*i+:8] = dcache_rdata[8*i+:8] & {8{op_pipe_out.read_mask[i]}};
-            lsu_reg_wr_data_next = lsu_reg_wr_data_next >> (5'(op_pipe_out.addr_offset) * 8);
-            if (op_pipe_out.width == WIDTH_8 && op_pipe_out.is_signed)
-                lsu_reg_wr_data_next = 32'($signed(lsu_reg_wr_data_next[7:0]));
-            if (op_pipe_out.width == WIDTH_16 && op_pipe_out.is_signed)
-                lsu_reg_wr_data_next = 32'($signed(lsu_reg_wr_data_next[15:0]));
-            lsu_reg_addr_next    = op_pipe_out.rd;
-            lsu_reg_wr_en_next   = op_pipe_out.valid & op_pipe_out.reg_wr_en;
-            lsu_complete_next    = op_pipe_out.valid;
-            lsu_complete_id_next = op_pipe_out.id;
+        if (lsu_complete && lsu_reg_busy) begin
+            lsu_reg_wr_data_next = lsu_reg_wr_data;
+            lsu_reg_addr_next    = lsu_reg_addr;
+            lsu_reg_wr_en_next   = lsu_reg_wr_en;
+            lsu_complete_next    = lsu_complete;
+            lsu_complete_id_next = lsu_complete_id;
         end
     end
 
@@ -246,7 +253,7 @@ module RXVLSU #(
     ) lsu_complete_overflow (
         .clk      (clk),
         .en       (lsu_complete && lsu_reg_busy),
-        .condition(!op_pipe_out.valid)
+        .condition(!op_stage2.valid)
     );
 
     always_comb begin
@@ -274,8 +281,8 @@ module RXVLSU #(
 
     always_comb begin
         lsu_resteer_next       = lsu_busy_kill_next | global_stall_end;
-        lsu_resteer_tgt_next   = valid && is_fencei ? exec_next_pc : exec_pc;
-        lsu_resteer_tgt_update = valid;
+        lsu_resteer_tgt_next   = exec_valid && is_fencei ? exec_next_pc : exec_pc;
+        lsu_resteer_tgt_update = exec_valid;
     end
 
 `ifdef verilator
@@ -303,15 +310,24 @@ module RXVLSU #(
         .q    (dcache_wdata)
     );
 
-    RXVDFFPipe #(
-        .width ($bits(lsu_op)),
-        .stages(2)
-    ) lsu_op_pipe (
+    RXVDFF #(
+        .width($bits(lsu_op))
+    ) lsu_op_stage1_dff (
         .clk  (clk),
         .reset(reset),
         .en   (~lsu_stall),
-        .d    (op_pipe_in),
-        .q    (op_pipe_out)
+        .d    (op_stage1_next),
+        .q    (op_stage1)
+    );
+
+    RXVDFF #(
+        .width($bits(lsu_op))
+    ) lsu_op_stage2_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (~lsu_reg_busy),
+        .d    (op_stage2_next),
+        .q    (op_stage2)
     );
 
     RXVDFF #(

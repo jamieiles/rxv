@@ -66,6 +66,7 @@ module RXVIntExec #(
     logic                           alu_op2_immed;
     logic                           branch_taken;
     logic                           branch_mispredict;
+    logic                           is_branch;
 
     logic        [            31:0] csr_q;
     logic        [            31:0] csr_alu_op2;
@@ -163,6 +164,14 @@ module RXVIntExec #(
 
     always_comb begin
         unique case (exec_uop)
+            RXVTypes::UOP_BEQ, RXVTypes::UOP_BNE, RXVTypes::UOP_BLT,
+            RXVTypes::UOP_BGE, RXVTypes::UOP_JAL, RXVTypes::UOP_JALR: is_branch = 1'b1;
+            default: is_branch = 1'b0;
+        endcase
+    end
+
+    always_comb begin
+        unique case (exec_uop)
             RXVTypes::UOP_JALR: branch_target = {jalr_target[31:1], 1'b0};
             RXVTypes::UOP_MRET: branch_target = {mepc_in, 2'b0};
             default: branch_target = {exec_branch_target, 1'b0};
@@ -175,7 +184,8 @@ module RXVIntExec #(
 
     always_comb begin
         branch_mispredict = 1'b0;
-        if (branch_taken && !exec_prediction.predicted) branch_mispredict = 1'b1;
+        if (branch_taken && !exec_prediction.predicted)
+            branch_mispredict = 1'b1;
         if (exec_prediction.predicted && exec_prediction.predict_taken != branch_taken)
             branch_mispredict = 1'b1;
         if (exec_prediction.predicted && exec_prediction.prediction != exec_branch_target[31:2])
@@ -183,7 +193,7 @@ module RXVIntExec #(
     end
 
     always_comb begin
-        exec_predict_update_next = valid && branch_taken && !branch_misalign;
+        exec_predict_update_next = valid && is_branch && !branch_misalign;
         exec_predict_prev_strength_next  = unconditional_branch ? 2'b01 : exec_prediction.predict_strength;
         exec_update_predict_taken_next = branch_taken;
         exec_update_predict_address_next = exec_pc;

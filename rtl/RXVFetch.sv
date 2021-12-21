@@ -77,7 +77,7 @@ module RXVFetch #(
 
     always_comb begin
         fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall &
-            ~exception_pending & ~except_valid & ~(resteer_pending & icache_busy) &
+            ~exception_pending & ~except_valid & ~(resteer_pending) &
             ~global_stall_active;
     end
 
@@ -108,7 +108,7 @@ module RXVFetch #(
         if (icache_busy_start || global_stall_active) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
         if (decode_stall) next_pc = decode_resume_tgt;
-        if (resteer_pending && icache_busy) next_pc = resteer_target;
+        if (resteer_pending) next_pc = resteer_target;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
         if (exception_resteer) next_pc = exception_resteer_tgt;

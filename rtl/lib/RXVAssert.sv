@@ -1,7 +1,7 @@
 `default_nettype none
 
 module RXVAssert #(
-    parameter string message = "FAIL"
+    parameter logic [8*255-1:0] message = "FAIL"
 ) (
     input logic clk,
     input logic en,
@@ -12,7 +12,7 @@ module RXVAssert #(
     always_ff @(posedge clk) begin
         if (en) begin
             if (!condition) begin
-                $display("RXV: assertion failed: %m: %s", message);
+                $display("%t RXV: assertion failed: %m: %-s", $time, message);
                 assert (1'b0);
             end
         end

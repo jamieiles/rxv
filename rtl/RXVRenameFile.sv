@@ -36,14 +36,14 @@ module RXVRenameFile (
     logic           [num_arch_regs-1:0]                   commit_encoded;
     logic           [num_arch_regs-1:0]                   rename_masked;
     logic           [num_arch_regs-1:0]                   rename_encoded;
-    logic           [num_arch_regs-1:0]                   last_rename_encoded;
+    logic           [num_arch_regs-1:0]                   last_rename_encoded[0:1];
 
     phys_reg_tag  [                    num_arch_regs-1:0] commit_map;
     phys_reg_tag  [                    num_arch_regs-1:0] latest_map;
     phys_reg_tag  [                    num_arch_regs-1:0] latest_next;
 
-    rename_record                                         last_rename;
-    rename_record                                         last_rename_next;
+    rename_record                                         last_rename[0:1];
+    rename_record                                         last_rename_next[0:1];
 
     OneHotEncode #(
         .width(num_arch_regs)
@@ -61,9 +61,16 @@ module RXVRenameFile (
 
     OneHotEncode #(
         .width(num_arch_regs)
-    ) kill_en_encode (
-        .d(last_rename.renamed.arch),
-        .q(last_rename_encoded)
+    ) kill_en_encode_0 (
+        .d(last_rename[0].renamed.arch),
+        .q(last_rename_encoded[0])
+    );
+
+    OneHotEncode #(
+        .width(num_arch_regs)
+    ) kill_en_encode_1 (
+        .d(last_rename[1].renamed.arch),
+        .q(last_rename_encoded[1])
     );
 
     genvar i;
@@ -98,13 +105,17 @@ module RXVRenameFile (
     always_comb begin
         rename_masked = rollback ? {num_arch_regs{1'b1}} :
             (rename_encoded & {num_arch_regs{rename_valid}});
-        if (kill && last_rename.valid) rename_masked = last_rename_encoded;
+        if (kill && last_rename[0].valid) rename_masked = last_rename_encoded[0];
+        if (kill && last_rename[1].valid) rename_masked = last_rename_encoded[1];
     end
 
     always_comb begin
-        last_rename_next.renamed = rename_in;
-        last_rename_next.stale   = stale_phys_reg;
-        last_rename_next.valid   = rename_valid;
+        last_rename_next[1].renamed = rename_in;
+        last_rename_next[1].stale   = stale_phys_reg;
+        last_rename_next[1].valid   = rename_valid;
+        last_rename_next[0].renamed = last_rename[1].renamed;
+        last_rename_next[0].stale   = last_rename[1].stale;
+        last_rename_next[0].valid   = last_rename[1].valid;
     end
 
     always_comb begin
@@ -113,7 +124,10 @@ module RXVRenameFile (
         for (j = 0; j < num_arch_regs; j = j + 1) begin
             latest_next[j] = rollback ? commit_map[j] : rename_in.phys;
         end
-        if (kill && last_rename.valid) latest_next[last_rename.renamed.arch] = last_rename.stale;
+        if (kill && last_rename[1].valid)
+            latest_next[last_rename[1].renamed.arch] = last_rename[1].stale;
+        if (kill && last_rename[0].valid)
+            latest_next[last_rename[0].renamed.arch] = last_rename[0].stale;
     end
 
     RXVAssert no_rename_during_kill (
@@ -131,15 +145,24 @@ module RXVRenameFile (
         stale_phys_reg = latest_map[rename_in.arch];
     end
 
-    RXVDFFPipe #(
-        .stages(2),
-        .width ($bits(last_rename))
-    ) last_rename_dff (
+    RXVDFF #(
+        .width($bits(last_rename[0]))
+    ) last_rename_0_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (last_rename_next),
-        .q    (last_rename)
+        .d    (last_rename_next[0]),
+        .q    (last_rename[0])
+    );
+
+    RXVDFF #(
+        .width($bits(last_rename[1]))
+    ) last_rename_1_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (last_rename_next[1]),
+        .q    (last_rename[1])
     );
 
     RXVAssert no_rename_x0 (

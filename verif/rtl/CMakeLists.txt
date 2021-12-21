@@ -55,7 +55,7 @@ add_executable(rtl-unittest
                TestRXVICache.cpp
                TestRXVCoreEmulWrapper.cpp)
 target_link_libraries(rtl-unittest
-                      PRIVATE gtest gmock)
+                      PRIVATE gtest gmock RXVCoreEmul)
 add_test(rtl-unittest rtl-unittest)
 
 verilate(rtl-unittest
@@ -252,7 +252,9 @@ verilate(rtl-unittest
          PREFIX VRXVLSUWrapper
          TRACE_FST)
 
-verilate(rtl-unittest
+add_library(RXVCoreEmul SHARED)
+
+verilate(RXVCoreEmul
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv

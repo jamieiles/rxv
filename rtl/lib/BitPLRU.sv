@@ -19,6 +19,7 @@ module BitPLRU #(
     logic [    width-1:0] new_plru;
     wire  [    width-1:0] new_plru_reg;
     wire                  update;
+    logic [    width-1:0] read_din;
 
     DPRAM #(
         .depth(depth),
@@ -27,7 +28,7 @@ module BitPLRU #(
         .clk   (clk),
         .addr_a(read_index),
         .wren_a(1'b0),
-        .din_a (width'('b0)),
+        .din_a (read_din),
         .dout_a(read_plru_ram_out),
         .addr_b(write_index),
         .wren_b(update),
@@ -66,6 +67,10 @@ module BitPLRU #(
     );
 
     assign read_plru = read_index == write_index && update ? new_plru_reg : read_plru_ram_out;
+
+    always_comb begin
+        read_din = width'('b0);
+    end
 
     always_comb begin
         new_plru = read_plru;

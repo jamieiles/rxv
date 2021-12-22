@@ -4,20 +4,20 @@ module RXVBranchPredictor #(
     parameter int num_entries = 256,
     parameter int tag_bits    = 20
 ) (
-    input  logic        clk,
-    input  logic        reset,
+    input  logic                 clk,
+    input  logic                 reset,
     // Fetch port
-    input  logic [31:2] fetch_address,
-    output rxv_prediction prediction,
+    input  logic          [31:2] fetch_address,
+    output rxv_prediction        prediction,
     // Decode resteer, for false positive branch identification
-    input  logic        decode_predict_kill,
-    input  logic [31:2] decode_kill_address,
+    input  logic                 decode_predict_kill,
+    input  logic          [31:2] decode_kill_address,
     // Exec resteer on branch resolution
-    input  logic        exec_predict_update,
-    input  logic [ 1:0] exec_predict_prev_strength,
-    input  logic        exec_predict_taken,
-    input  logic [31:2] exec_predict_address,
-    input  logic [31:2] exec_predict_target
+    input  logic                 exec_predict_update,
+    input  logic          [ 1:0] exec_predict_prev_strength,
+    input  logic                 exec_predict_taken,
+    input  logic          [31:2] exec_predict_address,
+    input  logic          [31:2] exec_predict_target
 );
 
     localparam btb_width = tag_bits + $bits(prediction.prediction) + 2 + 1;
@@ -66,15 +66,17 @@ module RXVBranchPredictor #(
     logic [          31:2] update_target;
     logic                  update_valid;
     logic [          31:2] predict_target;
+    logic [index_bits-1:0] lookup_addr;
+    logic [ btb_width-1:0] btb_read_din;
 
     DPRAM #(
         .depth(num_entries),
         .width(btb_width)
     ) BTB (
         .clk   (clk),
-        .addr_a(addr_index(fetch_address)),
+        .addr_a(lookup_addr),
         .wren_a(1'b0),
-        .din_a (btb_width'('b0)),
+        .din_a (btb_read_din),
         .dout_a({btb_lookup_tag, btb_lookup_strength, predict_target, btb_lookup_valid}),
         .addr_b(update_addr),
         .wren_b(update),
@@ -83,6 +85,11 @@ module RXVBranchPredictor #(
         .dout_b()
         // verilator lint_on PINCONNECTEMPTY
     );
+
+    always_comb begin
+        lookup_addr  = addr_index(fetch_address);
+        btb_read_din = btb_width'('b0);
+    end
 
     always_comb begin
         prediction.predicted = btb_lookup_tag == addr_tag(last_fetch_address) && btb_lookup_valid;

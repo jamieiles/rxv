@@ -119,6 +119,8 @@ module RXVLSU #(
     logic                           icache_invalidate_next;
     logic                           global_stall_start_next;
     logic                           global_stall_end_next;
+    logic                           fencei_active;
+    logic                           fencei_active_next;
 
     always_comb begin
         dcache_invalidate = 1'b0;
@@ -129,8 +131,14 @@ module RXVLSU #(
     end
 
     always_comb begin
+        fencei_active_next = fencei_active;
+        if (fencei_pending && !fencei_pending_next) fencei_active_next = 1'b1;
+        if (fencei_active && !icache_busy && !dcache_busy) fencei_active_next = 1'b0;
+    end
+
+    always_comb begin
         global_stall_start_next = valid & is_fencei;
-        global_stall_end_next   = fencei_pending & ~icache_busy & ~dcache_busy;
+        global_stall_end_next   = fencei_active & ~fencei_active_next;
     end
 
     always_comb begin
@@ -282,7 +290,7 @@ module RXVLSU #(
     always_comb begin
         lsu_resteer_next       = lsu_busy_kill_next | global_stall_end;
         lsu_resteer_tgt_next   = exec_valid && is_fencei ? exec_next_pc : exec_pc;
-        lsu_resteer_tgt_update = exec_valid;
+        lsu_resteer_tgt_update = exec_valid && !kill_valid;
     end
 
 `ifdef verilator
@@ -468,6 +476,14 @@ module RXVLSU #(
         .en   (1'b1),
         .d    (global_stall_end_next),
         .q    (global_stall_end)
+    );
+
+    RXVDFF fencei_active_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (fencei_active_next),
+        .q    (fencei_active)
     );
 
 endmodule

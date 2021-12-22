@@ -32,7 +32,6 @@ module RXVDecode #(
     output logic                              decode_predict_kill,
     output logic          [             31:2] decode_predict_kill_address,
     output logic                              decode_stall,
-    output logic          [             31:2] decode_resume_tgt,
     output logic                              decode_resteer,
     output logic          [             31:2] decode_resteer_tgt,
     // CSR
@@ -568,7 +567,6 @@ module RXVDecode #(
         decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
                                             ~src_regs_ready | system_stall | lsu_stall |
                                             int_stall | misc_mem_stall);
-        decode_resume_tgt = decode_pc;
     end
 
     always_comb begin

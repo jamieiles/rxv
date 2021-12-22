@@ -22,7 +22,6 @@ module RXVFetch #(
     input  logic          [31:2] decode_resteer_tgt,
     // Decode stall
     input  logic                 decode_stall,
-    input  logic          [31:2] decode_resume_tgt,
     // To decode
     output logic                 decode_valid,
     output logic          [31:2] decode_pc,
@@ -36,6 +35,13 @@ module RXVFetch #(
     input  logic                 exception_resteer,
     input  logic          [31:2] exception_resteer_tgt
 );
+
+    typedef struct packed {
+        logic [31:2]   pc;
+        logic [31:2]   next_pc;
+        logic [31:0]   instr;
+        rxv_prediction prediction;
+    } fetch_packet;
 
     /*
      * icache_address is a registered output from a variety of sources,
@@ -51,22 +57,30 @@ module RXVFetch #(
      * an additional cycle on branch mispredict but increases Fmax by ~40%.
      */
 
-    logic [31:2] pc;
-    logic [31:2] next_pc;
-    logic [31:2] fetched_pc;
-    logic [31:2] next_seq_pc;
-    logic [31:2] next_seq_pc_reg;
-    logic        stalling;
-    logic        fetched;
-    logic        decode_valid_next;
-    logic        resteer;
-    logic        icache_valid_next;
-    logic        icache_busy_start;
-    logic        fetched_next;
-    logic        resteer_pending;
-    logic        resteer_pending_next;
-    logic [31:2] resteer_target;
-    logic [31:2] resteer_target_next;
+    logic          [31:2] pc;
+    logic          [31:2] next_pc;
+    logic          [31:2] fetched_pc;
+    logic          [31:2] next_seq_pc;
+    logic          [31:2] next_seq_pc_reg;
+    logic                 stalling;
+    logic                 fetched;
+    logic                 prefetch_wr_en;
+    logic                 resteer;
+    logic                 icache_valid_next;
+    logic                 icache_busy_start;
+    logic                 fetched_next;
+    logic                 resteer_pending;
+    logic                 resteer_pending_next;
+    logic          [31:2] resteer_target;
+    logic          [31:2] resteer_target_next;
+    fetch_packet          prefetch_packet_in;
+    fetch_packet          prefetch_packet_out;
+    logic                 prefetch_rd_en;
+    logic                 prefetch_empty;
+    logic                 prefetch_full;
+    logic                 prefetch_nearly_full;
+    rxv_prediction        prediction_reg;
+    logic                 prefetch_flush;
 
     PosedgeDetect ICacheBusyStart (
         .clk  (clk),
@@ -75,18 +89,70 @@ module RXVFetch #(
         .q    (icache_busy_start)
     );
 
+    Fifo #(
+        .data_width        ($bits(fetch_packet)),
+        .order             (3),
+        .nearly_full_thresh(4)
+    ) prefetch_fifo (
+        .clk        (clk),
+        .reset      (reset),
+        .flush      (prefetch_flush),
+        .wr_en      (prefetch_wr_en),
+        .wr_data    (prefetch_packet_in),
+        // verilator lint_off PINCONNECTEMPTY
+        .wr_ptr     (),
+        // verilator lint_on PINCONNECTEMPTY
+        .rd_en      (prefetch_rd_en),
+        .rd_data    (prefetch_packet_out),
+        // verilator lint_off PINCONNECTEMPTY
+        .rd_ptr     (),
+        // verilator lint_on PINCONNECTEMPTY
+        .empty      (prefetch_empty),
+        .full       (prefetch_full),
+        .nearly_full(prefetch_nearly_full)
+    );
+
+    RXVAssert prefetch_no_write_full (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!(prefetch_full && prefetch_wr_en))
+    );
+
     always_comb begin
-        fetched_next = icache_valid & ~icache_busy & ~resteer & ~decode_stall &
-            ~exception_pending & ~except_valid & ~(resteer_pending) &
+        decode_valid      = ~prefetch_empty;
+        decode_pc         = prefetch_packet_out.pc;
+        decode_next_pc    = prefetch_packet_out.next_pc;
+        decode_instr      = prefetch_packet_out.instr;
+        decode_prediction = prefetch_packet_out.prediction;
+    end
+
+    always_comb begin
+        prefetch_packet_in.pc         = fetched_pc;
+        prefetch_packet_in.next_pc    = next_seq_pc_reg;
+        prefetch_packet_in.instr      = icache_instr;
+        prefetch_packet_in.prediction = prediction_reg;
+    end
+
+    always_comb begin
+        prefetch_rd_en = ~prefetch_empty & ~decode_stall;
+    end
+
+    always_comb begin
+        prefetch_flush = resteer | exception_pending | except_valid;
+    end
+
+    always_comb begin
+        fetched_next = icache_valid & ~icache_busy & ~resteer &
+            ~exception_pending & ~except_valid & ~resteer_pending &
             ~global_stall_active;
     end
 
     always_comb begin
-        stalling = decode_stall | icache_busy | global_stall_active;
+        stalling = icache_busy | global_stall_active;
     end
 
     always_comb begin
-        decode_valid_next = fetched & ~stalling & ~resteer & ~resteer_pending & ~exception_pending & ~except_valid & ~global_stall_active;
+        prefetch_wr_en = fetched & ~stalling & ~resteer & ~resteer_pending & ~exception_pending & ~except_valid & ~global_stall_active;
     end
 
     always_comb begin
@@ -98,7 +164,7 @@ module RXVFetch #(
     end
 
     always_comb begin
-        icache_valid_next = ~decode_stall & ~global_stall_active & ~exception_pending & ~except_valid;
+        icache_valid_next = ~prefetch_nearly_full & ~global_stall_active & ~exception_pending & ~except_valid;
     end
 
     always_comb begin
@@ -107,7 +173,7 @@ module RXVFetch #(
 
         if (icache_busy_start || global_stall_active) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
-        if (decode_stall) next_pc = decode_resume_tgt;
+        if (prefetch_nearly_full) next_pc = fetched_pc;
         if (resteer_pending) next_pc = resteer_target;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
@@ -116,7 +182,6 @@ module RXVFetch #(
 
     always_comb begin
         resteer_target_next = resteer_target;
-        if (decode_stall) resteer_target_next = decode_resume_tgt;
         if (decode_resteer) resteer_target_next = decode_resteer_tgt;
         if (exec_resteer) resteer_target_next = exec_resteer_tgt;
         if (exception_resteer) resteer_target_next = exception_resteer_tgt;
@@ -126,7 +191,6 @@ module RXVFetch #(
         resteer_pending_next = resteer_pending;
         if (~icache_busy) resteer_pending_next = 1'b0;
         if (resteer) resteer_pending_next = 1'b1;
-        if (decode_stall) resteer_pending_next = 1'b1;
     end
 
     RXVDFF #(
@@ -168,24 +232,6 @@ module RXVFetch #(
         .q    (fetched_pc)
     );
 
-    RXVDFF decode_valid_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (decode_valid_next),
-        .q    (decode_valid)
-    );
-
-    RXVDFF #(
-        .width(30)
-    ) decode_pc_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (decode_valid_next),
-        .d    (fetched_pc),
-        .q    (decode_pc)
-    );
-
     RXVDFF #(
         .width(30)
     ) next_seq_pc_reg_dff (
@@ -194,16 +240,6 @@ module RXVFetch #(
         .en   (1'b1),
         .d    (next_seq_pc),
         .q    (next_seq_pc_reg)
-    );
-
-    RXVDFF #(
-        .width(30)
-    ) decode_next_pc_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (decode_valid_next),
-        .d    (next_seq_pc_reg),
-        .q    (decode_next_pc)
     );
 
     RXVDFF resteer_pending_dff (
@@ -225,24 +261,13 @@ module RXVFetch #(
     );
 
     RXVDFF #(
-        .width(32)
-    ) decode_instr_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (decode_valid_next),
-        .d    (icache_instr),
-        .q    (decode_instr)
-    );
-
-    RXVDFFPipe #(
-        .width ($bits(RXVTypes::rxv_prediction)),
-        .stages(2)
+        .width($bits(RXVTypes::rxv_prediction))
     ) decode_prediction_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
         .d    (prediction),
-        .q    (decode_prediction)
+        .q    (prediction_reg)
     );
 
     RXVDFF fetched_dff (

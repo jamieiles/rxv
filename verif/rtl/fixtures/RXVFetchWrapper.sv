@@ -25,7 +25,6 @@ module RXVFetchWrapper #(
     input  logic [31:2] decode_resteer_tgt,
     // Decode stall
     input  logic        decode_stall,
-    input  logic [31:2] decode_resume_tgt,
     // To decode
     output logic        decode_valid,
     output logic [31:2] decode_pc,

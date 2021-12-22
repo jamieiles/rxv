@@ -80,18 +80,11 @@ module RXVCSRFile #(
     mstatus                         mstatus_next;
     mtvec                           mtvec_next;
 
-    logic        [commit_width-1:0] writer_id;
     RXVException                    exception;
-    logic        [commit_width-1:0] except_id;
 
     always_comb begin
         exception = exec_exception;
-        except_id = exec_except_id;
-
-        if (lsu_exception.valid) begin
-            exception = lsu_exception;
-            except_id = lsu_except_id;
-        end
+        if (lsu_exception.valid) exception = lsu_exception;
 
         exception_write = exception.valid;
     end
@@ -103,10 +96,6 @@ module RXVCSRFile #(
         .en       (1'b1),
         .condition(!(lsu_exception.valid & exec_exception.valid))
     );
-
-    always_comb begin
-        writer_id = exception_write ? except_id : writeback_id;
-    end
 
     always_comb begin
         unique case (rd_addr)
@@ -199,6 +188,17 @@ module RXVCSRFile #(
     );
 
 `ifdef verilator
+    logic [commit_width-1:0] except_id;
+    logic [commit_width-1:0] writer_id;
+
+    always_comb begin
+        except_id = exec_except_id;
+
+        if (lsu_exception.valid) except_id = lsu_except_id;
+
+        writer_id = exception_write ? except_id : writeback_id;
+    end
+
     always_ff @(posedge clk) begin
         int trace_id = 32'(writer_id);
         if (mscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_MSCRATCH, wr_data);

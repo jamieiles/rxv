@@ -216,7 +216,7 @@ module RXVIntExec #(
 
         if (kill_valid || exec_resteer) exec_exception_next.valid = 1'b0;
 
-        if (branch_misalign) begin
+        if (valid && branch_misalign) begin
             exec_exception_next.pc    = exec_pc;
             exec_exception_next.val   = branch_target;
             exec_exception_next.cause = RXVCSR::MCAUSE_INSTR_MISALIGN;

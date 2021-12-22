@@ -1,8 +1,9 @@
 `default_nettype none
 
 module Fifo #(
-    parameter int data_width = 32,
-    parameter int order      = 3
+    parameter int data_width         = 32,
+    parameter int order              = 3,
+    parameter int nearly_full_thresh = depth / 2
 ) (
     input  logic                  clk,
     input  logic                  reset,
@@ -16,17 +17,21 @@ module Fifo #(
     output logic [data_width-1:0] rd_data,
     output logic [  ptr_bits-1:0] rd_ptr,
     output logic                  empty,
-    output logic                  full
+    output logic                  full,
+    output logic                  nearly_full
 );
 
     localparam depth = (1 << order);
     localparam ptr_bits = $clog2(depth);
 
-    logic [data_width-1:0] mem         [depth-1:0];
+    logic [data_width-1:0] mem              [depth-1:0];
     logic [  ptr_bits-1:0] rd_ptr_next;
     logic [  ptr_bits-1:0] wr_ptr_next;
+    logic [    ptr_bits:0] count;
+    logic [    ptr_bits:0] count_next;
     logic                  empty_next;
     logic                  full_next;
+    logic                  nearly_full_next;
     logic [     depth-1:0] entry_wr_en;
 
     OneHotEncode #(
@@ -64,9 +69,17 @@ module Fifo #(
     end
 
     always_comb begin
-        rd_data    = mem[rd_ptr];
-        empty_next = rd_ptr_next == wr_ptr_next;
-        full_next  = wr_ptr_next + 1'b1 == rd_ptr_next;
+        rd_data          = mem[rd_ptr];
+        empty_next       = rd_ptr_next == wr_ptr_next;
+        full_next        = wr_ptr_next + 1'b1 == rd_ptr_next;
+        nearly_full_next = count_next >= (ptr_bits + 1)'(nearly_full_thresh);
+    end
+
+    always_comb begin
+        count_next = count;
+        if (rd_en && !wr_en) count_next = count - 1'b1;
+        if (wr_en && !rd_en) count_next = count + 1'b1;
+        if (flush) count_next = 'b0;
     end
 
     RXVDFF #(
@@ -105,6 +118,24 @@ module Fifo #(
         .en   (1'b1),
         .d    (wr_ptr_next),
         .q    (wr_ptr)
+    );
+
+    RXVDFF #(
+        .width(ptr_bits + 1)
+    ) count_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (count_next),
+        .q    (count)
+    );
+
+    RXVDFF nearly_full_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (nearly_full_next),
+        .q    (nearly_full)
     );
 
 endmodule

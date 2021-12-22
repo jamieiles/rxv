@@ -48,7 +48,10 @@ module RXVCommitBuffer #(
         .rd_data(commit_out),
         .rd_ptr (commit_id),
         .empty  (empty),
-        .full   (full)
+        .full   (full),
+        // verilator lint_off PINCONNECTEMPTY
+        .nearly_full()
+        // verilator lint_on PINCONNECTEMPTY
     );
 
     logic [num_entries-1:0] completed;

@@ -151,3 +151,18 @@ TEST_F(FifoTestFixture, reset_empties)
     reset();
     ASSERT_TRUE(dut.empty);
 }
+
+TEST_F(FifoTestFixture, nearly_full)
+{
+    for (int i = 0; i < 3; ++i)
+        push(0x1234);
+
+    ASSERT_FALSE(this->dut.nearly_full);
+    push(0x1234);
+    ASSERT_TRUE(this->dut.nearly_full);
+    ASSERT_FALSE(this->dut.full);
+
+    pop();
+    ASSERT_FALSE(this->dut.nearly_full);
+    ASSERT_FALSE(this->dut.full);
+}

@@ -573,14 +573,14 @@ module RXVDecode #(
         int_exec_valid_next = exec_pipe_en[EXEC_PIPE_INT] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
-        dispatch_int = int_exec_valid_next;
+        dispatch_int = int_exec_valid_next & exec_have_writeback_next;
     end
 
     always_comb begin
         lsu_exec_valid_next = exec_pipe_en[EXEC_PIPE_LSU] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
-        dispatch_lsu = lsu_exec_valid_next;
+        dispatch_lsu = lsu_exec_valid_next & exec_have_writeback_next;
     end
 
     always_comb begin

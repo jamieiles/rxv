@@ -260,8 +260,8 @@ module RXVLSU #(
         .message("no LSU completion overflow")
     ) lsu_complete_overflow (
         .clk      (clk),
-        .en       (lsu_complete && lsu_reg_busy),
-        .condition(!op_stage2.valid)
+        .en       (lsu_complete && lsu_reg_busy && lsu_reg_wr_en),
+        .condition(!(op_stage2.valid && op_stage2.reg_wr_en))
     );
 
     always_comb begin

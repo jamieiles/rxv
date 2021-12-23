@@ -80,9 +80,9 @@ public:
     void complete(uint8_t id)
     {
         after_n_cycles(0, [&] {
-            this->dut.complete_id = id;
-            this->dut.complete_valid = 1;
-            after_n_cycles(1, [&] { this->dut.complete_valid = 0; });
+            this->dut.int_complete_id = id;
+            this->dut.int_complete_valid = 1;
+            after_n_cycles(1, [&] { this->dut.int_complete_valid = 0; });
         });
         cycle(2);
     }

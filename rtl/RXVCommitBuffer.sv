@@ -15,8 +15,10 @@ module RXVCommitBuffer #(
     // Kill
     input  logic                         kill_valid,
     // Completion
-    input  logic        [addr_width-1:0] complete_id,
-    input  logic                         complete_valid,
+    input  logic        [addr_width-1:0] int_complete_id,
+    input  logic                         int_complete_valid,
+    input  logic        [addr_width-1:0] lsu_complete_id,
+    input  logic                         lsu_complete_valid,
     // Exception
     input  logic        [addr_width-1:0] except_id,
     input  logic                         except_valid,
@@ -38,17 +40,17 @@ module RXVCommitBuffer #(
         .data_width($bits(commit_entry)),
         .order     (order)
     ) commit_fifo (
-        .clk    (clk),
-        .reset  (reset),
-        .flush  (1'b0),
-        .wr_en  (dispatch_valid),
-        .wr_data(dispatch_in),
-        .wr_ptr (dispatch_id),
-        .rd_en  (commit_valid),
-        .rd_data(commit_out),
-        .rd_ptr (commit_id),
-        .empty  (empty),
-        .full   (full),
+        .clk        (clk),
+        .reset      (reset),
+        .flush      (1'b0),
+        .wr_en      (dispatch_valid),
+        .wr_data    (dispatch_in),
+        .wr_ptr     (dispatch_id),
+        .rd_en      (commit_valid),
+        .rd_data    (commit_out),
+        .rd_ptr     (commit_id),
+        .empty      (empty),
+        .full       (full),
         // verilator lint_off PINCONNECTEMPTY
         .nearly_full()
         // verilator lint_on PINCONNECTEMPTY
@@ -105,7 +107,8 @@ module RXVCommitBuffer #(
         for (i = 0; i < num_entries; i = i + 1) begin
             completed_next[i] = completed[i];
             if (dispatch_id == addr_width'(i) && dispatch_valid) completed_next[i] = 1'b0;
-            if (complete_id == addr_width'(i) && complete_valid) completed_next[i] = 1'b1;
+            if (int_complete_id == addr_width'(i) && int_complete_valid) completed_next[i] = 1'b1;
+            if (lsu_complete_id == addr_width'(i) && lsu_complete_valid) completed_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) completed_next[i] = 1'b0;
         end
     end

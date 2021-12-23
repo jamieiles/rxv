@@ -168,8 +168,6 @@ module RXVCore #(
     logic                              dispatch_valid;
     logic          [ commit_width-1:0] dispatch_id;
     logic                              kill_valid;
-    logic          [ commit_width-1:0] complete_id;
-    logic                              complete_valid;
     logic          [ commit_width-1:0] except_id;
     logic                              except_valid;
     logic                              exception_pending;
@@ -435,7 +433,7 @@ module RXVCore #(
         .valid_csr_out (decode_valid_csr),
         .rd_addr       (decode_csr_addr),
         .rd_data       (exec_csr_rd_data),
-        .writeback_id  (complete_id),
+        .writeback_id  (int_exec_complete_id),
         .wr_addr       (exec_csr_wr_addr),
         .wr_data       (exec_csr_wr_data),
         .wr_en         (exec_csr_wr_en),
@@ -511,8 +509,10 @@ module RXVCore #(
         .dispatch_valid     (dispatch_valid),
         .dispatch_id        (dispatch_id),
         .kill_valid         (kill_valid),
-        .complete_id        (complete_id),
-        .complete_valid     (complete_valid),
+        .int_complete_id    (int_exec_complete_id),
+        .int_complete_valid (int_exec_complete_valid),
+        .lsu_complete_id    (lsu_complete_id),
+        .lsu_complete_valid (lsu_complete_valid),
         .except_id          (except_id),
         .except_valid       (except_valid),
         .exception_pending  (exception_pending),
@@ -601,29 +601,23 @@ module RXVCore #(
     end
 
     always_comb begin
-        complete_id    = 'b0;
-        complete_valid = 'b0;
-        reg_wr_en      = 'b0;
-        reg_wr_addr    = 'b0;
-        reg_wr_data    = 'b0;
+        reg_wr_en   = 'b0;
+        reg_wr_addr = 'b0;
+        reg_wr_data = 'b0;
 
         if (lsu_complete_valid) begin
-            complete_id    = lsu_complete_id;
-            complete_valid = lsu_complete_valid;
-            reg_wr_en      = lsu_reg_wr_en;
-            reg_wr_addr    = lsu_reg_wr_addr;
-            reg_wr_data    = lsu_reg_wr_data;
+            reg_wr_en   = lsu_reg_wr_en;
+            reg_wr_addr = lsu_reg_wr_addr;
+            reg_wr_data = lsu_reg_wr_data;
         end
 
         if (int_exec_complete_valid) begin
-            complete_id    = int_exec_complete_id;
-            complete_valid = int_exec_complete_valid;
-            reg_wr_en      = int_exec_reg_wr_en;
-            reg_wr_addr    = int_exec_reg_wr_addr;
-            reg_wr_data    = int_exec_reg_wr_data;
+            reg_wr_en   = int_exec_reg_wr_en;
+            reg_wr_addr = int_exec_reg_wr_addr;
+            reg_wr_data = int_exec_reg_wr_data;
         end
 
-        lsu_reg_busy = int_exec_complete_valid;
+        lsu_reg_busy = int_exec_reg_wr_en;
     end
 
     always_comb begin
@@ -640,6 +634,11 @@ module RXVCore #(
     `include "RXVTrace_cpp.svh"
 
     always_ff @(posedge clk) begin
+        logic [commit_width-1:0] complete_id;
+
+        if (int_exec_complete_valid) complete_id = int_exec_complete_id;
+        else complete_id = lsu_complete_id;
+
         if (reg_wr_en && |reg_wr_addr) begin
             // verilator lint_off UNUSED
             commit_entry ce = RXVCommitBuffer.commit_fifo.mem[complete_id];

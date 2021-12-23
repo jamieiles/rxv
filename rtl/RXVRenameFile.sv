@@ -23,7 +23,8 @@ module RXVRenameFile (
     input  logic        commit_valid,
     // Rollback
     input  logic        rollback,
-    input  logic        kill
+    input  logic        kill,
+    input  logic        lsu_busy_kill
 );
 
     typedef struct packed {
@@ -42,8 +43,8 @@ module RXVRenameFile (
     phys_reg_tag  [                    num_arch_regs-1:0] latest_map;
     phys_reg_tag  [                    num_arch_regs-1:0] latest_next;
 
-    rename_record                                         last_rename[0:1];
-    rename_record                                         last_rename_next[0:1];
+    rename_record                                         last_rename        [0:1];
+    rename_record                                         last_rename_next   [0:1];
 
     OneHotEncode #(
         .width(num_arch_regs)
@@ -105,8 +106,12 @@ module RXVRenameFile (
     always_comb begin
         rename_masked = rollback ? {num_arch_regs{1'b1}} :
             (rename_encoded & {num_arch_regs{rename_valid}});
-        if (kill && last_rename[0].valid) rename_masked = last_rename_encoded[0];
-        if (kill && last_rename[1].valid) rename_masked = last_rename_encoded[1];
+        if (lsu_busy_kill | kill) begin
+            rename_masked = 'b0;
+            if (lsu_busy_kill && last_rename[0].valid) rename_masked |= last_rename_encoded[0];
+            if ((kill || lsu_busy_kill) && last_rename[1].valid)
+                rename_masked |= last_rename_encoded[1];
+        end
     end
 
     always_comb begin

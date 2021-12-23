@@ -168,6 +168,7 @@ module RXVCore #(
     logic                              dispatch_valid;
     logic          [ commit_width-1:0] dispatch_id;
     logic                              kill_valid;
+    logic                              resteer_kill_valid;
     logic          [ commit_width-1:0] except_id;
     logic                              except_valid;
     logic                              exception_pending;
@@ -463,7 +464,8 @@ module RXVCore #(
         .commit_in     (commit_rename_out),
         .commit_valid  (commit_rename_valid),
         .rollback      (rename_rollback),
-        .kill          (kill_valid)
+        .kill          (resteer_kill_valid),
+        .lsu_busy_kill (lsu_busy_kill)
     );
 
     RXVRegisterAllocator #(
@@ -509,6 +511,7 @@ module RXVCore #(
         .dispatch_valid     (dispatch_valid),
         .dispatch_id        (dispatch_id),
         .kill_valid         (kill_valid),
+        .lsu_busy_kill_valid(lsu_busy_kill),
         .int_complete_id    (int_exec_complete_id),
         .int_complete_valid (int_exec_complete_valid),
         .lsu_complete_id    (lsu_complete_id),
@@ -593,6 +596,10 @@ module RXVCore #(
 
     always_comb begin
         kill_valid = exec_resteer | exec_exception.valid | lsu_exception.valid | lsu_busy_kill;
+    end
+
+    always_comb begin
+        resteer_kill_valid = exec_resteer | exec_exception.valid | lsu_exception.valid;
     end
 
     always_comb begin

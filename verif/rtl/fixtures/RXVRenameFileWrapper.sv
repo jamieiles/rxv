@@ -17,7 +17,8 @@ module RXVRenameFileWrapper (
     input  logic                     commit_valid,
     // Rollback
     input  logic                     rollback,
-    input logic kill
+    input  logic                     kill,
+    input  logic                     lsu_busy_kill
 );
 
     renamed_reg rename_in;
@@ -39,7 +40,8 @@ module RXVRenameFileWrapper (
         .commit_in     (commit_in),
         .commit_valid  (commit_valid),
         .rollback      (rollback),
-        .kill          (kill)
+        .kill          (kill),
+        .lsu_busy_kill (lsu_busy_kill)
     );
 
 endmodule

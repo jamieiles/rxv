@@ -14,6 +14,7 @@ module RXVCommitBuffer #(
     output logic        [addr_width-1:0] dispatch_id,
     // Kill
     input  logic                         kill_valid,
+    input  logic                         lsu_busy_kill_valid,
     // Completion
     input  logic        [addr_width-1:0] int_complete_id,
     input  logic                         int_complete_valid,
@@ -88,7 +89,10 @@ module RXVCommitBuffer #(
         for (i = 0; i < num_entries; i = i + 1) begin
             killed_next[i] = killed[i];
             if (dispatch_id == addr_width'(i) && dispatch_valid) killed_next[i] = 1'b0;
-            if (dispatch_id - 1'b1 == addr_width'(i) && kill_valid) killed_next[i] = 1'b1;
+            if (dispatch_id - 1'b1 == addr_width'(i) && (kill_valid || lsu_busy_kill_valid))
+                killed_next[i] = 1'b1;
+            if (dispatch_id - addr_width'(2) == addr_width'(i) && lsu_busy_kill_valid)
+                killed_next[i] = 1'b1;
             if (except_id == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) killed_next[i] = 1'b0;
         end

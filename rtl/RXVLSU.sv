@@ -102,6 +102,7 @@ module RXVLSU #(
     phys_reg_tag                    lsu_reg_addr_next;
     logic                           lsu_reg_wr_en_next;
     logic                           lsu_complete_next;
+    logic                           lsu_complete_reg;
     logic        [commit_width-1:0] lsu_complete_id_next;
     logic                           is_unaligned;
     lsu_width                       width;
@@ -124,6 +125,10 @@ module RXVLSU #(
 
     always_comb begin
         dcache_invalidate = 1'b0;
+    end
+
+    always_comb begin
+        lsu_complete = lsu_reg_busy && lsu_reg_wr_en ? 1'b0 : lsu_complete_reg;
     end
 
     always_comb begin
@@ -245,11 +250,11 @@ module RXVLSU #(
         lsu_complete_next    = op_stage2.valid;
         lsu_complete_id_next = op_stage2.id;
 
-        if (lsu_complete && lsu_reg_busy) begin
+        if (lsu_complete_reg && lsu_reg_busy && lsu_reg_wr_en) begin
             lsu_reg_wr_data_next = lsu_reg_wr_data;
             lsu_reg_addr_next    = lsu_reg_addr;
             lsu_reg_wr_en_next   = lsu_reg_wr_en;
-            lsu_complete_next    = lsu_complete;
+            lsu_complete_next    = lsu_complete_reg;
             lsu_complete_id_next = lsu_complete_id;
         end
     end
@@ -333,7 +338,7 @@ module RXVLSU #(
     ) lsu_op_stage2_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (~lsu_reg_busy),
+        .en   (1'b1),
         .d    (op_stage2_next),
         .q    (op_stage2)
     );
@@ -373,7 +378,7 @@ module RXVLSU #(
         .reset(reset),
         .en   (1'b1),
         .d    (lsu_complete_next),
-        .q    (lsu_complete)
+        .q    (lsu_complete_reg)
     );
 
     RXVDFF lsu_reg_wr_en_dff (

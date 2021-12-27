@@ -13,20 +13,6 @@ void SimulatorBase::load_elf(const RiscVELF &elf)
     fencei();
 }
 
-std::string SimulatorBase::read_string(uint32_t addr)
-{
-    std::string str;
-
-    for (;;) {
-        auto v = read_mem<char>(addr++);
-        if (!v)
-            break;
-        str += v.value();
-    }
-
-    return str;
-}
-
 std::string SimulatorBase::read_phys_string(uint32_t addr)
 {
     std::string str;

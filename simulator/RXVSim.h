@@ -378,14 +378,14 @@ public:
         tracer.trace_write_reg(0, r, v);
     }
 
-    uint32_t do_read_reg(int r)
+    uint32_t read_reg(int r)
     {
         tracer.trace_read_reg(0, r, regs[r]);
         return regs[r];
     }
 
+    uint32_t read_csr(int r);
     void do_write_csr(int r, uint32_t v);
-    uint32_t do_read_csr(int r);
 
     struct translation {
         uint32_t virt;
@@ -400,31 +400,6 @@ public:
                       bool read,
                       bool write,
                       bool exec);
-
-    bool do_read_mem(uint32_t addr,
-                     uint32_t *phys,
-                     char *dst,
-                     size_t len,
-                     bool reserved)
-    {
-        struct translation *translation;
-
-        if (need_translation(false)) {
-            if (!translate(addr, &translation, false, false))
-                return false;
-
-            if (!access_valid(translation, true, false, false))
-                return false;
-            *phys = translation->phys;
-        } else {
-            *phys = addr;
-        }
-
-        dcache.read(*phys, dst, len, reserved);
-        tracer.trace_read_mem(0, addr, *phys, dst, len);
-
-        return true;
-    }
 
     void do_read_phys_mem(uint32_t addr, char *dst, size_t len, bool reserved)
     {
@@ -494,7 +469,7 @@ public:
         icache.invalidate();
     }
 
-    void do_step();
+    void step();
     void raise_timer_irq();
     void clear_timer_irq();
 
@@ -508,6 +483,11 @@ public:
     struct mtime *get_mtime()
     {
         return &this->mtime;
+    }
+
+    virtual uint64_t get_cycle() const
+    {
+        return cur_cycle;
     }
 
 private:
@@ -540,6 +520,74 @@ private:
                    struct translation **translation,
                    bool write,
                    bool ifetch);
+
+    template <typename T>
+    std::optional<T> read_mem(uint32_t addr, bool reserved = false)
+    {
+        std::optional<T> ret;
+        T val;
+        uint32_t phys;
+
+        if (do_read_mem(addr, &phys, reinterpret_cast<char *>(&val),
+                        sizeof(val), reserved))
+            ret.emplace(val);
+
+        return ret;
+    }
+
+    bool do_read_mem(uint32_t addr,
+                     uint32_t *phys,
+                     char *dst,
+                     size_t len,
+                     bool reserved)
+    {
+        struct translation *translation;
+
+        if (need_translation(false)) {
+            if (!translate(addr, &translation, false, false))
+                return false;
+
+            if (!access_valid(translation, true, false, false))
+                return false;
+            *phys = translation->phys;
+        } else {
+            *phys = addr;
+        }
+
+        dcache.read(*phys, dst, len, reserved);
+        tracer.trace_read_mem(0, addr, *phys, dst, len);
+
+        return true;
+    }
+
+    template <typename T>
+    bool write_mem(uint32_t addr,
+                   T val,
+                   bool conditional = false,
+                   bool *reservation_held = nullptr)
+    {
+        uint32_t phys;
+
+        auto ret =
+            do_write_mem(addr, &phys, reinterpret_cast<const char *>(&val),
+                         sizeof(val), conditional, reservation_held);
+
+        return ret;
+    }
+
+    template <typename T>
+    std::optional<T> read_imem(uint32_t addr)
+    {
+        std::optional<T> ret;
+        T val;
+        uint32_t phys;
+
+        if (do_read_imem(addr, &phys, reinterpret_cast<char *>(&val),
+                         sizeof(val)))
+            ret.emplace(val);
+
+        return ret;
+    }
 
     bool need_translation(bool ifetch)
     {
@@ -587,4 +635,5 @@ private:
     uint32_t asid;
     MemoryBus bus;
     SimTracer tracer;
+    uint64_t cur_cycle;
 };

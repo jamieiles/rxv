@@ -242,6 +242,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , asid(0)
     , bus(ram_base, mem_size)
     , tracer(trace_name)
+    , cur_cycle(0)
 {
     status.set(M, 0);
     status.mpp = M;
@@ -326,7 +327,7 @@ void RXVSim::do_write_csr(int r, uint32_t v)
     tracer.trace_write_csr(0, r, v);
 }
 
-uint32_t RXVSim::do_read_csr(int r)
+uint32_t RXVSim::read_csr(int r)
 {
     auto id = static_cast<CSRID>(r);
 
@@ -453,8 +454,8 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
     default: throw std::runtime_error("No user-mode traps");
     }
 
-    write_csr(xEPC, pc);
-    write_csr(xCAUSE, type);
+    do_write_csr(xEPC, pc);
+    do_write_csr(xCAUSE, type);
     auto xtvec = csrs[xTVEC].val;
     new_pc = xtvec & ~0x1;
 
@@ -469,7 +470,7 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
     case INSTRUCTION_PAGE_FAULT:
     case LOAD_PAGE_FAULT:
     case STORE_PAGE_FAULT:
-    case BREAKPOINT: write_csr(xTVAL, val); break;
+    case BREAKPOINT: do_write_csr(xTVAL, val); break;
     default: break;
     }
 
@@ -582,7 +583,7 @@ bool RXVSim::translate(uint32_t virt,
     return !ad_fault(*translation, write);
 }
 
-void RXVSim::do_step()
+void RXVSim::step()
 {
     exception_taken = false;
 
@@ -613,24 +614,24 @@ void RXVSim::do_step()
 
         switch (opcode) {
         case 0x37: { // LUI
-            write_reg(rd, u_immed);
+            do_write_reg(rd, u_immed);
             break;
         }
         case 0x17: { // AUIPC
-            write_reg(rd, u_immed + pc);
+            do_write_reg(rd, u_immed + pc);
             break;
         }
         case 0x6f: { // JAL
             auto next_seq_pc = pc + 4;
             new_pc = pc + sign_extend(j_immed, 21);
             if (!(new_pc & 0x3))
-                write_reg(rd, next_seq_pc);
+                do_write_reg(rd, next_seq_pc);
             break;
         }
         case 0x67: { // JALR
             new_pc = (sign_extend(i_immed, 12) + read_reg(rs1)) & ~1;
             if (!(new_pc & 0x3))
-                write_reg(rd, pc + 4);
+                do_write_reg(rd, pc + 4);
             break;
         }
         case 0x63: { // BRANCH
@@ -730,7 +731,7 @@ void RXVSim::do_step()
                 else if (abort)
                     do_exception(LOAD_PAGE_FAULT, addr);
                 else
-                    write_reg(rd, v);
+                    do_write_reg(rd, v);
             }
             break;
         }
@@ -768,43 +769,43 @@ void RXVSim::do_step()
         case 0x13: { // ARITHI
             switch (funct3) {
             case 0x0: // ADDI
-                write_reg(rd, read_reg(rs1) + sign_extend(i_immed, 12));
+                do_write_reg(rd, read_reg(rs1) + sign_extend(i_immed, 12));
                 break;
             case 0x1:
                 if (funct7 == 0) // SLLI
-                    write_reg(rd, read_reg(rs1) << (i_immed & 0x1f));
+                    do_write_reg(rd, read_reg(rs1) << (i_immed & 0x1f));
                 else
                     illegal_instruction = true;
                 break;
             case 0x2: // SLTI
-                write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
-                                      sign_extend(i_immed, 12)
-                                  ? 1
-                                  : 0);
+                do_write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
+                                         sign_extend(i_immed, 12)
+                                     ? 1
+                                     : 0);
                 break;
             case 0x3: // SLTIU
-                write_reg(rd, read_reg(rs1) < static_cast<uint32_t>(
-                                                  sign_extend(i_immed, 12))
-                                  ? 1
-                                  : 0);
+                do_write_reg(rd, read_reg(rs1) < static_cast<uint32_t>(
+                                                     sign_extend(i_immed, 12))
+                                     ? 1
+                                     : 0);
                 break;
             case 0x4: // XORI
-                write_reg(rd, read_reg(rs1) ^ sign_extend(i_immed, 12));
+                do_write_reg(rd, read_reg(rs1) ^ sign_extend(i_immed, 12));
                 break;
             case 0x5:
                 if (funct7 == 0) // SLRI
-                    write_reg(rd, read_reg(rs1) >> (i_immed & 0x1f));
+                    do_write_reg(rd, read_reg(rs1) >> (i_immed & 0x1f));
                 else if (funct7 == 0x20) // SRAI
-                    write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
-                                      (i_immed & 0x1f));
+                    do_write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
+                                         (i_immed & 0x1f));
                 else
                     illegal_instruction = true;
                 break;
             case 0x6: // ORI
-                write_reg(rd, read_reg(rs1) | sign_extend(i_immed, 12));
+                do_write_reg(rd, read_reg(rs1) | sign_extend(i_immed, 12));
                 break;
             case 0x7: // ANDI
-                write_reg(rd, read_reg(rs1) & sign_extend(i_immed, 12));
+                do_write_reg(rd, read_reg(rs1) & sign_extend(i_immed, 12));
                 break;
             default: break;
             }
@@ -830,7 +831,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x1: { // AMOSWAP.W
@@ -845,7 +846,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x2: { // LR.W
@@ -854,7 +855,7 @@ void RXVSim::do_step()
                     do_exception(LOAD_PAGE_FAULT, read_reg(rs1));
                     break;
                 }
-                write_reg(rd, v.value());
+                do_write_reg(rd, v.value());
                 break;
             }
             case 0x3: { // SC.W
@@ -866,9 +867,9 @@ void RXVSim::do_step()
                 }
 
                 if (reservation_held)
-                    write_reg(rd, 0);
+                    do_write_reg(rd, 0);
                 else
-                    write_reg(rd, 1);
+                    do_write_reg(rd, 1);
                 break;
             }
             case 0x4: { // AMOXOR.W
@@ -884,7 +885,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0xc: { // AMOAND.W
@@ -900,7 +901,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x8: { // AMOOR.W
@@ -916,7 +917,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x10: { // AMOMIN.W
@@ -933,7 +934,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x14: { // AMOMAX.W
@@ -950,7 +951,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x18: { // AMOMINU.W
@@ -966,7 +967,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             case 0x1c: { // AMOMAXU.W
@@ -982,7 +983,7 @@ void RXVSim::do_step()
                     do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
-                write_reg(rd, *v);
+                do_write_reg(rd, *v);
                 break;
             }
             default: illegal_instruction = true; break;
@@ -995,69 +996,69 @@ void RXVSim::do_step()
                 case 0x0: { // MUL
                     auto rs1_val = read_reg(rs1);
                     auto rs2_val = read_reg(rs2);
-                    write_reg(rd, rs1_val * rs2_val);
+                    do_write_reg(rd, rs1_val * rs2_val);
                     break;
                 }
                 case 0x1: { // MULH
                     auto rs1_val = sign_extend<int64_t>(read_reg(rs1), 32);
                     auto rs2_val = sign_extend<int64_t>(read_reg(rs2), 32);
                     int64_t product = rs1_val * rs2_val;
-                    write_reg(rd, product >> 32);
+                    do_write_reg(rd, product >> 32);
                     break;
                 }
                 case 0x2: { // MULHSU
                     auto rs1_val = sign_extend<int64_t>(read_reg(rs1), 32);
                     auto rs2_val = static_cast<uint64_t>(read_reg(rs2));
                     int64_t product = rs1_val * rs2_val;
-                    write_reg(rd, product >> 32);
+                    do_write_reg(rd, product >> 32);
                     break;
                 }
                 case 0x3: { // MULHU
                     auto rs1_val = static_cast<uint64_t>(read_reg(rs1));
                     auto rs2_val = static_cast<uint64_t>(read_reg(rs2));
                     int64_t product = rs1_val * rs2_val;
-                    write_reg(rd, product >> 32);
+                    do_write_reg(rd, product >> 32);
                     break;
                 }
                 case 0x4: { // DIV
                     auto rs1_val = read_reg(rs1);
                     auto rs2_val = read_reg(rs2);
                     if (rs2_val == 0)
-                        write_reg(rd, 0xffffffff);
+                        do_write_reg(rd, 0xffffffff);
                     else if (rs1_val == 0x80000000 && rs2_val == 0xffffffff)
-                        write_reg(rd, 0x80000000);
+                        do_write_reg(rd, 0x80000000);
                     else
-                        write_reg(rd, static_cast<int32_t>(rs1_val) /
-                                          static_cast<int32_t>(rs2_val));
+                        do_write_reg(rd, static_cast<int32_t>(rs1_val) /
+                                             static_cast<int32_t>(rs2_val));
                     break;
                 }
                 case 0x5: { // DIVU
                     auto rs2_val = read_reg(rs2);
                     if (rs2_val != 0)
-                        write_reg(rd, read_reg(rs1) / rs2_val);
+                        do_write_reg(rd, read_reg(rs1) / rs2_val);
                     else
-                        write_reg(rd, 0xffffffff);
+                        do_write_reg(rd, 0xffffffff);
                     break;
                 }
                 case 0x6: { // REM
                     auto rs1_val = read_reg(rs1);
                     auto rs2_val = read_reg(rs2);
                     if (rs2_val == 0)
-                        write_reg(rd, rs1_val);
+                        do_write_reg(rd, rs1_val);
                     else if (rs1_val == 0x80000000 && rs2_val == 0xffffffff)
-                        write_reg(rd, 0);
+                        do_write_reg(rd, 0);
                     else
-                        write_reg(rd, static_cast<int32_t>(rs1_val) %
-                                          static_cast<int32_t>(rs2_val));
+                        do_write_reg(rd, static_cast<int32_t>(rs1_val) %
+                                             static_cast<int32_t>(rs2_val));
                     break;
                 }
                 case 0x7: { // REMU
                     auto rs1_val = read_reg(rs1);
                     auto rs2_val = read_reg(rs2);
                     if (rs2_val == 0)
-                        write_reg(rd, rs1_val);
+                        do_write_reg(rd, rs1_val);
                     else
-                        write_reg(rd, rs1_val % rs2_val);
+                        do_write_reg(rd, rs1_val % rs2_val);
                     break;
                 }
                 }
@@ -1065,41 +1066,42 @@ void RXVSim::do_step()
                 switch (funct3) {
                 case 0x0:
                     if (funct7 == 0) // ADD
-                        write_reg(rd, read_reg(rs1) + read_reg(rs2));
+                        do_write_reg(rd, read_reg(rs1) + read_reg(rs2));
                     else if (funct7 == 0x20) // SUB
-                        write_reg(rd, read_reg(rs1) - read_reg(rs2));
+                        do_write_reg(rd, read_reg(rs1) - read_reg(rs2));
                     else
                         illegal_instruction = true;
                     break;
                 case 0x1: // SLL
-                    write_reg(rd, read_reg(rs1) << (read_reg(rs2) & 0x1f));
+                    do_write_reg(rd, read_reg(rs1) << (read_reg(rs2) & 0x1f));
                     break;
                 case 0x2: // SLT
-                    write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
-                                          static_cast<int32_t>(read_reg(rs2))
-                                      ? 1
-                                      : 0);
+                    do_write_reg(rd, static_cast<int32_t>(read_reg(rs1)) <
+                                             static_cast<int32_t>(read_reg(rs2))
+                                         ? 1
+                                         : 0);
                     break;
                 case 0x3: // SLTU
-                    write_reg(rd, read_reg(rs1) < read_reg(rs2) ? 1 : 0);
+                    do_write_reg(rd, read_reg(rs1) < read_reg(rs2) ? 1 : 0);
                     break;
                 case 0x4: // XOR
-                    write_reg(rd, read_reg(rs1) ^ read_reg(rs2));
+                    do_write_reg(rd, read_reg(rs1) ^ read_reg(rs2));
                     break;
                 case 0x5:
                     if (funct7 == 0) // SRL
-                        write_reg(rd, read_reg(rs1) >> (read_reg(rs2) & 0x1f));
+                        do_write_reg(rd,
+                                     read_reg(rs1) >> (read_reg(rs2) & 0x1f));
                     else if (funct7 == 0x20) // SRA
-                        write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
-                                          (read_reg(rs2) & 0x1f));
+                        do_write_reg(rd, static_cast<int32_t>(read_reg(rs1)) >>
+                                             (read_reg(rs2) & 0x1f));
                     else
                         illegal_instruction = true;
                     break;
                 case 0x6: // OR
-                    write_reg(rd, read_reg(rs1) | read_reg(rs2));
+                    do_write_reg(rd, read_reg(rs1) | read_reg(rs2));
                     break;
                 case 0x7: // AND
-                    write_reg(rd, read_reg(rs1) & read_reg(rs2));
+                    do_write_reg(rd, read_reg(rs1) & read_reg(rs2));
                     break;
                 }
             }
@@ -1153,8 +1155,8 @@ void RXVSim::do_step()
                     illegal_instruction = true;
                 } else {
                     auto orig = read_reg(rs1);
-                    write_reg(rd, read_csr(i_immed));
-                    write_csr(i_immed, orig);
+                    do_write_reg(rd, read_csr(i_immed));
+                    do_write_csr(i_immed, orig);
                 }
                 break;
             case 0x02: // CSRRS
@@ -1162,9 +1164,9 @@ void RXVSim::do_step()
                     illegal_instruction = true;
                 } else {
                     auto orig = read_reg(rs1);
-                    write_reg(rd, read_csr(i_immed));
+                    do_write_reg(rd, read_csr(i_immed));
                     if (rs1 != 0)
-                        write_csr(i_immed, read_csr(i_immed) | orig);
+                        do_write_csr(i_immed, read_csr(i_immed) | orig);
                 }
                 break;
             case 0x03: // CSRRC
@@ -1172,9 +1174,9 @@ void RXVSim::do_step()
                     illegal_instruction = true;
                 } else {
                     auto orig = read_reg(rs1);
-                    write_reg(rd, read_csr(i_immed));
+                    do_write_reg(rd, read_csr(i_immed));
                     if (rs1 != 0)
-                        write_csr(i_immed, read_csr(i_immed) & ~orig);
+                        do_write_csr(i_immed, read_csr(i_immed) & ~orig);
                 }
                 break;
             case 0x05: // CSRRWI
@@ -1182,28 +1184,28 @@ void RXVSim::do_step()
                     illegal_instruction = true;
                 } else {
                     if (rd != 0)
-                        write_reg(rd, read_csr(i_immed));
+                        do_write_reg(rd, read_csr(i_immed));
                     // 5-bit zero extended immediate in the rs1 field
-                    write_csr(i_immed, rs1);
+                    do_write_csr(i_immed, rs1);
                 }
                 break;
             case 0x06: // CSRRSI
                 if (!csr_access_allowed(i_immed, rs1 != 0)) {
                     illegal_instruction = true;
                 } else {
-                    write_reg(rd, read_csr(i_immed));
+                    do_write_reg(rd, read_csr(i_immed));
                     // 5-bit zero extended immediate in the rs1 field
                     if (rs1 != 0)
-                        write_csr(i_immed, read_csr(i_immed) | rs1);
+                        do_write_csr(i_immed, read_csr(i_immed) | rs1);
                 }
                 break;
             case 0x07: // CSRRCI
                 if (!csr_access_allowed(i_immed, rs1 != 0)) {
                     illegal_instruction = true;
                 } else {
-                    write_reg(rd, read_csr(i_immed));
+                    do_write_reg(rd, read_csr(i_immed));
                     if (rs1 != 0)
-                        write_csr(i_immed, read_csr(i_immed) & ~rs1);
+                        do_write_csr(i_immed, read_csr(i_immed) & ~rs1);
                 }
                 break;
             default: illegal_instruction = true; break;
@@ -1232,4 +1234,6 @@ void RXVSim::do_step()
     privilege_level = new_privilege_level;
 
     tracer.trace_end_instruction(0);
+
+    ++cur_cycle;
 }

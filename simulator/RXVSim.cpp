@@ -241,6 +241,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , last_tlb_hit(0)
     , asid(0)
     , bus(ram_base, mem_size)
+    , tracer(trace_name)
 {
     status.set(M, 0);
     status.mpp = M;
@@ -321,6 +322,8 @@ void RXVSim::do_write_csr(int r, uint32_t v)
         break;
     default: csrs[static_cast<CSRID>(r)].val = v & wr_mask;
     }
+
+    tracer.trace_write_csr(0, r, v);
 }
 
 uint32_t RXVSim::do_read_csr(int r)
@@ -472,7 +475,7 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
 
     new_privilege_level = target_level;
 
-    trace_exception();
+    tracer.trace_exception(0);
     exception_taken = true;
 }
 
@@ -593,7 +596,8 @@ void RXVSim::do_step()
     if (instr) {
         instr_val = *instr;
 
-        trace_instruction(pc, instr_val, privilege_level);
+        tracer.trace_start_instruction(0, pc, instr_val, get_cycle(),
+                                       privilege_level);
 
         auto opcode = instr_val & 0x7f;
         auto rd = (instr_val >> 7) & 0x1f;
@@ -1208,7 +1212,7 @@ void RXVSim::do_step()
         default: illegal_instruction = true; break;
         }
     } else {
-        trace_instruction(pc, 0, privilege_level);
+        tracer.trace_start_instruction(0, pc, 0, get_cycle(), privilege_level);
         do_exception(INSTRUCTION_PAGE_FAULT, pc);
     }
 
@@ -1226,4 +1230,6 @@ void RXVSim::do_step()
 
     pc = new_pc;
     privilege_level = new_privilege_level;
+
+    tracer.trace_end_instruction(0);
 }

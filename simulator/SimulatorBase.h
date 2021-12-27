@@ -8,7 +8,6 @@
 
 #include "RiscVELF.h"
 #include "MemoryDevice.h"
-#include "SimTracer.h"
 
 struct mtime {
     uint64_t cmp;
@@ -23,8 +22,7 @@ public:
     static constexpr uint32_t mtime_base = 0xf0000000;
     static constexpr uint32_t uart_base = 0xffff1000;
 
-    SimulatorBase(const std::optional<std::string> trace_name)
-        : cur_cycle(0), tracer(trace_name)
+    SimulatorBase(const std::optional<std::string> trace_name) : cur_cycle(0)
     {
     }
 
@@ -64,10 +62,8 @@ public:
         uint32_t phys;
 
         if (do_read_mem(addr, &phys, reinterpret_cast<char *>(&val),
-                        sizeof(val), reserved)) {
+                        sizeof(val), reserved))
             ret.emplace(val);
-            tracer.trace_read_mem<T>(0, addr, phys, val);
-        }
 
         return ret;
     }
@@ -91,10 +87,8 @@ public:
         uint32_t phys;
 
         if (do_read_imem(addr, &phys, reinterpret_cast<char *>(&val),
-                         sizeof(val))) {
+                         sizeof(val)))
             ret.emplace(val);
-            tracer.trace_read_mem<T>(0, addr, phys, val);
-        }
 
         return ret;
     }
@@ -110,9 +104,6 @@ public:
         auto ret =
             do_write_mem(addr, &phys, reinterpret_cast<const char *>(&val),
                          sizeof(val), conditional, reservation_held);
-
-        if (ret)
-            tracer.trace_write_mem<T>(0, addr, phys, val);
 
         return ret;
     }
@@ -146,18 +137,7 @@ public:
     void step()
     {
         do_step();
-        tracer.trace_end_instruction(0);
         cur_cycle++;
-    }
-
-    void trace_instruction(uint32_t pc, uint32_t instr, PrivilegeLevel level)
-    {
-        tracer.trace_start_instruction(0, pc, instr, cur_cycle, level);
-    }
-
-    void trace_exception()
-    {
-        tracer.trace_exception(0);
     }
 
     std::string read_string(uint32_t addr);
@@ -168,19 +148,16 @@ public:
     virtual void do_write_reg(int r, uint32_t v) = 0;
     void write_reg(int r, uint32_t v)
     {
-        tracer.trace_write_reg(0, r, v);
         do_write_reg(r, v);
     }
     virtual uint32_t do_read_reg(int r) = 0;
     uint32_t read_reg(int r)
     {
         auto v = do_read_reg(r);
-        tracer.trace_read_reg(0, r, v);
         return v;
     }
     void write_csr(int r, uint32_t v)
     {
-        tracer.trace_write_csr(0, r, v);
         do_write_csr(r, v);
     }
     virtual void do_write_csr(int r, uint32_t v) = 0;
@@ -202,6 +179,4 @@ public:
 
 private:
     uint64_t cur_cycle;
-
-    SimTracer tracer;
 };

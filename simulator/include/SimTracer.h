@@ -65,6 +65,22 @@ public:
                 addr, phys, static_cast<uint32_t>(val), sizeof(T), true});
     }
 
+    void trace_read_mem(int id,
+                        uint32_t addr,
+                        uint32_t phys,
+                        const char *v,
+                        size_t len)
+    {
+        if (!enabled)
+            return;
+
+        uint32_t val = 0;
+        memcpy(&val, v, len);
+        if (inflight[id].traced)
+            inflight[id].mems.emplace_back(
+                MemTrace{addr, phys, val, static_cast<uint8_t>(len), true});
+    }
+
     template <typename T>
     void trace_write_mem(int id, uint32_t addr, uint32_t phys, T val)
     {
@@ -74,6 +90,22 @@ public:
         if (inflight[id].traced)
             inflight[id].mems.emplace_back(MemTrace{
                 addr, phys, static_cast<uint32_t>(val), sizeof(T), false});
+    }
+
+    void trace_write_mem(int id,
+                         uint32_t addr,
+                         uint32_t phys,
+                         const char *v,
+                         size_t len)
+    {
+        if (!enabled)
+            return;
+
+        uint32_t val = 0;
+        memcpy(&val, v, len);
+        if (inflight[id].traced)
+            inflight[id].mems.emplace_back(
+                MemTrace{addr, phys, val, static_cast<uint8_t>(len), false});
     }
 
     virtual void trace_write_reg(int id, int r, uint32_t v)

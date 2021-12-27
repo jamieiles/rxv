@@ -13,6 +13,7 @@
 #include "RiscVELF.h"
 #include "SimulatorBase.h"
 #include "MemoryDevice.h"
+#include "SimTracer.h"
 
 struct CSRDef {
     const char *name;
@@ -374,10 +375,12 @@ public:
     {
         if (r != 0)
             regs[r] = v;
+        tracer.trace_write_reg(0, r, v);
     }
 
     uint32_t do_read_reg(int r)
     {
+        tracer.trace_read_reg(0, r, regs[r]);
         return regs[r];
     }
 
@@ -418,6 +421,7 @@ public:
         }
 
         dcache.read(*phys, dst, len, reserved);
+        tracer.trace_read_mem(0, addr, *phys, dst, len);
 
         return true;
     }
@@ -444,6 +448,8 @@ public:
         }
         icache.read(*phys, dst, len);
 
+        tracer.trace_read_mem(0, addr, *phys, dst, len);
+
         return true;
     }
 
@@ -468,6 +474,7 @@ public:
             *phys = addr;
         }
         dcache.write(*phys, val, len, conditional, reservation_held);
+        tracer.trace_write_mem(0, addr, *phys, val, len);
 
         return true;
     }
@@ -579,4 +586,5 @@ private:
     int last_tlb_hit;
     uint32_t asid;
     MemoryBus bus;
+    SimTracer tracer;
 };

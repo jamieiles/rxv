@@ -411,12 +411,12 @@ module RXVDecode #(
     always_comb begin
         misc_mem_uop = RXVTypes::UOP_ALU;
 
-        unique casez (decode_instr)
-            32'b0000_zzzz_zzzz_0000_0000_0000_0000_1111: begin  // FENCE
+        unique casez (decode_instr[31:7])
+            25'b0000_zzzz_zzzz_0000_0000_0000_0: begin  // FENCE
                 misc_mem_uop           = RXVTypes::UOP_ALU;
                 misc_mem_illegal_instr = 1'b0;
             end
-            32'b0000_0000_0000_0000_0001_0000_0000_1111: begin  // FENCE.I
+            25'b0000_0000_0000_0000_0001_0000_0: begin  // FENCE.I
                 misc_mem_uop           = RXVTypes::UOP_FENCEI;
                 misc_mem_illegal_instr = 1'b0;
             end
@@ -432,20 +432,20 @@ module RXVDecode #(
 
         unique case (funct3)
             3'b000: begin
-                unique casez (decode_instr)
-                    32'b0000_0000_0000_0000_0000_0000_0111_0011: begin  // ECALL
+                unique casez (decode_instr[31:7])
+                    25'b0000_0000_0000_0000_0000_0000_0: begin  // ECALL
                         system_uop           = RXVTypes::UOP_ECALL;
                         system_illegal_instr = 1'b0;
                     end
-                    32'b0000_0000_0001_0000_0000_0000_0111_0011: begin  // EBREAK
+                    25'b0000_0000_0001_0000_0000_0000_0: begin  // EBREAK
                         system_uop           = RXVTypes::UOP_EBREAK;
                         system_illegal_instr = 1'b0;
                     end
-                    32'b0011_0000_0010_0000_0000_0000_0111_0011: begin  // MRET
+                    25'b0011_0000_0010_0000_0000_0000_0: begin  // MRET
                         system_uop           = RXVTypes::UOP_MRET;
                         system_illegal_instr = 1'b0;
                     end
-                    32'b0001_0000_0101_0000_0000_0000_0111_0011: begin  // WFI
+                    25'b0001_0000_0101_0000_0000_0000_0: begin  // WFI
                         system_illegal_instr = 1'b0;
                     end
                     default: system_illegal_instr = 1'b1;

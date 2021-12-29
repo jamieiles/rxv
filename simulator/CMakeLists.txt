@@ -39,7 +39,7 @@ ExternalProject_Add(riscv-tests
 enable_testing()
 
 add_test(software-compliance
-         ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-compliance-tests software ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/riscv-arch-test ${CMAKE_CURRENT_BINARY_DIR}/software-compliance ${CMAKE_CURRENT_SOURCE_DIR}/../verif/rxv-arch-test-target)
+         python3 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-compliance-tests.py software ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/riscv-arch-test ${CMAKE_CURRENT_BINARY_DIR}/software-compliance ${CMAKE_CURRENT_SOURCE_DIR}/../verif/rxv-arch-test-target)
 set_tests_properties(software-compliance PROPERTIES TIMEOUT 60)
 set_property(TEST software-compliance PROPERTY ENVIRONMENT
              "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")

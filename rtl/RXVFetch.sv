@@ -171,6 +171,7 @@ module RXVFetch #(
         next_seq_pc = pc + 1'b1;
         next_pc     = !icache_busy && icache_valid ? next_seq_pc : pc;
 
+        if (prefetch_nearly_full && !icache_busy) next_pc = icache_valid ? next_seq_pc : pc;
         if (icache_busy_start || global_stall_active) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
         if (resteer_pending) next_pc = resteer_target;

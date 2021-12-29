@@ -44,6 +44,22 @@ public:
         return dispatch_id;
     }
 
+    void dispatch_pipelined(uint8_t stale_phys_reg,
+                            uint8_t renamed_arch,
+                            uint8_t renamed_phys,
+                            uint32_t pc,
+                            bool have_writeback)
+    {
+        auto commit_entry = this->dut.RXVTypes->make_commit_entry(
+            stale_phys_reg, renamed_arch, renamed_phys, pc, have_writeback);
+        after_n_cycles(0, [&] {
+            this->dut.dispatch_in = commit_entry;
+            this->dut.dispatch_valid = 1;
+            after_n_cycles(1, [&] { this->dut.dispatch_valid = 0; });
+        });
+        cycle(1);
+    }
+
     CommitEntry commit(void)
     {
         CommitEntry ce;
@@ -172,10 +188,8 @@ TEST_F(RXVCommitBufferTest, Kill)
 
 TEST_F(RXVCommitBufferTest, KillWithoutExcept)
 {
-    for (int i = 0; i < 5; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
-        EXPECT_EQ(id, i);
-    }
+    for (int i = 0; i < 5; ++i)
+        dispatch_pipelined(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
 
     kill();
 

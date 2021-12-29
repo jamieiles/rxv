@@ -37,6 +37,11 @@ module RXVCommitBuffer #(
     localparam int num_entries = (1 << order);
     localparam int addr_width = $clog2(num_entries);
 
+    typedef struct packed {
+        logic [addr_width-1:0] id;
+        logic valid;
+    } dispatch_record;
+
     Fifo #(
         .data_width($bits(commit_entry)),
         .order     (order)
@@ -57,16 +62,19 @@ module RXVCommitBuffer #(
         // verilator lint_on PINCONNECTEMPTY
     );
 
-    logic [num_entries-1:0] completed;
-    logic [num_entries-1:0] completed_next;
-    logic [num_entries-1:0] killed;
-    logic [num_entries-1:0] killed_next;
-    logic [num_entries-1:0] excepted;
-    logic [num_entries-1:0] excepted_next;
+    logic           [num_entries-1:0] completed;
+    logic           [num_entries-1:0] completed_next;
+    logic           [num_entries-1:0] killed;
+    logic           [num_entries-1:0] killed_next;
+    logic           [num_entries-1:0] excepted;
+    logic           [num_entries-1:0] excepted_next;
 
-    logic                   killing;
-    logic                   killing_next;
-    logic                   exception_pending_next;
+    logic                             killing;
+    logic                             killing_next;
+    logic                             exception_pending_next;
+
+    dispatch_record                   last_dispatch          [0:1];
+    dispatch_record                   last_dispatch_next     [0:1];
 
     always_comb begin
         killing_next = killing;
@@ -89,13 +97,21 @@ module RXVCommitBuffer #(
         for (i = 0; i < num_entries; i = i + 1) begin
             killed_next[i] = killed[i];
             if (dispatch_id == addr_width'(i) && dispatch_valid) killed_next[i] = 1'b0;
-            if (dispatch_id - 1'b1 == addr_width'(i) && (kill_valid || lsu_busy_kill_valid))
+            if (dispatch_id - 1'b1 == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
+            if (last_dispatch[1].valid && last_dispatch[1].id == addr_width'(i) && (kill_valid || lsu_busy_kill_valid))
                 killed_next[i] = 1'b1;
-            if (dispatch_id - addr_width'(2) == addr_width'(i) && lsu_busy_kill_valid)
+            if (last_dispatch[0].valid && last_dispatch[0].id == addr_width'(i) && lsu_busy_kill_valid)
                 killed_next[i] = 1'b1;
             if (except_id == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) killed_next[i] = 1'b0;
         end
+    end
+
+    always_comb begin
+        last_dispatch_next[0].valid = last_dispatch[1].valid;
+        last_dispatch_next[0].id    = last_dispatch[1].id;
+        last_dispatch_next[1].valid = dispatch_valid;
+        last_dispatch_next[1].id    = dispatch_id;
     end
 
     RXVAssert #(
@@ -189,6 +205,26 @@ module RXVCommitBuffer #(
         .en   (1'b1),
         .d    (exception_pending_next),
         .q    (exception_pending)
+    );
+
+    RXVDFF #(
+        .width($bits(last_dispatch[0]))
+    ) last_dispatch_0_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (last_dispatch_next[0]),
+        .q    (last_dispatch[0])
+    );
+
+    RXVDFF #(
+        .width($bits(last_dispatch[1]))
+    ) last_dispatch_1_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (last_dispatch_next[1]),
+        .q    (last_dispatch[1])
     );
 
 endmodule

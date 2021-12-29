@@ -293,7 +293,7 @@ module RXVLSU #(
     end
 
     always_comb begin
-        dcache_wren = is_store;
+        dcache_wren = valid & is_store;
     end
 
     always_comb begin

@@ -16,29 +16,32 @@ PRIV_TESTS = [
     "misalign-lh-01",
 ]
 
-ISAS = ["I", "M", "Zifencei", "privilege"]
+ISAS = {
+    'software': ["I", "M", "Zifencei", "privilege"],
+    'rtl': ['I']
+}
 
 
 def run_priv_test(sim, src, obj, target_dir, isa, test):
-    cmd_prefix = ['make', '-B', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
+    cmd_prefix = ['make', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
                   f'TARGETDIR={target_dir}', f'RISCV_TARGET=rxv-simulator',
                   f'RISCV_DEVICE={isa}', '-j1', f'rv32i_sc_tests={test}']
-    subprocess.check_call(cmd_prefix + ['simulate'])
-    subprocess.check_call(cmd_prefix + ['verify'])
+    subprocess.check_call(cmd_prefix + ['-B', 'simulate'], cwd=obj)
+    subprocess.check_call(cmd_prefix + ['verify'], cwd=obj)
 
 
 def run_test(sim, src, obj, target_dir, isa):
-    cmd_prefix = ['make', '-B', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
+    cmd_prefix = ['make', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
                   f'TARGETDIR={target_dir}', f'RISCV_TARGET=rxv-simulator',
                   f'RISCV_DEVICE={isa}', '-j1']
-    subprocess.check_call(cmd_prefix + ['simulate'])
-    subprocess.check_call(cmd_prefix + ['verify'])
+    subprocess.check_call(cmd_prefix + ['-B', 'simulate'], cwd=obj)
+    subprocess.check_call(cmd_prefix + ['verify'], cwd=obj)
 
 
 def run_tests(sim, src, obj, target_dir):
     failures = []
 
-    for isa in ISAS:
+    for isa in ISAS[sim]:
         if isa == "privilege":
             for test in PRIV_TESTS:
                 try:

@@ -4,13 +4,16 @@ import re
 import subprocess
 import sys
 
-TEST_RE = r'.*rv32[msu][aim]-[pv]-[^\.]*$'
+TEST_RE = {
+    'software': r'.*rv32[msu][aim]-[pv]-[^\.]*$',
+    'rtl': r'.*rv32[u][i]-[p]-[^\.]*$',
+}
 
 def run_tests(runner, sim, test_tree):
     failures = []
     for root, dirs, files in os.walk(test_tree):
         for f in files:
-            if not re.match(TEST_RE, f):
+            if not re.match(TEST_RE[sim], f):
                 continue
             try:
                 subprocess.check_call(

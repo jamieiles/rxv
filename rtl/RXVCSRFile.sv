@@ -161,7 +161,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_MSCRATCH, RXVCSR::CSR_MSTATUS, RXVCSR::CSR_MTVEC,
             RXVCSR::CSR_MEPC, RXVCSR::CSR_MCAUSE, RXVCSR::CSR_MTVAL,
             RXVCSR::CSR_MCYCLE, RXVCSR::CSR_MCYCLEH, RXVCSR::CSR_MINSTRET,
-            RXVCSR::CSR_MINSTRETH:
+            RXVCSR::CSR_MINSTRETH, RXVCSR::CSR_MHARTID, RXVCSR::CSR_SATP,
+            RXVCSR::CSR_MIE, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG:
             valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase

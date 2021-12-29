@@ -220,9 +220,10 @@ module RXVDCache #(
                  (writing_back && bus_complete && way_bits'(i) == lru) ||
                  (cleaning && bus_complete && way_bits'(i) == cmo_way) ||
                  (filling && bus_complete && way_bits'(i) == lru) ||
-                 (write_wren && way_hit[i]));
+                 (tag_compare_valid && write_wren && way_hit[i]));
         end
-        dirty_next = invalidating || bus_complete || cleaning ? 1'b0 : !busy && !miss && write_wren;
+        dirty_next = invalidating || bus_complete || cleaning ? 1'b0 :
+            tag_compare_valid && !busy && !miss && write_wren;
     end
 
     // Uncached access control

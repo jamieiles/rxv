@@ -929,3 +929,32 @@ TEST_F(RXVCoreEmulWrapperTest, FenceI)
 
     EXPECT_EQ(tracer->read_reg(10), 0xffffffff);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, IllegalCSR)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01c08093                addi    x1,x1,28 # 0x8000001c
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       00200113                li      x2,2
+        80000010:       fff02573                csrr    x10,0xfff
+        80000014:       00300193                li      x3,3
+        80000018:       0000006f                j       0x80000018
+        8000001c:       00a00513                li      x10,10
+        80000020:       341025f3                csrr    x11,mepc
+        80000024:       00458593                addi    x11,x11,4
+        80000028:       34159073                csrw    mepc,x11
+        8000002c:       001a0a13                addi    x20,x20,1
+        80000030:       30200073                mret
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000002c; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 2);
+    EXPECT_EQ(tracer->read_reg(3), 0);
+    EXPECT_EQ(tracer->read_reg(10), 10);
+}

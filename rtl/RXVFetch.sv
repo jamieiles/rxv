@@ -173,7 +173,6 @@ module RXVFetch #(
 
         if (icache_busy_start || global_stall_active) next_pc = fetched_pc;
         if (prediction.predicted && prediction.predict_taken) next_pc = prediction.prediction;
-        if (prefetch_nearly_full) next_pc = fetched_pc;
         if (resteer_pending) next_pc = resteer_target;
         if (decode_resteer) next_pc = decode_resteer_tgt;
         if (exec_resteer) next_pc = exec_resteer_tgt;
@@ -227,7 +226,7 @@ module RXVFetch #(
     ) fetched_pc_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (1'b1),
+        .en   (icache_valid),
         .d    (icache_address),
         .q    (fetched_pc)
     );

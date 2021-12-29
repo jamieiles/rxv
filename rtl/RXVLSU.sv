@@ -4,6 +4,7 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_uop;
 import RXVCSR::RXVException;
 import RXVTrace::trace_write_mem;
+import RXVTrace::trace_read_mem;
 
 module RXVLSU #(
     parameter int commit_order = 3
@@ -72,6 +73,9 @@ module RXVLSU #(
         lsu_width width;
         logic is_signed;
         logic valid;
+`ifdef RXV_TRACE
+        logic [31:0] address;
+`endif
     } lsu_op;
 
     // Stage 1:
@@ -229,6 +233,9 @@ module RXVLSU #(
         op_stage1_next.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
         op_stage1_next.width       = width;
         op_stage1_next.is_signed   = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
+`ifdef RXV_TRACE
+        op_stage1_next.address = address;
+`endif
     end
 
     always_comb begin
@@ -299,9 +306,10 @@ module RXVLSU #(
         lsu_resteer_tgt_update = exec_valid && !kill_valid;
     end
 
-`ifdef verilator
+`ifdef RXV_TRACE
     always_ff @(posedge clk) begin
         int size;
+
         if (valid && !is_unaligned && is_store) begin
             case (exec_uop)
                 RXVTypes::UOP_SB: size = 1;
@@ -310,6 +318,17 @@ module RXVLSU #(
                 default: size = 4;
             endcase
             trace_write_mem(32'(exec_id), address, address, op2, size);
+        end
+
+        if (lsu_complete_next && lsu_reg_wr_en_next) begin
+            case (op_stage2.width)
+                WIDTH_8:  size = 1;
+                WIDTH_16: size = 2;
+                WIDTH_32: size = 4;
+                default:  size = 4;
+            endcase
+            trace_read_mem(32'(op_stage2.id), op_stage2.address, op_stage2.address,
+                           lsu_reg_wr_data_next, size);
         end
     end
 `endif

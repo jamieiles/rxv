@@ -49,7 +49,7 @@ module Fifo #(
             ) mem_n_dff (
                 .clk  (clk),
                 .reset(reset),
-                .en   (entry_wr_en[i]),
+                .en   (wr_en & entry_wr_en[i]),
                 .d    (wr_data),
                 .q    (mem[i])
             );

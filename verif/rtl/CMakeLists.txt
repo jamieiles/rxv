@@ -126,6 +126,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
@@ -139,6 +140,7 @@ verilate(rtl-unittest
          PREFIX VRXVRenameFileWrapper
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVRenameFileWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
@@ -165,6 +167,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVFetchWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
@@ -190,6 +193,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
@@ -228,6 +232,7 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScheduler.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib

@@ -94,6 +94,12 @@ package RXVTrace;
         $c("this->tracer->trace_end_instruction(", instr_id, ");");
 `endif
     endfunction
+
+    function void trace_flush;
+`ifdef RXV_TRACE
+        $c("this->tracer->flush();");
+`endif
+    endfunction
     // verilator lint_on UNUSED
 
 endpackage

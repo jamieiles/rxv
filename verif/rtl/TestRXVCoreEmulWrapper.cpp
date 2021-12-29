@@ -690,7 +690,7 @@ TEST_F(RXVCoreEmulWrapperTest, PMU)
     EXPECT_EQ(tracer->read_reg(6), 0);
 
     EXPECT_NE(tracer->read_reg(1), tracer->read_reg(3));
-    EXPECT_EQ(tracer->read_reg(5), 24);
+    EXPECT_EQ(tracer->read_reg(5), 25);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, PMUWrite)

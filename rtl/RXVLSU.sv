@@ -138,7 +138,8 @@ module RXVLSU #(
     always_comb begin
         fencei_active_next = fencei_active;
         if (fencei_pending && !fencei_pending_next) fencei_active_next = 1'b1;
-        if (fencei_active && !icache_busy && !dcache_busy) fencei_active_next = 1'b0;
+        if (fencei_active && !icache_busy && !dcache_busy && !dcache_clean && !icache_invalidate)
+            fencei_active_next = 1'b0;
     end
 
     always_comb begin
@@ -164,7 +165,7 @@ module RXVLSU #(
 
     always_comb begin
         lsu_busy_kill_next = ((exec_valid & lsu_stall) | fencei_pending) & ~kill_valid;
-        valid              = exec_valid & ~lsu_busy_kill_next;
+        valid              = exec_valid & ~lsu_busy_kill_next & ~kill_valid;
     end
 
     always_comb begin

@@ -524,7 +524,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_system & system_have_writeback;
         exec_have_writeback_next |= opc_load;
 
-        if (~|rd) exec_have_writeback_next = 1'b0;
+        if (~|rd || illegal_instruction) exec_have_writeback_next = 1'b0;
     end
 
     always_comb begin

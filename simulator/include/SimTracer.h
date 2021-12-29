@@ -84,19 +84,15 @@ public:
     template <typename T>
     void trace_write_mem(int id, uint32_t addr, uint32_t phys, T val)
     {
-        if (!enabled)
-            return;
-
-        if (inflight[id].traced)
-            inflight[id].mems.emplace_back(MemTrace{
-                addr, phys, static_cast<uint32_t>(val), sizeof(T), false});
+        trace_write_mem(id, addr, phys, reinterpret_cast<const char *>(&val),
+                        sizeof(val));
     }
 
-    void trace_write_mem(int id,
-                         uint32_t addr,
-                         uint32_t phys,
-                         const char *v,
-                         size_t len)
+    virtual void trace_write_mem(int id,
+                                 uint32_t addr,
+                                 uint32_t phys,
+                                 const char *v,
+                                 size_t len)
     {
         if (!enabled)
             return;
@@ -224,6 +220,7 @@ public:
 
         std::ofstream insn_trace_file;
         auto filename = filename_base;
+
         if (file_count)
             filename += "." + std::to_string(file_count);
         insn_trace_file.open(filename, std::ios::out | std::ios::binary);

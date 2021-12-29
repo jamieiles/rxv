@@ -8,22 +8,24 @@
 #include <boost/io/ios_state.hpp>
 
 #include "RXVSim.h"
+#include "RXVCore.h"
 
-template <typename T>
 class ComplianceTest
 {
 public:
-    explicit ComplianceTest(const std::string &filename,
-                            const std::optional<std::string> trace_name)
-        : elf(filename)
-        , sim(trace_name, 32 * 1024 * 1024, 0x80000000)
-        , test_status(RUNNING)
+    explicit ComplianceTest(std::unique_ptr<SimulatorBase> sim,
+                            const std::string &filename)
+        : sim(std::move(sim)), elf(filename), test_status(RUNNING)
     {
-        sim.load_elf(elf);
+        this->sim->load_elf(elf);
 
         load_io_writes();
         load_gpr_assertions();
         to_host_addr = elf.sym_addr("tohost");
+    }
+
+    virtual ~ComplianceTest()
+    {
     }
 
     bool run()
@@ -35,7 +37,7 @@ public:
 
             if (test_status != RUNNING)
                 break;
-            sim.step();
+            sim->step();
         }
 
         output_signature();
@@ -66,7 +68,7 @@ private:
 
     void handle_io()
     {
-        auto pc = sim.get_pc();
+        auto pc = sim->get_pc();
 
         if (io_writes.find(pc) == io_writes.end())
             return;
@@ -77,24 +79,24 @@ private:
 
     void check_for_completion()
     {
-        auto to_host = sim.template read_phys_mem<uint32_t>(to_host_addr);
+        auto to_host = sim->template read_phys_mem<uint32_t>(to_host_addr);
         if (to_host != 0)
             test_status = to_host == 1 ? PASSED : FAILED;
     }
 
     void check_assertions()
     {
-        auto pc = sim.get_pc();
+        auto pc = sim->get_pc();
         if (gpr_assertions.find(pc) == gpr_assertions.end())
             return;
 
         auto assertion = gpr_assertions.at(pc);
-        if (sim.read_reg(assertion.regnum) != assertion.expected) {
+        if (sim->read_reg(assertion.regnum) != assertion.expected) {
             std::cerr << "ASSERTION FAILED AT " << std::hex
                       << assertion.location << ": x" << std::dec
                       << assertion.regnum << " != " << std::hex
                       << assertion.expected << ", got "
-                      << sim.read_reg(assertion.regnum) << std::endl;
+                      << sim->read_reg(assertion.regnum) << std::endl;
             test_status = FAILED;
         } else {
             std::cerr << "ASSERTION PASSED AT " << std::hex
@@ -115,7 +117,7 @@ private:
             return;
         }
 
-        auto signature = sim.template read_phys_mem_vector<uint32_t>(
+        auto signature = sim->template read_phys_mem_vector<uint32_t>(
             begin_signature, (end_signature - begin_signature) / 4);
 
         boost::io::ios_flags_saver ifs(std::cout);
@@ -130,7 +132,7 @@ private:
     {
         auto iow = elf.read_section<IOWrite>(".rvtest_io_write");
         for (auto &i : iow)
-            io_writes[i.instr_addr] = sim.read_phys_string(i.string_addr);
+            io_writes[i.instr_addr] = sim->read_phys_string(i.string_addr);
     }
 
     void load_gpr_assertions()
@@ -138,8 +140,8 @@ private:
         auto assertions =
             elf.read_section<ELFGPRAssertion>(".rvtest_gpr_assert");
         for (auto &a : assertions) {
-            auto name = sim.read_phys_string(a.regname_addr);
-            auto location = sim.read_phys_string(a.location_addr);
+            auto name = sim->read_phys_string(a.regname_addr);
+            auto location = sim->read_phys_string(a.location_addr);
             auto regnum = static_cast<uint32_t>(std::stoi(name.substr(1)));
 
             gpr_assertions[a.instr_addr] = {regnum, a.expected, location};
@@ -150,6 +152,6 @@ private:
     std::map<uint32_t, GPRAssertion> gpr_assertions;
 
     RiscVELF elf;
-    T sim;
+    std::unique_ptr<SimulatorBase> sim;
     uint32_t to_host_addr;
 };

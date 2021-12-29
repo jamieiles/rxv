@@ -226,8 +226,7 @@ private:
 RXVSim::RXVSim(const std::optional<std::string> trace_name,
                size_t mem_size,
                uint32_t mem_base)
-    : SimulatorBase(trace_name)
-    , pc(0)
+    : pc(0)
     , new_pc(0)
     , exception_taken(false)
     , ram_base(mem_base)

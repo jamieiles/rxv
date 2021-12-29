@@ -18,17 +18,16 @@ static void sigint_handler(int signum)
     sigint_received = true;
 }
 
-template <typename T>
 class Simulation
 {
 public:
-    explicit Simulation(const std::string &filename,
-                        const std::optional<std::string> trace_name)
-        : sim(trace_name, 256 * 1024 * 1024, 0x80000000)
+    explicit Simulation(std::unique_ptr<SimulatorBase> sim,
+                        const std::string &filename)
+        : sim(std::move(sim))
     {
         RiscVELF elf(filename);
 
-        sim.load_elf(elf);
+        this->sim->load_elf(elf);
     }
 
     void run()
@@ -38,7 +37,7 @@ public:
 
         try {
             while (!sigint_received)
-                sim.step();
+                sim->step();
         } catch (std::exception &e) {
             std::cerr << "\r\nERROR: " << e.what() << "\r\n" << std::endl;
         }
@@ -47,7 +46,7 @@ public:
     }
 
 private:
-    T sim;
+    std::unique_ptr<SimulatorBase> sim;
 };
 
 static boost::program_options::variables_map parse_options(int argc,
@@ -58,6 +57,7 @@ static boost::program_options::variables_map parse_options(int argc,
     options.add_options()
         ("elf", boost::program_options::value<std::string>(), "ELF file")
         ("sim", boost::program_options::value<std::string>(), "Simulator")
+        ("waves", "Waves Enabled")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
         ("compliance", "Run compliance test")
         ("help,h", "Help screen");
@@ -88,6 +88,13 @@ static boost::program_options::variables_map parse_options(int argc,
     return vm;
 }
 
+static std::string instance_name(const std::string &elf_path)
+{
+    auto bn = basename(elf_path.c_str());
+
+    return std::string(bn);
+}
+
 int main(int argc, char *argv[])
 {
     boost::program_options::variables_map vm;
@@ -105,19 +112,30 @@ int main(int argc, char *argv[])
                 ? std::optional<std::string>(vm["trace_file"].as<std::string>())
                 : std::nullopt;
 
+        std::unique_ptr<SimulatorBase> sim;
         if (vm["sim"].as<std::string>() == "software") {
-            if (vm.count("compliance")) {
-                ComplianceTest<RXVSim> test(vm["elf"].as<std::string>(),
-                                            trace_name);
-                return test.run() ? 0 : 1;
-            } else {
-                Simulation<RXVSim> test(vm["elf"].as<std::string>(),
-                                        trace_name);
-                test.run();
-            }
+            sim = std::make_unique<RXVSim>(trace_name, 64 * 1024 * 1024,
+                                           0x80000000);
+        } else if (vm["sim"].as<std::string>() == "rtl") {
+            if (vm.count("waves") || vm.count("trace_file"))
+                sim = std::make_unique<RXVCore<true>>(
+                    trace_name, 64 * 1024 * 1024, 0x80000000,
+                    instance_name(vm["elf"].as<std::string>()));
+            else
+                sim = std::make_unique<RXVCore<false>>(
+                    trace_name, 64 * 1024 * 1024, 0x80000000);
         } else {
-            std::cerr << "error: invalid simulator " << vm["sim"].as<std::string>() << std::endl;
+            std::cerr << "error: invalid simulator "
+                      << vm["sim"].as<std::string>() << std::endl;
             return 3;
+        }
+
+        if (vm.count("compliance")) {
+            ComplianceTest test(std::move(sim), vm["elf"].as<std::string>());
+            return test.run() ? 0 : 1;
+        } else {
+            Simulation test(std::move(sim), vm["elf"].as<std::string>());
+            test.run();
         }
     } catch (std::exception &e) {
         std::cerr << "error: fatal exception " << e.what() << std::endl;

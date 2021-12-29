@@ -22,7 +22,7 @@ public:
     static constexpr uint32_t mtime_base = 0xf0000000;
     static constexpr uint32_t uart_base = 0xffff1000;
 
-    SimulatorBase(const std::optional<std::string> trace_name)
+    virtual ~SimulatorBase()
     {
     }
 

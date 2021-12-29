@@ -10,6 +10,8 @@
 #include "RXVSim.h"
 #include "RXVCore.h"
 
+static constexpr int timeout = 100000;
+
 class ComplianceTest
 {
 public:
@@ -30,7 +32,7 @@ public:
 
     bool run()
     {
-        for (int i = 0; i < 100000; ++i) {
+        for (int i = 0; i < timeout; ++i) {
             check_for_completion();
             handle_io();
             check_assertions();
@@ -38,6 +40,9 @@ public:
             if (test_status != RUNNING)
                 break;
             sim->step();
+
+            if (i == timeout - 1)
+                std::cerr << "Test timeout" << std::endl;
         }
 
         output_signature();

@@ -20,7 +20,7 @@ ISAS = ["I", "M", "Zifencei", "privilege"]
 
 
 def run_priv_test(sim, src, obj, target_dir, isa, test):
-    cmd_prefix = ['make', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
+    cmd_prefix = ['make', '-B', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
                   f'TARGETDIR={target_dir}', f'RISCV_TARGET=rxv-simulator',
                   f'RISCV_DEVICE={isa}', '-j1', f'rv32i_sc_tests={test}']
     subprocess.check_call(cmd_prefix + ['simulate'])
@@ -28,7 +28,7 @@ def run_priv_test(sim, src, obj, target_dir, isa, test):
 
 
 def run_test(sim, src, obj, target_dir, isa):
-    cmd_prefix = ['make', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
+    cmd_prefix = ['make', '-B', '-C', src, f'WORK={obj}', f'RISCV_SIMULATOR={sim}',
                   f'TARGETDIR={target_dir}', f'RISCV_TARGET=rxv-simulator',
                   f'RISCV_DEVICE={isa}', '-j1']
     subprocess.check_call(cmd_prefix + ['simulate'])

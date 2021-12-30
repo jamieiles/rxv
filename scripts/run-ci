@@ -5,6 +5,7 @@ NEXUS_USER=$1
 NEXUS_PASSWORD=$2
 NEXUS_PATH=$3
 
+rm -rf _build/ci
 mkdir -p _build/ci || :
 cd _build/ci
 

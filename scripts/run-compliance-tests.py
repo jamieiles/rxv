@@ -41,6 +41,9 @@ def run_test(sim, src, obj, target_dir, isa):
 def run_tests(sim, src, obj, target_dir):
     failures = []
 
+    os.makedirs(target_dir, exist_ok=True)
+    os.makedirs(obj, exist_ok=True)
+
     for isa in ISAS[sim]:
         if isa == "privilege":
             for test in PRIV_TESTS:

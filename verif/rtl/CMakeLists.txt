@@ -264,6 +264,7 @@ verilate(rtl-unittest
          TRACE_FST)
 
 add_library(RXVCoreEmul SHARED)
+add_dependencies(rtl-unittest gen_trace_h)
 
 verilate(RXVCoreEmul
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE

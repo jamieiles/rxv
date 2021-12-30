@@ -133,6 +133,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterAllocator
          PREFIX VRXVRegisterAllocator
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 verilate(rtl-unittest
@@ -148,6 +149,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRenameFileWrapper
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 verilate(rtl-unittest
@@ -176,6 +178,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVFetchWrapper
          PREFIX VRXVFetchWrapper
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 verilate(rtl-unittest
@@ -202,6 +205,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVCommitBuffer
          PREFIX VRXVCommitBuffer
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 verilate(rtl-unittest
@@ -238,6 +242,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVScheduler
          PREFIX VRXVScheduler
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 verilate(rtl-unittest
@@ -255,6 +260,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVLSUWrapper
          PREFIX VRXVLSUWrapper
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 add_library(RXVCoreEmul SHARED)
@@ -302,6 +308,7 @@ verilate(RXVCoreEmul
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVCoreEmulWrapper
+         DEPENDS gen_trace_h
          TRACE_FST)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir

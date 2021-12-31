@@ -14,6 +14,11 @@ struct mtime {
     uint64_t time;
 };
 
+struct SimPerfStats {
+    uint64_t cycles;
+    uint64_t retired;
+};
+
 class SimulatorBase
 {
 public:
@@ -80,4 +85,5 @@ public:
                                    size_t len,
                                    bool conditional,
                                    bool *reservation_held) = 0;
+    virtual SimPerfStats get_perf_stats() const = 0;
 };

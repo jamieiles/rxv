@@ -47,6 +47,12 @@ public:
 
         output_signature();
 
+        auto stats = sim->get_perf_stats();
+        std::cerr << std::dec << std::setprecision(2) << "  " << stats.retired
+                  << " instructions in " << stats.cycles << " cycles ("
+                  << static_cast<double>(stats.retired) / stats.cycles
+                  << " instructions per cycle)" << std::endl;
+
         return test_status == PASSED ? true : false;
     }
 

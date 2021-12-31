@@ -43,6 +43,11 @@ public:
         }
 
         std::cout << "[simulation finished]\r" << std::endl;
+        auto stats = sim->get_perf_stats();
+        std::cout << std::dec << std::setprecision(2) << "  " << stats.retired
+                  << " instructions in " << stats.cycles << " cycles ("
+                  << static_cast<double>(stats.retired) / stats.cycles
+                  << " instructions per cycle)" << std::endl;
     }
 
 private:

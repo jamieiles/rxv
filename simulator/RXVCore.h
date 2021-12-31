@@ -218,6 +218,16 @@ public:
         bus->write(addr, val, len);
     }
 
+    SimPerfStats get_perf_stats() const
+    {
+        SimPerfStats s;
+
+        s.cycles = this->dut.RXVCoreEmulWrapper->RXVCore->RXVPMU->pmu_cycles;
+        s.retired = this->dut.RXVCoreEmulWrapper->RXVCore->RXVPMU->pmu_instret;
+
+        return s;
+    }
+
 private:
     void do_reset()
     {

@@ -463,6 +463,16 @@ public:
         dcache.write(addr, val, len, conditional, reservation_held);
     }
 
+    SimPerfStats get_perf_stats() const
+    {
+        SimPerfStats s;
+
+        s.cycles = cur_cycle;
+        s.retired = cur_cycle;
+
+        return s;
+    }
+
     void fencei()
     {
         dcache.clean();

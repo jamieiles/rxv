@@ -9,8 +9,8 @@ module RXVPMU (
     input  logic        instreth_wren,
     input  logic        instretl_wren,
     input  logic [31:0] csr_wrval,
-    output logic [63:0] pmu_cycles,
-    output logic [63:0] pmu_instret
+    output logic [63:0] pmu_cycles /* verilator public */,
+    output logic [63:0] pmu_instret /* verilator public */
 );
 
     logic [63:0] pmu_cycles_next;

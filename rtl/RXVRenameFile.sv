@@ -131,7 +131,7 @@ module RXVRenameFile (
         end
         if (kill && last_rename[1].valid)
             latest_next[last_rename[1].renamed.arch] = last_rename[1].stale;
-        if (kill && last_rename[0].valid)
+        if (lsu_busy_kill && last_rename[0].valid)
             latest_next[last_rename[0].renamed.arch] = last_rename[0].stale;
     end
 

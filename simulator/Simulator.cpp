@@ -119,16 +119,16 @@ int main(int argc, char *argv[])
 
         std::unique_ptr<SimulatorBase> sim;
         if (vm["sim"].as<std::string>() == "software") {
-            sim = std::make_unique<RXVSim>(trace_name, 64 * 1024 * 1024,
+            sim = std::make_unique<RXVSim>(trace_name, 256 * 1024 * 1024,
                                            0x80000000);
         } else if (vm["sim"].as<std::string>() == "rtl") {
             if (vm.count("waves") || vm.count("trace_file"))
                 sim = std::make_unique<RXVCore<true>>(
-                    trace_name, 64 * 1024 * 1024, 0x80000000,
+                    trace_name, 256 * 1024 * 1024, 0x80000000,
                     instance_name(vm["elf"].as<std::string>()));
             else
                 sim = std::make_unique<RXVCore<false>>(
-                    trace_name, 64 * 1024 * 1024, 0x80000000);
+                    trace_name, 256 * 1024 * 1024, 0x80000000);
         } else {
             std::cerr << "error: invalid simulator "
                       << vm["sim"].as<std::string>() << std::endl;

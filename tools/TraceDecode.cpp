@@ -282,6 +282,10 @@ int main(int argc, char **argv)
     if (vm.count("u-elf"))
         load_symbols(RXV::Trace::Privilege::Privilege_U,
                      vm["u-elf"].as<std::string>());
+    if (vm.count("trace_file") != 1) {
+        std::cerr << "ERROR: no trace file" << std::endl;
+        exit(1);
+    }
 
     auto dcr = get_disassembler();
     auto proc_trace = get_trace(vm["trace_file"].as<std::string>());

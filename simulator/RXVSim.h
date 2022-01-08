@@ -586,13 +586,12 @@ private:
     }
 
     template <typename T>
-    std::optional<T> read_imem(uint32_t addr)
+    std::optional<T> read_imem(uint32_t addr, uint32_t *phys)
     {
         std::optional<T> ret;
         T val;
-        uint32_t phys;
 
-        if (do_read_imem(addr, &phys, reinterpret_cast<char *>(&val),
+        if (do_read_imem(addr, phys, reinterpret_cast<char *>(&val),
                          sizeof(val)))
             ret.emplace(val);
 

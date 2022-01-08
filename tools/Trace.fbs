@@ -51,37 +51,38 @@ enum CSRId : uint16 {
 }
 
 table Register {
-	id:uint8;
+    id:uint8;
     read:bool;
-	value:uint32;
+    value:uint32;
 }
 
 table CSRValue {
-	id:CSRId;
-	value:uint32;
+    id:CSRId;
+    value:uint32;
 }
 
 table MemAccess {
-	addr:uint32;
+    addr:uint32;
     phys:uint32;
-	value:uint32;
-	size:uint8;
+    value:uint32;
+    size:uint8;
     read:bool;
 }
 
 table InstructionTrace {
-	cycle_num:uint64;
-	pc:uint32;
-	instruction:uint32;
-	gpr_accesses:[Register];
+    cycle_num:uint64;
+    pc:uint32;
+    pc_phys:uint32;
+    instruction:uint32;
+    gpr_accesses:[Register];
     mem_accesses:[MemAccess];
-	csr_writes:[CSRValue];
+    csr_writes:[CSRValue];
     exception_raised:bool;
     privilege:Privilege;
 }
 
 table ProcessorTrace {
-	instructions:[InstructionTrace];
+    instructions:[InstructionTrace];
 }
 
 root_type ProcessorTrace;

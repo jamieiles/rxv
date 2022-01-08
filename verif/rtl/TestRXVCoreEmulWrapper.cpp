@@ -81,11 +81,13 @@ public:
 
     virtual void trace_start_instruction(int id,
                                          uint32_t pc,
+                                         uint32_t pc_phys,
                                          uint32_t instr,
                                          uint64_t cycle,
                                          PrivilegeLevel level) override
     {
-        SimTracer::trace_start_instruction(id, pc, instr, cycle, level);
+        SimTracer::trace_start_instruction(id, pc, pc_phys, instr, cycle,
+                                           level);
         instruction_map[id] = InstructionRecord();
         instruction_map[id].pc = pc;
     }

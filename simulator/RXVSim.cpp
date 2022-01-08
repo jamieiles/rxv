@@ -592,11 +592,12 @@ void RXVSim::step()
     new_pc = pc + 4;
     new_privilege_level = privilege_level;
 
-    auto instr = read_imem<uint32_t>(pc);
+    uint32_t pc_phys;
+    auto instr = read_imem<uint32_t>(pc, &pc_phys);
     if (instr) {
         instr_val = *instr;
 
-        tracer.trace_start_instruction(0, pc, instr_val, get_cycle(),
+        tracer.trace_start_instruction(0, pc, pc_phys, instr_val, get_cycle(),
                                        privilege_level);
 
         auto opcode = instr_val & 0x7f;
@@ -1213,7 +1214,8 @@ void RXVSim::step()
         default: illegal_instruction = true; break;
         }
     } else {
-        tracer.trace_start_instruction(0, pc, 0, get_cycle(), privilege_level);
+        tracer.trace_start_instruction(0, pc, pc, 0, get_cycle(),
+                                       privilege_level);
         do_exception(INSTRUCTION_PAGE_FAULT, pc);
     }
 

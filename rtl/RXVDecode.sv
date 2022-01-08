@@ -846,10 +846,10 @@ module RXVDecode #(
 
     always_ff @(posedge clk) begin
         if (decode_valid && !decode_stall && !kill_valid && !exec_resteer) begin
-            trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
+            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
         end
         if (decode_valid && decode_exception_next.valid) begin
-            trace_start_instruction(32'(dispatch_id), decode_pc, decode_instr, 2'b11);
+            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
         end
     end
 

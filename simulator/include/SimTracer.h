@@ -31,6 +31,7 @@ struct MemTrace {
 struct InstructionTrace {
     uint64_t cycle_num;
     uint32_t pc;
+    uint32_t pc_phys;
     uint32_t instruction;
     std::vector<RegisterTrace> gprs;
     std::vector<MemTrace> mems;
@@ -132,7 +133,8 @@ public:
     }
 
     virtual void trace_start_instruction(int id,
-                                         uint32_t pc,
+                                         uint32_t virt,
+                                         uint32_t phys,
                                          uint32_t instr,
                                          uint64_t cycle,
                                          PrivilegeLevel level)
@@ -142,7 +144,8 @@ public:
 
         auto &instr_trace = inflight[id];
         instr_trace.cycle_num = cycle;
-        instr_trace.pc = pc;
+        instr_trace.pc = virt;
+        instr_trace.pc_phys = phys;
         instr_trace.instruction = instr;
         instr_trace.privilege = level;
         instr_trace.exception_raised = false;
@@ -188,6 +191,7 @@ public:
         auto insn_builder = RXV::Trace::InstructionTraceBuilder(trace_builder);
 
         insn_builder.add_pc(instr_trace.pc);
+        insn_builder.add_pc_phys(instr_trace.pc_phys);
         insn_builder.add_cycle_num(instr_trace.cycle_num);
         insn_builder.add_exception_raised(instr_trace.exception_raised);
         insn_builder.add_instruction(instr_trace.instruction);

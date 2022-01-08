@@ -10,6 +10,7 @@ include_directories(${LLVM_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../simulator)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../simulator/include)
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/Trace_generated.h
                    COMMAND flatc --cpp ${CMAKE_CURRENT_SOURCE_DIR}/Trace.fbs
@@ -21,5 +22,12 @@ target_link_libraries(trace-decode
                       ${Boost_LIBRARIES}
                       ${ZLIB_LIBRARIES}
                       clangTooling
+                      fmt
+                      elfio::elfio)
+add_executable(make-core
+               MakeCore.cpp)
+target_link_libraries(make-core
+                      ${Boost_LIBRARIES}
+                      ${ZLIB_LIBRARIES}
                       fmt
                       elfio::elfio)

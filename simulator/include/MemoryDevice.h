@@ -56,7 +56,7 @@ public:
         mem = std::make_unique<uint32_t[]>(ram_size / 4);
     }
 
-    void read(uint32_t addr, char *dst, size_t len)
+    virtual void read(uint32_t addr, char *dst, size_t len)
     {
         if (addr >= ram_base && addr < ram_base + ram_size) {
             addr -= ram_base;
@@ -69,7 +69,7 @@ public:
         }
     }
 
-    void write(uint32_t addr, const char *val, size_t len)
+    virtual void write(uint32_t addr, const char *val, size_t len)
     {
         if (addr >= ram_base && addr < ram_base + ram_size) {
             addr -= ram_base;
@@ -82,7 +82,7 @@ public:
         }
     }
 
-    void write(uint32_t addr, uint32_t val, uint8_t wstb)
+    virtual void write(uint32_t addr, uint32_t val, uint8_t wstb)
     {
         auto byte_offs = __builtin_ffs(wstb) - 1;
         auto nbytes = __builtin_popcount(wstb);
@@ -91,7 +91,7 @@ public:
         write(addr, byte_ptr, nbytes);
     }
 
-    uint32_t read(uint32_t addr)
+    virtual uint32_t read(uint32_t addr)
     {
         uint32_t v;
 

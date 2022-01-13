@@ -256,7 +256,7 @@ module RXVFetch #(
     ) resteer_target_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (resteer | decode_stall),
+        .en   (resteer),
         .d    (resteer_target_next),
         .q    (resteer_target)
     );

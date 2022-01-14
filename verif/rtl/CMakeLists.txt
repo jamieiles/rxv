@@ -110,7 +110,10 @@ verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
          fixtures/RXVDCacheWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
@@ -120,6 +123,7 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVDCacheWrapper
+         PREFIX VRXVDCacheWrapper
          TRACE_FST)
 
 verilate(rtl-unittest

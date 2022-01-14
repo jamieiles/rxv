@@ -32,6 +32,17 @@ module RXVDCache #(
     input  logic                       device_memory
 );
 
+    typedef enum bit [2:0] {
+        STATE_RUN = 3'b000,
+        STATE_MISS = 3'b001,
+        STATE_FLUSH = 3'b010,
+        STATE_FILL = 3'b011,
+        STATE_INVAL = 3'b100,
+        STATE_CLEAN = 3'b101,
+        STATE_UNCACHED = 3'b110,
+        STATE_ACCESS_COMPLETE = 3'b111
+    } state_t;
+
     localparam offset_bits = $clog2(line_size_bytes / 4);
     localparam index_bits = $clog2(nr_lines);
     localparam tag_bits = 30 - index_bits - offset_bits;
@@ -58,71 +69,62 @@ module RXVDCache #(
     endfunction
     // verilator lint_on UNUSED
 
-    logic [    index_bits-1:0] index;
-    logic [   offset_bits-1:0] data_offset;
-    logic [      tag_bits-1:0] way_tag                [0:nr_ways-1];
-    logic [       nr_ways-1:0] way_valid;
-    logic                      miss;
-    logic                      tag_compare_valid;
-    logic [              31:2] lookup_address;
-    logic [       nr_ways-1:0] way_hit;
-    logic [      way_bits-1:0] hit_way;
-    logic [      way_bits-1:0] lru;
-    logic                      lru_update;
-    logic [      way_bits-1:0] lru_way_sel;
-    logic [    index_bits-1:0] tag_ram_index;
-    logic [    index_bits-1:0] dirty_ram_index;
-    logic [    index_bits-1:0] cmo_index;
-    logic [    index_bits-1:0] cmo_index_next;
-    logic [        tag_bits:0] tag_write_val;
-    logic [       nr_ways-1:0] tag_write_en;
-    logic                      invalidating;
-    logic                      invalidating_update;
-    logic                      cleaning;
-    logic                      cleaning_update;
-    logic                      start_access;
-    logic                      need_fill;
-    logic                      need_writeback;
-    logic                      filling;
-    logic                      filling_next;
-    logic                      fill_complete;
-    logic                      writing_back;
-    logic                      writing_back_next;
-    logic                      uncached_access;
-    logic                      uncached_access_next;
-    logic                      writeback_complete;
-    logic                      data_write_en;
-    logic [      way_bits-1:0] data_way_sel;
-    logic [               3:0] write_bytesel;
-    logic                      write_wren;
-    logic                      write_wren_update;
-    logic [               3:0] data_write_bytesel;
-    logic [              31:0] data_din;
-    logic [       nr_ways-1:0] dirty_wren;
-    logic                      dirty_next;
-    logic [       nr_ways-1:0] dirty;
-    logic [      way_bits-1:0] cmo_way;
-    logic [      way_bits-1:0] cmo_way_next;
-    logic [              31:0] dout_cached;
-    logic [              31:0] dout_uncached;
-    logic [               1:0] dout_use_uncached;
-    logic [               1:0] dout_use_uncached_next;
-    logic [               3:0] bus_len;
-    logic                      bus_active;
-    logic                      bus_active_next;
-    logic [              31:2] bus_address;
-    logic                      bus_valid;
-    logic                      bus_complete;
-    logic [              31:0] bus_rdata;
+    logic   [    index_bits-1:0] index;
+    logic   [   offset_bits-1:0] data_offset;
+    logic   [      tag_bits-1:0] way_tag                [0:nr_ways-1];
+    logic   [       nr_ways-1:0] way_valid;
+    logic                        miss;
+    logic                        tag_compare_valid;
+    logic   [              31:2] lookup_address;
+    logic   [       nr_ways-1:0] way_hit;
+    logic   [      way_bits-1:0] hit_way;
+    logic   [      way_bits-1:0] lru;
+    logic                        lru_update;
+    logic   [      way_bits-1:0] lru_way_sel;
+    logic   [    index_bits-1:0] tag_ram_index;
+    logic   [    index_bits-1:0] dirty_ram_index;
+    logic   [    index_bits-1:0] cmo_index;
+    logic   [    index_bits-1:0] cmo_index_next;
+    logic   [        tag_bits:0] tag_write_val;
+    logic   [       nr_ways-1:0] tag_write_en;
+    logic                        start_access;
+    logic                        data_write_en;
+    logic   [      way_bits-1:0] data_way_sel;
+    logic   [               3:0] write_bytesel;
+    logic                        write_wren;
+    logic                        write_wren_update;
+    logic   [               3:0] data_write_bytesel;
+    logic   [              31:0] data_din;
+    logic   [       nr_ways-1:0] dirty_wren;
+    logic                        dirty_next;
+    logic   [       nr_ways-1:0] dirty;
+    logic   [      way_bits-1:0] cmo_way;
+    logic   [      way_bits-1:0] cmo_way_next;
+    logic   [      way_bits-1:0] fill_way;
+    logic   [      way_bits-1:0] fill_way_next;
+    logic   [              31:0] dout_cached;
+    logic   [              31:0] dout_uncached;
+    logic   [               1:0] dout_use_uncached;
+    logic   [               1:0] dout_use_uncached_next;
+    logic   [               3:0] bus_len;
+    logic                        bus_active;
+    logic                        bus_active_next;
+    logic   [              31:2] bus_address;
+    logic                        bus_valid;
+    logic                        bus_complete;
+    logic   [              31:0] bus_rdata;
     // verilator lint_off UNUSED
-    logic [               3:0] bus_beat_num;
-    logic [               3:0] bus_beat_num_next;
+    logic   [               3:0] bus_beat_num;
+    logic   [               3:0] bus_beat_num_next;
     // verilator lint_on UNUSED
-    logic [               3:0] bus_bytesel;
-    logic                      bus_beat_ack;
-    logic                      bus_wren;
-    logic [data_addr_bits-1:0] data_ram_addr;
-    logic [              31:0] bus_wdata;
+    logic   [               3:0] bus_bytesel;
+    logic                        bus_beat_ack;
+    logic                        bus_wren;
+    logic   [data_addr_bits-1:0] data_ram_addr;
+    logic   [              31:0] bus_wdata;
+    logic                        cmo_active;
+    state_t                      state;
+    state_t                      next_state;
 
     BusAdapter BusAdapter (
         .clk          (clk),
@@ -192,7 +194,7 @@ module RXVDCache #(
         .depth(nr_lines)
     ) BitPLRU (
         .clk       (clk),
-        .read_index(index),
+        .read_index(addr_index(lookup_address)),
         .access_way(lru_way_sel),
         .valid     (lru_update),
         .lru_out   (lru)
@@ -205,134 +207,264 @@ module RXVDCache #(
             way_hit[i] = way_valid[i] && way_tag[i] == addr_tag(lookup_address);
         end
 
-        miss = tag_compare_valid && ~|way_hit && ~((bus_complete) && device_memory);
+        miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && device_memory);
         phys_out = {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'(0), 2'b0};
-        busy     = miss | filling | writing_back | invalidating | cleaning |
-            (uncached_access_next & ~bus_complete);
+
+        case (state)
+            STATE_RUN: busy = miss;
+            STATE_UNCACHED: busy = ~bus_complete;
+            default: busy = 1'b1;
+        endcase
     end
 
     // Dirty RAM management
     always_comb begin
         integer i;
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            dirty_wren[i] = !device_memory &&
-                (invalidating ||
-                 (writing_back && bus_complete && way_bits'(i) == lru) ||
-                 (cleaning && bus_complete && way_bits'(i) == cmo_way) ||
-                 (filling && bus_complete && way_bits'(i) == lru) ||
-                 (tag_compare_valid && write_wren && way_hit[i]));
+            case (state)
+                STATE_RUN: begin
+                    dirty_wren[i] = tag_compare_valid && write_wren && way_hit[i];
+                    dirty_next    = tag_compare_valid && write_wren;
+                end
+                STATE_CLEAN: begin
+                    dirty_wren[i] = bus_complete && way_bits'(i) == cmo_way;
+                    dirty_next    = 1'b0;
+                end
+                STATE_INVAL: begin
+                    dirty_wren[i] = 1'b1;
+                    dirty_next    = 1'b0;
+                end
+                STATE_FILL, STATE_FLUSH: begin
+                    dirty_wren[i] = bus_complete && way_bits'(i) == fill_way;
+                    dirty_next    = 1'b0;
+                end
+                default: begin
+                    dirty_wren[i] = 1'b0;
+                    dirty_next    = 1'b0;
+                end
+            endcase
+            if (device_memory) dirty_wren[i] = 1'b0;
         end
-        dirty_next = invalidating || bus_complete || cleaning ? 1'b0 :
-            tag_compare_valid && !busy && !miss && write_wren;
     end
 
-    // Uncached access control
     always_comb begin
-        if (bus_complete) uncached_access_next = 1'b0;
-        else if (tag_compare_valid && device_memory) uncached_access_next = 1'b1;
-        else uncached_access_next = uncached_access;
+        cmo_active = state == STATE_INVAL || state == STATE_CLEAN || clean || invalidate;
     end
 
     // Tag RAM control
     always_comb begin
         integer i;
-        tag_write_val = {~invalidating, addr_tag(lookup_address)};
-        tag_ram_index = invalidating || cleaning ? cmo_index :
+
+        tag_write_val = {state != STATE_INVAL, addr_tag(lookup_address)};
+        tag_ram_index = cmo_active ? cmo_index :
             busy ? addr_index(lookup_address) : addr_index(address);
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            tag_write_en[i] = invalidating ||
-                (filling && bus_complete && way_bits'(i) == lru) && ~device_memory;
+            case (state)
+                STATE_INVAL: tag_write_en[i] = 1'b1;
+                STATE_FILL: tag_write_en[i] = bus_complete && way_bits'(i) == fill_way;
+                default: tag_write_en[i] = 1'b0;
+            endcase
         end
     end
 
     // Dirty RAM control
     always_comb begin
-        dirty_ram_index = invalidating || cleaning ? cmo_index : addr_index(lookup_address);
+        dirty_ram_index = cmo_active ? cmo_index_next : addr_index(lookup_address);
     end
 
     // LRU update
     always_comb begin
         lru_update  = |tag_write_en | (tag_compare_valid & !miss);
-        lru_way_sel = |tag_write_en ? lru : hit_way;
+        lru_way_sel = |tag_write_en ? fill_way : hit_way;
     end
 
     // Bus control
     always_comb begin
-        bus_valid = ((need_fill & ~(need_writeback | writing_back)) |
-             (uncached_access & ~bus_active & ~write_wren)) |
-             need_writeback |
-             (miss & uncached_access & ~bus_active & write_wren);
-        bus_wren = need_writeback | (miss & uncached_access & write_wren);
-        bus_active_next = filling | writing_back | uncached_access;
-        bus_len = uncached_access ? 4'b0 : fill_beats;
-        bus_address = uncached_access ? lookup_address :
-            cleaning ? {way_tag[cmo_way], cmo_index, offset_bits'('b0)} :
-            bus_wren ? {way_tag[lru], addr_index(lookup_address), offset_bits'('b0)} :
-            {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)};
-        bus_wdata = uncached_access ? din : dout_cached;
-        bus_bytesel = uncached_access ? write_bytesel : 4'b1111;
+        case (state)
+            STATE_FILL: begin
+                bus_valid = 1'b1;
+                bus_wren = 1'b0;
+                bus_active_next = bus_valid;
+                bus_len = fill_beats;
+                bus_address = {
+                    addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)
+                };
+                bus_wdata = din;  // Unused
+                bus_bytesel = 4'b1111;
+            end
+            STATE_FLUSH: begin
+                bus_valid = 1'b1 & ~bus_active;
+                bus_wren = 1'b1;
+                bus_active_next = bus_valid;
+                bus_len = fill_beats;
+                bus_address = {way_tag[fill_way], addr_index(lookup_address), offset_bits'('b0)};
+                bus_wdata = dout_cached;
+                bus_bytesel = 4'b1111;
+            end
+            STATE_CLEAN: begin
+                bus_valid       = 1'b1 & ~bus_active & dirty[cmo_way];
+                bus_wren        = 1'b1;
+                bus_active_next = bus_valid;
+                bus_len         = fill_beats;
+                bus_address     = {way_tag[cmo_way], cmo_index, offset_bits'('b0)};
+                bus_wdata       = dout_cached;
+                bus_bytesel     = 4'b1111;
+            end
+            STATE_UNCACHED: begin
+                bus_valid       = 1'b1 & ~bus_active;
+                bus_wren        = write_wren;
+                bus_active_next = bus_valid;
+                bus_len         = 4'b0;
+                bus_address     = lookup_address;
+                bus_wdata       = din;
+                bus_bytesel     = write_bytesel;
+            end
+            default: begin
+                bus_valid       = 1'b0;
+                bus_wren        = 1'b0;
+                bus_active_next = 1'b0;
+                bus_len         = 4'b0;
+                bus_address     = 'b0;
+                bus_wdata       = din;
+                bus_bytesel     = 'b0;
+            end
+        endcase
     end
 
     // Data RAM control
     always_comb begin
-        data_write_en = filling ? bus_beat_ack : ~miss & write_wren & ~device_memory;
-        data_write_bytesel = filling ? 4'b1111 : write_bytesel;
-        data_way_sel = cleaning ? cmo_way : filling || writing_back ? lru : hit_way;
-        data_din = busy ? bus_rdata : din;
-        data_offset = ((writing_back || cleaning) && !bus_beat_ack) || filling ? offset_bits'(bus_beat_num) :
-            writing_back && bus_beat_ack ? offset_bits'(bus_beat_num_next) :
-            addr_offset(lookup_address);
+        case (state)
+            STATE_FILL: begin
+                data_write_en      = bus_beat_ack;
+                data_write_bytesel = 4'b1111;
+                data_way_sel       = fill_way;
+                data_din           = bus_rdata;
+                data_offset        = offset_bits'(bus_beat_num);
+            end
+            STATE_CLEAN: begin
+                data_write_en = 1'b0;
+                data_write_bytesel = write_bytesel;
+                data_way_sel = cmo_way;
+                data_din = bus_rdata;
+                data_offset = bus_beat_ack ? offset_bits'(bus_beat_num_next) :
+                    offset_bits'(bus_beat_num);
+            end
+            STATE_FLUSH: begin
+                data_write_en = 1'b0;
+                data_write_bytesel = write_bytesel;
+                data_way_sel = fill_way;
+                data_din = bus_rdata;
+                data_offset = bus_beat_ack ? offset_bits'(bus_beat_num_next) :
+                    offset_bits'(bus_beat_num);
+            end
+            STATE_RUN: begin
+                data_write_en      = ~miss & write_wren & ~device_memory;
+                data_write_bytesel = write_bytesel;
+                data_way_sel       = hit_way;
+                data_din           = din;
+                data_offset        = addr_offset(lookup_address);
+            end
+            default: begin
+                data_write_en      = 1'b0;
+                data_write_bytesel = write_bytesel;
+                data_way_sel       = hit_way;
+                data_din           = din;
+                data_offset        = addr_offset(lookup_address);
+            end
+        endcase
     end
 
     // Cycle + fill/writeback control
     always_comb begin
-        index = cleaning ? cmo_index : addr_index(lookup_address);
-        start_access = valid & ~busy;
+        index             = state == STATE_CLEAN ? cmo_index : addr_index(lookup_address);
+        start_access      = valid & ~busy;
         write_wren_update = start_access | ~busy;
-
-        need_writeback = ~device_memory & ((&dirty & miss & ~filling) |
-            (cleaning & dirty[cmo_way])) & ~writing_back;
-        writing_back_next = need_writeback || writeback_complete ? need_writeback : writing_back;
-
-        need_fill = !device_memory && miss && !filling;
-        filling_next = filling;
-        if ((need_fill && !(need_writeback || writing_back)) || fill_complete)
-            filling_next = need_fill;
     end
 
     // Data output
     always_comb begin
-        dout_use_uncached_next = {uncached_access, dout_use_uncached[1]};
+        dout_use_uncached_next = {state == STATE_UNCACHED, dout_use_uncached[1]};
         dout                   = dout_use_uncached[0] ? dout_uncached : dout_cached;
     end
 
     // Cache maintenance operations
     always_comb begin
-        invalidating_update = invalidate || &cmo_index;
-        cleaning_update = clean || (&cmo_index && &cmo_way);
-        cmo_index_next = invalidating || (cleaning && ~|dirty && &cmo_way) ? cmo_index + 1'b1 : cmo_index;
-        cmo_way_next = cleaning && !dirty[cmo_way] ? cmo_way + 1'b1 : cmo_way;
+        case (state)
+            STATE_INVAL: begin
+                cmo_index_next = cmo_index + 1'b1;
+                cmo_way_next   = cmo_way + 1'b1;
+            end
+            STATE_CLEAN: begin
+                cmo_index_next = ~|dirty && &cmo_way ? cmo_index + 1'b1 : cmo_index;
+                cmo_way_next   = !dirty[cmo_way] ? cmo_way + 1'b1 : cmo_way;
+            end
+            default: begin
+                cmo_index_next = cmo_index;
+                cmo_way_next   = cmo_way;
+            end
+        endcase
     end
 
     always_comb begin
         data_ram_addr = {data_way_sel, index, data_offset};
     end
 
-    RXVDFF invalidating_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (invalidating_update),
-        .d    (invalidate),
-        .q    (invalidating)
+    always_comb begin
+        integer i;
+
+        // First fill empty ways, then fall back to LRU
+        fill_way_next = fill_way;
+        if (state == STATE_MISS) begin
+            fill_way_next = lru;
+            if (~&way_valid) begin
+                for (i = nr_ways - 1; i >= 0; i = i - 1) begin
+                    if (!way_valid[i]) begin
+                        fill_way_next = way_bits'(i);
+                    end
+                end
+            end
+        end
+    end
+
+    RXVAssert device_not_cached (
+        .clk      (clk),
+        .en       (state == STATE_RUN && tag_compare_valid && device_memory),
+        .condition(miss)
     );
 
-    RXVDFF cleaning_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (cleaning_update),
-        .d    (clean),
-        .q    (cleaning)
-    );
+    always_comb begin
+        case (state)
+            STATE_RUN: begin
+                next_state = STATE_RUN;
+                if (invalidate) next_state = STATE_INVAL;
+                if (clean) next_state = STATE_CLEAN;
+                if (miss) next_state = STATE_MISS;
+                if (tag_compare_valid && device_memory) next_state = STATE_UNCACHED;
+            end
+            STATE_MISS: begin
+                next_state = &dirty ? STATE_FLUSH : STATE_FILL;
+            end
+            STATE_FLUSH: begin
+                next_state = bus_complete ? STATE_FILL : STATE_FLUSH;
+            end
+            STATE_FILL: begin
+                next_state = bus_complete ? STATE_ACCESS_COMPLETE : STATE_FILL;
+            end
+            STATE_INVAL: begin
+                next_state = &cmo_index ? STATE_RUN : STATE_INVAL;
+            end
+            STATE_CLEAN: begin
+                next_state = (&cmo_index && &cmo_way) ? STATE_RUN : STATE_CLEAN;
+            end
+            STATE_ACCESS_COMPLETE: begin
+                next_state = STATE_RUN;
+            end
+            STATE_UNCACHED: begin
+                next_state = bus_complete ? STATE_RUN : STATE_UNCACHED;
+            end
+            default: next_state = state;
+        endcase
+    end
 
     RXVDFF #(
         .width(way_bits)
@@ -344,28 +476,14 @@ module RXVDCache #(
         .q    (cmo_way)
     );
 
-    RXVDFF filling_dff (
+    RXVDFF #(
+        .width(way_bits)
+    ) fill_way_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (filling_next),
-        .q    (filling)
-    );
-
-    RXVDFF writing_back_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (writing_back_next),
-        .q    (writing_back)
-    );
-
-    RXVDFF uncached_access_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (uncached_access_next),
-        .q    (uncached_access)
+        .d    (fill_way_next),
+        .q    (fill_way)
     );
 
     RXVDFF #(
@@ -376,22 +494,6 @@ module RXVDCache #(
         .en   (1'b1),
         .d    (cmo_index_next),
         .q    (cmo_index)
-    );
-
-    RXVDFF fill_complete_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (~writing_back & bus_complete),
-        .q    (fill_complete)
-    );
-
-    RXVDFF writeback_complete_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (bus_complete),
-        .q    (writeback_complete)
     );
 
     RXVDFF tag_compare_valid_dff (
@@ -456,6 +558,16 @@ module RXVDCache #(
         .en   (1'b1),
         .d    (bus.rdata),
         .q    (dout_uncached)
+    );
+
+    RXVDFF #(
+        .width($bits(state_t))
+    ) state_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (next_state),
+        .q    (state)
     );
 
 endmodule

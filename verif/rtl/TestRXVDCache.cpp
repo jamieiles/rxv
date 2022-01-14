@@ -302,7 +302,6 @@ TEST_F(DCacheTestbench, NoFillWithoutValid)
 
     this->dut.address = 48;
     cycle(256);
-    EXPECT_EQ(this->dut.dout, 0x00000000);
 }
 
 TEST_F(DCacheTestbench, WriteFills)
@@ -381,7 +380,9 @@ TEST_F(DCacheTestbench, WriteConflictWritesBack)
 
     // Expect write-back
     for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, write(i * 4, i == 0 ? 0xf00ff00f : i, 0xf));
+        EXPECT_CALL(*this->bus,
+                    write((4096 * 1) + i * 4,
+                          i == 0 ? 0xf00ff00f : (1 << 16) | i, 0xf));
 
     // Expect line-fill
     for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)

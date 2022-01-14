@@ -69,6 +69,7 @@ static boost::program_options::variables_map parse_options(int argc,
         ("m-elf", boost::program_options::value<std::string>(), "M-mode ELF file")
         ("s-elf", boost::program_options::value<std::string>(), "S-mode ELF file")
         ("u-elf", boost::program_options::value<std::string>(), "U-mode ELF file")
+        ("instruction-count", "Count instructions rather than cycles")
         ("help,h", "Help screen");
     // clang-format on
 
@@ -293,6 +294,7 @@ int main(int argc, char **argv)
     unsigned long start = 0;
     auto last = vm["last"].as<unsigned long>();
     auto num_instructions = proc_trace->instructions()->size();
+    bool count_instructions = vm.count("instruction-count");
     if (last != 0) {
         if (last < num_instructions)
             start = num_instructions - last;
@@ -319,8 +321,9 @@ int main(int argc, char **argv)
             notes += " /EXCEPTION";
 
         fmt::print("@ {:<10d} {:s} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n",
-                   instr->cycle_num(), EnumNamePrivilege(instr->privilege()),
-                   instr->pc(), instr_string, converter.instr, symbol, notes);
+                   count_instructions ? idx : instr->cycle_num(),
+                   EnumNamePrivilege(instr->privilege()), instr->pc(),
+                   instr_string, converter.instr, symbol, notes);
         for (auto reg : *instr->gpr_accesses()) {
             if (reg->id() == 0)
                 continue;

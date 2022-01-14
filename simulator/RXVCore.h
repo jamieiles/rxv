@@ -4,6 +4,7 @@
 #include "SimulatorBase.h"
 #include "MemoryDevice.h"
 #include "VerilogDriver.h"
+#include "UART.h"
 #include "VRXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
@@ -157,6 +158,7 @@ public:
         tracer = std::make_shared<ShadowTracer>(trace_name, &shadow_bus);
         this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         bus = std::make_shared<MemoryBus>(mem_base, mem_size);
+        bus->add_peripheral(std::make_unique<UART>(uart_base, 4096));
         this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
         this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
     }

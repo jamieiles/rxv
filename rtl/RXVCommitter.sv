@@ -50,7 +50,7 @@ module RXVCommitter #(
     end
 
     always_comb begin
-        retired = commit_ready & ~commit_killed;
+        retired = commit_ready & (~commit_killed | commit_excepted);
     end
 
     always_comb begin

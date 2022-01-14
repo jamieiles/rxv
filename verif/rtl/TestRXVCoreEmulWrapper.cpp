@@ -960,3 +960,42 @@ TEST_F(RXVCoreEmulWrapperTest, IllegalCSR)
     EXPECT_EQ(tracer->read_reg(3), 0);
     EXPECT_EQ(tracer->read_reg(10), 10);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, SimultaneousLSUIntCompletion)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       06408093                addi    x1,x1,100 # 0x80000064
+        80000008:       0000b137                lui     x2,0xb
+        8000000c:       a5510113                addi    x2,x2,-1451 # 0xaa55
+        80000010:       0000f1b7                lui     x3,0xf
+        80000014:       00f18193                addi    x3,x3,15 # 0xf00f
+        80000018:       00209023                sh      x2,0(x1)
+        8000001c:       00309123                sh      x3,2(x1)
+        80000020:       00120213                addi    x4,x4,1 # 0x1
+        80000024:       00120213                addi    x4,x4,1 # 0x1
+        80000028:       00120213                addi    x4,x4,1 # 0x1
+        8000002c:       00120213                addi    x4,x4,1 # 0x1
+        80000030:       00120213                addi    x4,x4,1 # 0x1
+        80000034:       00120213                addi    x4,x4,1 # 0x1
+        80000038:       00120213                addi    x4,x4,1 # 0x1
+        8000003c:       00120213                addi    x4,x4,1 # 0x1
+        80000040:       00120213                addi    x4,x4,1 # 0x1
+        80000044:       00120213                addi    x4,x4,1 # 0x1
+        80000048:       00120213                addi    x4,x4,1 # 0x1
+        8000004c:       00120213                addi    x4,x4,1 # 0x1
+        80000050:       00120213                addi    x4,x4,1 # 0x1
+        80000054:       00120213                addi    x4,x4,1 # 0x1
+        80000058:       00120213                addi    x4,x4,1 # 0x1
+        8000005c:       00120213                addi    x4,x4,1 # 0x1
+        80000060:       fb9ff06f                j       0x80000018
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000060; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(4), 16);
+}

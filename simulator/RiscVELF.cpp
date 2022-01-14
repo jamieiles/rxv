@@ -102,7 +102,7 @@ void RiscVELF::read_symbols()
 {
     auto symtab_sec = find_section(".symtab");
     if (!symtab_sec)
-        throw std::runtime_error("No symtab");
+        return;
 
     auto strtab_sec = find_section(".strtab");
     if (!strtab_sec)

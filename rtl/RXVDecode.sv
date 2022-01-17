@@ -128,8 +128,6 @@ module RXVDecode #(
     logic                                is_branch;
 
     logic        [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
-    logic                                int_exec_valid_next;
-    logic                                lsu_exec_valid_next;
     logic                                exec_have_writeback_next;
     logic        [                 31:0] exec_immed_next;
     logic        [                 31:0] exec_branch_target_next;
@@ -570,17 +568,15 @@ module RXVDecode #(
     end
 
     always_comb begin
-        int_exec_valid_next = exec_pipe_en[EXEC_PIPE_INT] &&
+        dispatch_int = exec_pipe_en[EXEC_PIPE_INT] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
-        dispatch_int = int_exec_valid_next & exec_have_writeback_next;
     end
 
     always_comb begin
-        lsu_exec_valid_next = exec_pipe_en[EXEC_PIPE_LSU] &&
+        dispatch_lsu = exec_pipe_en[EXEC_PIPE_LSU] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
-        dispatch_lsu = lsu_exec_valid_next & exec_have_writeback_next;
     end
 
     always_comb begin
@@ -616,7 +612,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        dispatch_ready = int_exec_valid_next | lsu_exec_valid_next;
+        dispatch_ready = dispatch_int | dispatch_lsu;
     end
 
     always_comb begin
@@ -708,7 +704,7 @@ module RXVDecode #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (int_exec_valid_next),
+        .d    (dispatch_int),
         .q    (int_exec_valid)
     );
 
@@ -716,7 +712,7 @@ module RXVDecode #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (lsu_exec_valid_next),
+        .d    (dispatch_lsu),
         .q    (lsu_exec_valid)
     );
 

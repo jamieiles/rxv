@@ -3,13 +3,11 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
-
 #include "VerilogTestbench.h"
 #include "VRXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper_BusTransactor.h"
-// #include "VRXVCoreEmulWrapper_RXVCore.h"
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
 #include "SimTracer.h"

@@ -9,7 +9,8 @@ package RXVTrace;
         input logic [31:0] val;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_write_reg(", instr_id, ", ", regnum, ", ", val, ");");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_reg(", instr_id,
+           ", ", regnum, ", ", val, ");");
 `endif
     endfunction
 
@@ -19,7 +20,7 @@ package RXVTrace;
         input logic [31:0] val;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_read_reg(", instr_id, ", ", regnum, ", ", val, ");");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_reg(", instr_id, ", ", regnum, ", ", val, ");");
 `endif
     endfunction
 
@@ -33,13 +34,13 @@ package RXVTrace;
 `ifdef RXV_TRACE
         case (size)
             1:
-            $c("this->tracer->trace_read_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
+            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
             2:
-            $c("this->tracer->trace_read_mem<uint16_t>(", instr_id, ", ", virt, ", ", phys, ",",
+            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint16_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
             4:
-            $c("this->tracer->trace_read_mem<uint32_t>(", instr_id, ", ", virt, ", ", phys, ",",
+            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint32_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
             default: assert (1'b0);
         endcase
@@ -56,13 +57,13 @@ package RXVTrace;
 `ifdef RXV_TRACE
         case (size)
             1:
-            $c("this->tracer->trace_write_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
+            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
             2:
-            $c("this->tracer->trace_write_mem<uint16_t>(", instr_id, ", ", virt, ", ", phys, ",",
+            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint16_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
             4:
-            $c("this->tracer->trace_write_mem<uint32_t>(", instr_id, ", ", virt, ", ", phys, ",",
+            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint32_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
             default: assert (1'b0);
         endcase
@@ -75,7 +76,8 @@ package RXVTrace;
         input logic [31:0] val;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_write_csr(", instr_id, ", ", csr, ",", val, ");");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_csr(", instr_id,
+           ", ", csr, ",", val, ");");
 `endif
     endfunction
 
@@ -87,8 +89,9 @@ package RXVTrace;
         input logic [1:0] privilege;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_start_instruction(", instr_id, ", ", {pc, 2'b0}, ",", {pc_phys, 2'b0
-           }, ",", instr, ",", $time, ", static_cast<PrivilegeLevel>(", privilege, "));");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_start_instruction(",
+           instr_id, ", ", {pc, 2'b0}, ",", {pc_phys, 2'b0}, ",", instr, ",", $time,
+           ", static_cast<PrivilegeLevel>(", privilege, "));");
 `endif
     endfunction
 
@@ -96,7 +99,8 @@ package RXVTrace;
         input int instr_id;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_exception(", instr_id, ");");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_exception(", instr_id,
+           ");");
 `endif
     endfunction
 
@@ -104,13 +108,14 @@ package RXVTrace;
         input int instr_id;
 
 `ifdef RXV_TRACE
-        $c("this->tracer->trace_end_instruction(", instr_id, ");");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_end_instruction(",
+           instr_id, ");");
 `endif
     endfunction
 
     function void trace_flush;
 `ifdef RXV_TRACE
-        $c("this->tracer->flush();");
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->flush();");
 `endif
     endfunction
     // verilator lint_on UNUSED

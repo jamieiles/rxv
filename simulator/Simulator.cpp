@@ -2,6 +2,7 @@
 #include <string>
 #include <boost/program_options.hpp>
 #include <signal.h>
+#include <chrono>
 
 #include "ComplianceTest.h"
 
@@ -16,6 +17,19 @@ double sc_time_stamp()
 static void sigint_handler(int signum)
 {
     sigint_received = true;
+}
+
+#include <fmt/core.h>
+
+static std::string human_freq(double hz)
+{
+    if (hz < 1000)
+        return fmt::format("{0:0.2f}Hz", hz);
+    if (hz < 1000000)
+        return fmt::format("{0:0.2f}KHz", hz / 1000);
+    if (hz < 1000000000)
+        return fmt::format("{0:0.2f}MHz", hz / 1000000);
+    return fmt::format("{0:0.2f}GHz", hz / 1000000000);
 }
 
 class Simulation
@@ -35,19 +49,25 @@ public:
         signal(SIGINT, sigint_handler);
         signal(SIGQUIT, sigint_handler);
 
+        auto start = std::chrono::steady_clock::now();
         try {
             while (!sigint_received)
                 sim->step();
         } catch (std::exception &e) {
             std::cerr << "\r\nERROR: " << e.what() << "\r\n" << std::endl;
         }
+        auto end = std::chrono::steady_clock::now();
+        std::chrono::duration<double> duration = end - start;
 
-        std::cout << "[simulation finished]\r" << std::endl;
+        fmt::print("[simulation finished]\n\r");
         auto stats = sim->get_perf_stats();
-        std::cout << std::dec << std::setprecision(2) << "  " << stats.retired
-                  << " instructions in " << stats.cycles << " cycles ("
-                  << static_cast<double>(stats.retired) / stats.cycles
-                  << " instructions per cycle)" << std::endl;
+        // clang-format off
+        fmt::print(
+            "instructions in {0:d} cycles ({1:0.2f} instructions per cycle)\n\r",
+            stats.cycles, static_cast<double>(stats.retired) / stats.cycles);
+        fmt::print("Simulation speed {0:s}\r\n",
+                   human_freq(stats.cycles / duration.count()));
+        // clang-format on
     }
 
 private:

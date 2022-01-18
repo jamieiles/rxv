@@ -23,6 +23,7 @@ add_executable(rxv-simulator
 add_dependencies(rxv-simulator gen_trace_h)
 target_link_libraries(rxv-simulator
                       RXVCoreEmul
+                      fmt
                       ${Boost_LIBRARIES}
                       ${ZLIB_LIBRARIES})
 

@@ -54,8 +54,10 @@ module RXVCore #(
 
     logic                              dispatch_int;
     logic                              dispatch_lsu;
+    logic                              dispatch_mul;
     logic                              int_ready;
     logic                              lsu_ready;
+    logic                              mul_ready;
 
     logic                              decode_resteer;
     logic          [             31:2] decode_resteer_tgt;
@@ -100,6 +102,9 @@ module RXVCore #(
     phys_reg_tag                       int_exec_reg_wr_addr;
     logic          [             31:0] int_exec_reg_wr_data;
 
+    logic                              int_complete_valid;
+    logic          [ commit_width-1:0] int_complete_id;
+
     rxv_alu_op                         exec_alu_op;
     rxv_csr_op                         exec_csr_op;
     logic                              int_exec_valid;
@@ -116,6 +121,13 @@ module RXVCore #(
     logic          [ commit_width-1:0] lsu_except_id;
     logic                              lsu_resteer;
     logic          [             31:2] lsu_resteer_tgt;
+
+    logic                              mul_exec_valid;
+    logic          [ commit_width-1:0] mul_exec_complete_id;
+    logic                              mul_exec_complete_valid;
+    logic                              mul_exec_reg_wr_en;
+    phys_reg_tag                       mul_exec_reg_wr_addr;
+    logic          [             31:0] mul_exec_reg_wr_data;
 
     logic          [ commit_width-1:0] lsu_complete_id;
     logic                              lsu_complete_valid;
@@ -290,8 +302,10 @@ module RXVCore #(
         .busy_status                (scoreboard_busy),
         .int_ready                  (int_ready),
         .lsu_ready                  (lsu_ready),
+        .mul_ready                  (mul_ready),
         .dispatch_int               (dispatch_int),
         .dispatch_lsu               (dispatch_lsu),
+        .dispatch_mul               (dispatch_mul),
         .lsu_busy                   (lsu_busy),
         .rename_out                 (rename_in),
         .rename_out_valid           (rename_valid),
@@ -304,6 +318,7 @@ module RXVCore #(
         .exec_csr_op                (exec_csr_op),
         .int_exec_valid             (int_exec_valid),
         .lsu_exec_valid             (lsu_exec_valid),
+        .mul_exec_valid             (mul_exec_valid),
         .exec_have_writeback        (exec_have_writeback),
         .exec_rd                    (exec_rd),
         .exec_id                    (exec_id),
@@ -364,6 +379,25 @@ module RXVCore #(
         .decode_except_id           (decode_except_id),
         .exec_exception             (exec_exception),
         .exec_except_id             (exec_except_id)
+    );
+
+    RXVMulExec #(
+        .commit_order(commit_order)
+    ) RXVMulExec (
+        .clk             (clk),
+        .reset           (reset),
+        .kill_valid      (kill_valid),
+        .exec_valid      (mul_exec_valid),
+        .exec_rd         (exec_rd),
+        .exec_id         (exec_id),
+        .op1             (rs1_data),
+        .op2             (rs2_data),
+        .exec_reg_addr   (mul_exec_reg_wr_addr),
+        .exec_reg_wr_en  (mul_exec_reg_wr_en),
+        .exec_reg_wr_data(mul_exec_reg_wr_data),
+        .exec_complete   (mul_exec_complete_valid),
+        .exec_complete_id(mul_exec_complete_id),
+        .exec_uop        (exec_uop)
     );
 
     RXVLSU #(
@@ -434,7 +468,7 @@ module RXVCore #(
         .valid_csr_out (decode_valid_csr),
         .rd_addr       (decode_csr_addr),
         .rd_data       (exec_csr_rd_data),
-        .writeback_id  (int_exec_complete_id),
+        .writeback_id  (int_complete_id),
         .wr_addr       (exec_csr_wr_addr),
         .wr_data       (exec_csr_wr_data),
         .wr_en         (exec_csr_wr_en),
@@ -512,8 +546,8 @@ module RXVCore #(
         .dispatch_id        (dispatch_id),
         .kill_valid         (kill_valid),
         .lsu_busy_kill_valid(lsu_busy_kill),
-        .int_complete_id    (int_exec_complete_id),
-        .int_complete_valid (int_exec_complete_valid),
+        .int_complete_id    (int_complete_id),
+        .int_complete_valid (int_complete_valid),
         .lsu_complete_id    (lsu_complete_id),
         .lsu_complete_valid (lsu_complete_valid),
         .except_id          (except_id),
@@ -545,11 +579,13 @@ module RXVCore #(
         .reset              (reset),
         .dispatch_int       (dispatch_int),
         .dispatch_lsu       (dispatch_lsu),
+        .dispatch_mul       (dispatch_mul),
         .global_stall_start (lsu_global_stall_start),
         .global_stall_end   (lsu_global_stall_end),
         .global_stall_active(global_stall_active),
         .int_ready          (int_ready),
-        .lsu_ready          (lsu_ready)
+        .lsu_ready          (lsu_ready),
+        .mul_ready          (mul_ready)
     );
 
     RXVCommitter #(
@@ -608,9 +644,11 @@ module RXVCore #(
     end
 
     always_comb begin
-        reg_wr_en   = 'b0;
-        reg_wr_addr = 'b0;
-        reg_wr_data = 'b0;
+        reg_wr_en          = 'b0;
+        reg_wr_addr        = 'b0;
+        reg_wr_data        = 'b0;
+        int_complete_id    = 'b0;
+        int_complete_valid = 1'b0;
 
         if (lsu_complete_valid) begin
             reg_wr_en   = lsu_reg_wr_en;
@@ -619,13 +657,29 @@ module RXVCore #(
         end
 
         if (int_exec_complete_valid) begin
-            reg_wr_en   = int_exec_reg_wr_en;
-            reg_wr_addr = int_exec_reg_wr_addr;
-            reg_wr_data = int_exec_reg_wr_data;
+            reg_wr_en          = int_exec_reg_wr_en;
+            reg_wr_addr        = int_exec_reg_wr_addr;
+            reg_wr_data        = int_exec_reg_wr_data;
+            int_complete_valid = 1'b1;
+            int_complete_id    = int_exec_complete_id;
+        end
+
+        if (mul_exec_complete_valid) begin
+            reg_wr_en          = mul_exec_reg_wr_en;
+            reg_wr_addr        = mul_exec_reg_wr_addr;
+            reg_wr_data        = mul_exec_reg_wr_data;
+            int_complete_valid = 1'b1;
+            int_complete_id    = mul_exec_complete_id;
         end
 
         lsu_reg_busy = int_exec_reg_wr_en;
     end
+
+    RXVAssert no_simultaneous_completion (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!(int_exec_complete_valid && mul_exec_complete_valid))
+    );
 
     always_comb begin
         dcache_device_memory = dcache_phys_out >= device_base && dcache_phys_out < device_end;
@@ -644,6 +698,7 @@ module RXVCore #(
         logic [commit_width-1:0] complete_id;
 
         if (int_exec_complete_valid) complete_id = int_exec_complete_id;
+        else if (mul_exec_complete_valid) complete_id = mul_exec_complete_id;
         else complete_id = lsu_complete_id;
 
         if (reg_wr_en && |reg_wr_addr) begin

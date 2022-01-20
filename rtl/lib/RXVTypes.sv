@@ -7,6 +7,7 @@ package RXVTypes;
     // verilator lint_off UNUSED
     localparam int_latency = 1;
     localparam lsu_latency = 3;
+    localparam mul_latency = 4;
     // verilator lint_on UNUSED
 
     typedef logic [arch_reg_bits-1:0] arch_reg_tag;
@@ -105,7 +106,11 @@ package RXVTypes;
         UOP_SB,
         UOP_SH,
         UOP_SW,
-        UOP_FENCEI
+        UOP_FENCEI,
+        UOP_MUL,
+        UOP_MULH,
+        UOP_MULHSU,
+        UOP_MULHU
     } rxv_uop  /* verilator public */;
 
     // verilator lint_off UNUSED

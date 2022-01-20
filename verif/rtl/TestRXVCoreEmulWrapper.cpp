@@ -997,3 +997,22 @@ TEST_F(RXVCoreEmulWrapperTest, SimultaneousLSUIntCompletion)
 
     EXPECT_EQ(tracer->read_reg(4), 16);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, Mul)
+{
+    load(R"objdump(
+        80000000:       00300093                li      x1,3
+        80000004:       00600113                li      x2,6
+        80000008:       022081b3                mul     x3,x1,x2
+        8000000c:       00118213                addi    x4,x3,1
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000000c; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(3), 18);
+    EXPECT_EQ(tracer->read_reg(4), 19);
+}

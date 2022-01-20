@@ -59,6 +59,8 @@ module RXVDecode #(
     input  logic                              int_ready,
     output logic                              dispatch_lsu,
     input  logic                              lsu_ready,
+    output logic                              dispatch_mul,
+    input  logic                              mul_ready,
     input  logic                              lsu_busy,
     // To renamer
     output renamed_reg                        rename_out,
@@ -73,6 +75,7 @@ module RXVDecode #(
     output rxv_alu_op                         exec_alu_op,
     output rxv_csr_op                         exec_csr_op,
     output logic                              int_exec_valid,
+    output logic                              mul_exec_valid,
     output logic                              lsu_exec_valid,
     output logic                              exec_have_writeback,
     output phys_reg_tag                       exec_rd,
@@ -106,9 +109,10 @@ module RXVDecode #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    typedef enum bit {
-        EXEC_PIPE_INT = 1'b0,
-        EXEC_PIPE_LSU = 1'b1
+    typedef enum bit [1:0] {
+        EXEC_PIPE_INT = 2'b00,
+        EXEC_PIPE_LSU = 2'b01,
+        EXEC_PIPE_MUL = 2'b10
     } exec_pipe_sel;
 
     logic                                rs1_busy;
@@ -139,6 +143,10 @@ module RXVDecode #(
     rxv_alu_op                           op_alu_op;
     logic                                op_illegal_instr;
     rxv_uop                              op_uop;
+
+    logic                                opc_mul;
+    logic                                mul_illegal_instr;
+    rxv_uop                              mul_uop;
 
     logic                                opc_imm;
     rxv_alu_op                           imm_alu_op;
@@ -183,11 +191,12 @@ module RXVDecode #(
     logic                                load_illegal_instr;
     rxv_uop                              load_uop;
 
-    logic        [                  1:0] exec_pipe_en;
+    logic        [                  2:0] exec_pipe_en;
     logic                                dispatch_ready;
 
     always_comb begin
         opc_op          = 1'b0;
+        opc_mul         = 1'b0;
         opc_imm         = 1'b0;
         opc_branch      = 1'b0;
         opc_jal         = 1'b0;
@@ -203,12 +212,14 @@ module RXVDecode #(
         illegal_opcode  = 1'b0;
         opc_store       = 1'b0;
         opc_load        = 1'b0;
-        exec_pipe_en    = 2'b0;
+        exec_pipe_en    = 3'b0;
 
         unique case (opcode[6:2])
             RXVTypes::OPC_OP: begin
-                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
-                opc_op                      = 1'b1;
+                exec_pipe_en[EXEC_PIPE_INT] = funct7 != 7'h1;
+                exec_pipe_en[EXEC_PIPE_MUL] = funct7 == 7'h1;
+                opc_op                      = funct7 != 7'h1;
+                opc_mul                     = funct7 == 7'h1;
                 have_rs1                    = 1'b1;
                 have_rs2                    = 1'b1;
             end
@@ -305,6 +316,19 @@ module RXVDecode #(
             10'b0000000_110: op_alu_op = RXVTypes::ALU_OR;
             10'b0000000_111: op_alu_op = RXVTypes::ALU_AND;
             default: op_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
+        mul_illegal_instr = 1'b0;
+        mul_uop           = RXVTypes::UOP_MUL;
+
+        unique case (funct3)
+            3'b000:  mul_uop = RXVTypes::UOP_MUL;
+            3'b001:  mul_uop = RXVTypes::UOP_MULH;
+            3'b010:  mul_uop = RXVTypes::UOP_MULHSU;
+            3'b011:  mul_uop = RXVTypes::UOP_MULHU;
+            default: mul_illegal_instr = 1'b1;
         endcase
     end
 
@@ -521,6 +545,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_auipc;
         exec_have_writeback_next |= opc_system & system_have_writeback;
         exec_have_writeback_next |= opc_load;
+        exec_have_writeback_next |= opc_mul & ~mul_illegal_instr;
 
         if (~|rd || illegal_instruction) exec_have_writeback_next = 1'b0;
     end
@@ -538,6 +563,7 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_misc_mem}} & misc_mem_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_store}} & store_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_load}} & load_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_mul}} & mul_uop);
     end
 
     always_comb begin
@@ -548,6 +574,7 @@ module RXVDecode #(
             (opc_misc_mem & misc_mem_illegal_instr) |
             (opc_store & store_illegal_instr) |
             (opc_load & load_illegal_instr) |
+            (opc_mul & mul_illegal_instr) |
             illegal_opcode;
     end
 
@@ -559,12 +586,14 @@ module RXVDecode #(
     always_comb begin
         logic lsu_stall;
         logic int_stall;
+        logic mul_stall;
 
         lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy);
         int_stall = exec_pipe_en[EXEC_PIPE_INT] && !int_ready;
+        mul_stall = exec_pipe_en[EXEC_PIPE_MUL] && !mul_ready;
         decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
                                             ~src_regs_ready | system_stall | lsu_stall |
-                                            int_stall | misc_mem_stall);
+                                            int_stall | misc_mem_stall | mul_stall);
     end
 
     always_comb begin
@@ -575,6 +604,12 @@ module RXVDecode #(
 
     always_comb begin
         dispatch_lsu = exec_pipe_en[EXEC_PIPE_LSU] &&
+            !illegal_instruction && decode_valid && !decode_stall &&
+            !kill_valid && !exec_resteer;
+    end
+
+    always_comb begin
+        dispatch_mul = exec_pipe_en[EXEC_PIPE_MUL] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
     end
@@ -612,7 +647,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        dispatch_ready = dispatch_int | dispatch_lsu;
+        dispatch_ready = dispatch_int | dispatch_lsu | dispatch_mul;
     end
 
     always_comb begin
@@ -714,6 +749,14 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (dispatch_lsu),
         .q    (lsu_exec_valid)
+    );
+
+    RXVDFF mul_exec_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (dispatch_mul),
+        .q    (mul_exec_valid)
     );
 
     RXVDFF exec_have_writeback_dff (

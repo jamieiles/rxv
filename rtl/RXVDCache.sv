@@ -210,7 +210,7 @@ module RXVDCache #(
         miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && device_memory);
         phys_out = {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'(0), 2'b0};
 
-        case (state)
+        unique case (state)
             STATE_RUN: busy = miss;
             STATE_UNCACHED: busy = ~bus_complete;
             default: busy = 1'b1;
@@ -221,7 +221,7 @@ module RXVDCache #(
     always_comb begin
         integer i;
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            case (state)
+            unique case (state)
                 STATE_RUN: begin
                     dirty_wren[i] = tag_compare_valid && write_wren && way_hit[i];
                     dirty_next    = tag_compare_valid && write_wren;
@@ -259,7 +259,7 @@ module RXVDCache #(
         tag_ram_index = cmo_active ? cmo_index :
             busy ? addr_index(lookup_address) : addr_index(address);
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            case (state)
+            unique case (state)
                 STATE_INVAL: tag_write_en[i] = 1'b1;
                 STATE_FILL: tag_write_en[i] = bus_complete && way_bits'(i) == fill_way;
                 default: tag_write_en[i] = 1'b0;
@@ -280,7 +280,7 @@ module RXVDCache #(
 
     // Bus control
     always_comb begin
-        case (state)
+        unique case (state)
             STATE_FILL: begin
                 bus_valid = 1'b1;
                 bus_wren = 1'b0;
@@ -333,7 +333,7 @@ module RXVDCache #(
 
     // Data RAM control
     always_comb begin
-        case (state)
+        unique case (state)
             STATE_FILL: begin
                 data_write_en      = bus_beat_ack;
                 data_write_bytesel = 4'b1111;
@@ -389,7 +389,7 @@ module RXVDCache #(
 
     // Cache maintenance operations
     always_comb begin
-        case (state)
+        unique case (state)
             STATE_INVAL: begin
                 cmo_index_next = cmo_index + 1'b1;
                 cmo_way_next   = cmo_way + 1'b1;
@@ -433,7 +433,7 @@ module RXVDCache #(
     );
 
     always_comb begin
-        case (state)
+        unique case (state)
             STATE_RUN: begin
                 next_state = STATE_RUN;
                 if (invalidate) next_state = STATE_INVAL;

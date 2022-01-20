@@ -40,7 +40,7 @@ module RXVBranchPredictor #(
         input logic taken;
 
         begin
-            case ({
+            unique case ({
                 prev_strength, taken
             })
                 3'b00_0: strength = 2'b11;

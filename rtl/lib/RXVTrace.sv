@@ -32,7 +32,7 @@ package RXVTrace;
         input int size;
 
 `ifdef RXV_TRACE
-        case (size)
+        unique case (size)
             1:
             $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");
@@ -55,7 +55,7 @@ package RXVTrace;
         input int size;
 
 `ifdef RXV_TRACE
-        case (size)
+        unique case (size)
             1:
             $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint8_t>(", instr_id, ", ", virt, ", ", phys, ",",
                val, ");");

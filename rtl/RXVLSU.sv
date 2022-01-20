@@ -311,7 +311,7 @@ module RXVLSU #(
         int size;
 
         if (valid && !is_unaligned && is_store) begin
-            case (exec_uop)
+            unique case (exec_uop)
                 RXVTypes::UOP_SB: size = 1;
                 RXVTypes::UOP_SH: size = 2;
                 RXVTypes::UOP_SW: size = 4;
@@ -321,7 +321,7 @@ module RXVLSU #(
         end
 
         if (lsu_complete_next && lsu_reg_wr_en_next) begin
-            case (op_stage2.width)
+            unique case (op_stage2.width)
                 WIDTH_8:  size = 1;
                 WIDTH_16: size = 2;
                 WIDTH_32: size = 4;

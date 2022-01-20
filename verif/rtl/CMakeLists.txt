@@ -45,6 +45,7 @@ add_executable(rtl-unittest
                TestRXVBranchPredictor.cpp
                TestRXVCommitBuffer.cpp
                TestRXVLSU.cpp
+               TestRXVMul.cpp
                TestRXVRegisterAllocator.cpp
                TestRXVRegisterFile.cpp
                TestRXVRenameFile.cpp
@@ -265,6 +266,16 @@ verilate(rtl-unittest
          TOP_MODULE RXVLSUWrapper
          PREFIX VRXVLSUWrapper
          DEPENDS gen_trace_h
+         TRACE_FST)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVMul
+         PREFIX VRXVMul
          TRACE_FST)
 
 add_library(RXVCoreEmul SHARED)

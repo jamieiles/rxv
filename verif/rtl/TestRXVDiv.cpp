@@ -71,7 +71,9 @@ INSTANTIATE_TEST_CASE_P(
         std::make_tuple(-4, 0, 4, -1),
         std::make_tuple(-4, 0, -4, 1),
         std::make_tuple(4, 0, -4, -1),
-        std::make_tuple(-1, 2, 5, -3)));
+        std::make_tuple(-1, 2, 5, -3),
+        std::make_tuple(1, 0, 0x100, 0x100),
+        std::make_tuple(-1, -0x55555556, 0xaaaaaaaa, 0x0)));
 
 class DivU
     : public ::testing::WithParamInterface<
@@ -100,4 +102,6 @@ INSTANTIATE_TEST_CASE_P(
                       std::make_tuple(0x80000000, 0, 0x80000000, 1),
                       std::make_tuple(0x40000000, 0, 0x80000000, 2),
                       std::make_tuple(1, 0, 0x80000000, 0x80000000),
-                      std::make_tuple(0x10, 0x10, 0x1000, 0xff)));
+                      std::make_tuple(0x10, 0x10, 0x1000, 0xff),
+                      std::make_tuple(0x0, 0x66666666, 0x66666666, 0xffbfffff),
+                      std::make_tuple(0x0, 0x1, 0x1, 0x2)));

@@ -13,8 +13,8 @@ module RXVDiv (
 
     logic [63:0] D;
     logic [63:0] D_next;
-    logic [63:0] R;
-    logic [63:0] R_next;
+    logic [64:0] R;
+    logic [64:0] R_next;
 
     logic [31:0] divisor_magnitude;
     logic [31:0] dividend_magnitude;
@@ -47,10 +47,10 @@ module RXVDiv (
 
         if (valid) begin
             if (is_signed) begin
-                R_next = {32'b0, dividend_magnitude};
+                R_next = {33'b0, dividend_magnitude};
                 D_next = {divisor_magnitude, 32'b0};
             end else begin
-                R_next = {32'b0, dividend};
+                R_next = {33'b0, dividend};
                 D_next = {divisor, 32'b0};
             end
 
@@ -75,10 +75,10 @@ module RXVDiv (
                     R_next        = R_next + $signed(D);
                 end
 
-                if (signed_div) begin
+                if (signed_div && ~&quotient_next) begin
                     if (!signs_equal) quotient_next = ~quotient_next + 1'b1;
-                    if (dividend_negative) R_next[63:32] = ~R_next[63:32] + 1'b1;
                 end
+                if (signed_div && dividend_negative) R_next[63:32] = ~R_next[63:32] + 1'b1;
 
             end
         end
@@ -106,7 +106,7 @@ module RXVDiv (
     );
 
     RXVDFF #(
-        .width(64)
+        .width(65)
     ) R_dff (
         .clk  (clk),
         .reset(reset),

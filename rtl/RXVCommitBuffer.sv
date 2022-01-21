@@ -86,7 +86,6 @@ module RXVCommitBuffer #(
         integer i;
         for (i = 0; i < num_entries; i = i + 1) begin
             excepted_next[i] = excepted[i];
-            if (dispatch_id == addr_width'(i) && dispatch_valid) excepted_next[i] = 1'b0;
             if (except_id == addr_width'(i) && except_valid) excepted_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) excepted_next[i] = 1'b0;
         end
@@ -96,7 +95,6 @@ module RXVCommitBuffer #(
         integer i;
         for (i = 0; i < num_entries; i = i + 1) begin
             killed_next[i] = killed[i];
-            if (dispatch_id == addr_width'(i) && dispatch_valid) killed_next[i] = 1'b0;
             if (dispatch_id - 1'b1 == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
             if (last_dispatch[1].valid && last_dispatch[1].id == addr_width'(i) && (kill_valid || lsu_busy_kill_valid))
                 killed_next[i] = 1'b1;
@@ -126,7 +124,6 @@ module RXVCommitBuffer #(
         integer i;
         for (i = 0; i < num_entries; i = i + 1) begin
             completed_next[i] = completed[i];
-            if (dispatch_id == addr_width'(i) && dispatch_valid) completed_next[i] = 1'b0;
             if (int_complete_id == addr_width'(i) && int_complete_valid) completed_next[i] = 1'b1;
             if (lsu_complete_id == addr_width'(i) && lsu_complete_valid) completed_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) completed_next[i] = 1'b0;

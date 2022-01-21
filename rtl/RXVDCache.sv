@@ -442,7 +442,7 @@ module RXVDCache #(
                 if (tag_compare_valid && device_memory) next_state = STATE_UNCACHED;
             end
             STATE_MISS: begin
-                next_state = &dirty ? STATE_FLUSH : STATE_FILL;
+                next_state = dirty[fill_way_next] ? STATE_FLUSH : STATE_FILL;
             end
             STATE_FLUSH: begin
                 next_state = bus_complete ? STATE_FILL : STATE_FLUSH;

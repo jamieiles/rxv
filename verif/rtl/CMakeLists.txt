@@ -282,6 +282,9 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
          SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDiv.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
@@ -309,6 +312,8 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDiv.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDivExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMulExec.sv

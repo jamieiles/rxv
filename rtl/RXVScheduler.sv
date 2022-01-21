@@ -3,6 +3,7 @@
 import RXVTypes::int_latency;
 import RXVTypes::lsu_latency;
 import RXVTypes::mul_latency;
+import RXVTypes::div_latency;
 
 module RXVScheduler (
     input  logic clk,
@@ -10,16 +11,18 @@ module RXVScheduler (
     input  logic dispatch_int,
     input  logic dispatch_lsu,
     input  logic dispatch_mul,
+    input  logic dispatch_div,
     input  logic global_stall_start,
     input  logic global_stall_end,
     output logic int_ready,
     output logic lsu_ready,
     output logic mul_ready,
+    output logic div_ready,
     output logic global_stall_active
 );
 
-    logic [mul_latency:0] commit_schedule;
-    logic [mul_latency:0] commit_schedule_next;
+    logic [div_latency:0] commit_schedule;
+    logic [div_latency:0] commit_schedule_next;
     logic                 global_stall_next;
     logic                 global_stall;
 
@@ -34,16 +37,18 @@ module RXVScheduler (
     end
 
     always_comb begin
-        commit_schedule_next = {1'b0, commit_schedule[mul_latency:1]};
+        commit_schedule_next = {1'b0, commit_schedule[div_latency:1]};
         if (dispatch_int) commit_schedule_next[int_latency-1] = 1'b1;
         if (dispatch_lsu) commit_schedule_next[lsu_latency-1] = 1'b1;
         if (dispatch_mul) commit_schedule_next[mul_latency-1] = 1'b1;
+        if (dispatch_div) commit_schedule_next[div_latency-1] = 1'b1;
     end
 
     always_comb begin
         int_ready = ~commit_schedule[int_latency] & ~global_stall;
         lsu_ready = ~commit_schedule[lsu_latency] & ~global_stall;
         mul_ready = ~commit_schedule[mul_latency] & ~global_stall;
+        div_ready = ~commit_schedule[div_latency] & ~global_stall;
     end
 
     RXVAssert dispatch_int_idle (
@@ -64,10 +69,16 @@ module RXVScheduler (
         .condition(!commit_schedule[mul_latency])
     );
 
+    RXVAssert dispatch_div_idle (
+        .clk      (clk),
+        .en       (dispatch_div),
+        .condition(!commit_schedule[div_latency])
+    );
+
     RXVAssert no_simultaneous_dispatch (
         .clk      (clk),
         .en       (1'b1),
-        .condition(2'(dispatch_lsu) + 2'(dispatch_int) + 2'(dispatch_mul) <= 1)
+        .condition(3'(dispatch_lsu) + 3'(dispatch_int) + 3'(dispatch_mul) + 3'(dispatch_div) <= 1)
     );
 
     RXVDFF #(

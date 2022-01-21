@@ -61,7 +61,10 @@ module RXVDecode #(
     input  logic                              lsu_ready,
     output logic                              dispatch_mul,
     input  logic                              mul_ready,
+    output logic                              dispatch_div,
+    input  logic                              div_ready,
     input  logic                              lsu_busy,
+    input  logic                              div_exec_busy,
     // To renamer
     output renamed_reg                        rename_out,
     output logic                              rename_out_valid,
@@ -76,6 +79,7 @@ module RXVDecode #(
     output rxv_csr_op                         exec_csr_op,
     output logic                              int_exec_valid,
     output logic                              mul_exec_valid,
+    output logic                              div_exec_valid,
     output logic                              lsu_exec_valid,
     output logic                              exec_have_writeback,
     output phys_reg_tag                       exec_rd,
@@ -112,7 +116,8 @@ module RXVDecode #(
     typedef enum bit [1:0] {
         EXEC_PIPE_INT = 2'b00,
         EXEC_PIPE_LSU = 2'b01,
-        EXEC_PIPE_MUL = 2'b10
+        EXEC_PIPE_MUL = 2'b10,
+        EXEC_PIPE_DIV = 2'b11
     } exec_pipe_sel;
 
     logic                                rs1_busy;
@@ -147,6 +152,10 @@ module RXVDecode #(
     logic                                opc_mul;
     logic                                mul_illegal_instr;
     rxv_uop                              mul_uop;
+
+    logic                                opc_div;
+    logic                                div_illegal_instr;
+    rxv_uop                              div_uop;
 
     logic                                opc_imm;
     rxv_alu_op                           imm_alu_op;
@@ -191,12 +200,13 @@ module RXVDecode #(
     logic                                load_illegal_instr;
     rxv_uop                              load_uop;
 
-    logic        [                  2:0] exec_pipe_en;
+    logic        [                  3:0] exec_pipe_en;
     logic                                dispatch_ready;
 
     always_comb begin
         opc_op          = 1'b0;
         opc_mul         = 1'b0;
+        opc_div         = 1'b0;
         opc_imm         = 1'b0;
         opc_branch      = 1'b0;
         opc_jal         = 1'b0;
@@ -212,14 +222,16 @@ module RXVDecode #(
         illegal_opcode  = 1'b0;
         opc_store       = 1'b0;
         opc_load        = 1'b0;
-        exec_pipe_en    = 3'b0;
+        exec_pipe_en    = 4'b0;
 
         unique case (opcode[6:2])
             RXVTypes::OPC_OP: begin
                 exec_pipe_en[EXEC_PIPE_INT] = funct7 != 7'h1;
-                exec_pipe_en[EXEC_PIPE_MUL] = funct7 == 7'h1;
+                exec_pipe_en[EXEC_PIPE_MUL] = funct7 == 7'h1 && !funct3[2];
+                exec_pipe_en[EXEC_PIPE_DIV] = funct7 == 7'h1 && funct3[2];
                 opc_op                      = funct7 != 7'h1;
-                opc_mul                     = funct7 == 7'h1;
+                opc_mul                     = funct7 == 7'h1 && !funct3[2];
+                opc_div                     = funct7 == 7'h1 && funct3[2];
                 have_rs1                    = 1'b1;
                 have_rs2                    = 1'b1;
             end
@@ -329,6 +341,19 @@ module RXVDecode #(
             3'b010:  mul_uop = RXVTypes::UOP_MULHSU;
             3'b011:  mul_uop = RXVTypes::UOP_MULHU;
             default: mul_illegal_instr = 1'b1;
+        endcase
+    end
+
+    always_comb begin
+        div_illegal_instr = 1'b0;
+        div_uop           = RXVTypes::UOP_DIV;
+
+        unique case (funct3)
+            3'b100:  div_uop = RXVTypes::UOP_DIV;
+            3'b101:  div_uop = RXVTypes::UOP_DIVU;
+            3'b110:  div_uop = RXVTypes::UOP_REM;
+            3'b111:  div_uop = RXVTypes::UOP_REMU;
+            default: div_illegal_instr = 1'b1;
         endcase
     end
 
@@ -546,6 +571,7 @@ module RXVDecode #(
         exec_have_writeback_next |= opc_system & system_have_writeback;
         exec_have_writeback_next |= opc_load;
         exec_have_writeback_next |= opc_mul & ~mul_illegal_instr;
+        exec_have_writeback_next |= opc_div & ~div_illegal_instr;
 
         if (~|rd || illegal_instruction) exec_have_writeback_next = 1'b0;
     end
@@ -564,6 +590,7 @@ module RXVDecode #(
         exec_uop_next |= ({$bits(rxv_uop) {opc_store}} & store_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_load}} & load_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_mul}} & mul_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_div}} & div_uop);
     end
 
     always_comb begin
@@ -575,6 +602,7 @@ module RXVDecode #(
             (opc_store & store_illegal_instr) |
             (opc_load & load_illegal_instr) |
             (opc_mul & mul_illegal_instr) |
+            (opc_div & div_illegal_instr) |
             illegal_opcode;
     end
 
@@ -587,13 +615,18 @@ module RXVDecode #(
         logic lsu_stall;
         logic int_stall;
         logic mul_stall;
+        logic div_stall;
 
         lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy);
         int_stall = exec_pipe_en[EXEC_PIPE_INT] && !int_ready;
         mul_stall = exec_pipe_en[EXEC_PIPE_MUL] && !mul_ready;
+        // Divider isn't pipelined so busy may not yet be raised, check if
+        // another divide was just started
+        div_stall = exec_pipe_en[EXEC_PIPE_DIV] && (!div_ready || div_exec_busy || div_exec_valid);
         decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
                                             ~src_regs_ready | system_stall | lsu_stall |
-                                            int_stall | misc_mem_stall | mul_stall);
+                                            int_stall | misc_mem_stall | mul_stall |
+                                            div_stall);
     end
 
     always_comb begin
@@ -610,6 +643,12 @@ module RXVDecode #(
 
     always_comb begin
         dispatch_mul = exec_pipe_en[EXEC_PIPE_MUL] &&
+            !illegal_instruction && decode_valid && !decode_stall &&
+            !kill_valid && !exec_resteer;
+    end
+
+    always_comb begin
+        dispatch_div = exec_pipe_en[EXEC_PIPE_DIV] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
     end
@@ -647,7 +686,7 @@ module RXVDecode #(
     end
 
     always_comb begin
-        dispatch_ready = dispatch_int | dispatch_lsu | dispatch_mul;
+        dispatch_ready = dispatch_int | dispatch_lsu | dispatch_mul | dispatch_div;
     end
 
     always_comb begin
@@ -757,6 +796,14 @@ module RXVDecode #(
         .en   (1'b1),
         .d    (dispatch_mul),
         .q    (mul_exec_valid)
+    );
+
+    RXVDFF div_exec_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (dispatch_div),
+        .q    (div_exec_valid)
     );
 
     RXVDFF exec_have_writeback_dff (

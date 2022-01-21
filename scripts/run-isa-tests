@@ -6,7 +6,7 @@ import sys
 
 TEST_RE = {
     'software': r'.*rv32[msu][aim]-[pv]-[^\.]*$',
-    'rtl': r'.*rv32[u][i]-[p]-[^\.]*$',
+    'rtl': r'.*rv32[u][im]-[p]-[^\.]*$',
 }
 
 def run_tests(runner, sim, test_tree):

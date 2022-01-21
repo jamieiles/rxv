@@ -85,6 +85,12 @@ module RXVDiv (
         remainder = R[63:32];
     end
 
+    RXVAssert no_div_while_busy (
+        .clk      (clk),
+        .en       (|idx),
+        .condition(!valid)
+    );
+
     RXVDFF #(
         .width($bits(idx))
     ) idx_dff (

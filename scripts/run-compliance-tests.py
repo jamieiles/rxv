@@ -18,7 +18,7 @@ PRIV_TESTS = [
 
 ISAS = {
     'software': ["I", "M", "Zifencei", "privilege"],
-    'rtl': ['I']
+    'rtl': ['I', 'M', 'Zifencei']
 }
 
 

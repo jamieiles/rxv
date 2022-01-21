@@ -384,20 +384,21 @@ module RXVCore #(
     RXVMulExec #(
         .commit_order(commit_order)
     ) RXVMulExec (
-        .clk             (clk),
-        .reset           (reset),
-        .kill_valid      (kill_valid),
-        .exec_valid      (mul_exec_valid),
-        .exec_rd         (exec_rd),
-        .exec_id         (exec_id),
-        .op1             (rs1_data),
-        .op2             (rs2_data),
-        .exec_reg_addr   (mul_exec_reg_wr_addr),
-        .exec_reg_wr_en  (mul_exec_reg_wr_en),
-        .exec_reg_wr_data(mul_exec_reg_wr_data),
-        .exec_complete   (mul_exec_complete_valid),
-        .exec_complete_id(mul_exec_complete_id),
-        .exec_uop        (exec_uop)
+        .clk                (clk),
+        .reset              (reset),
+        .kill_valid         (kill_valid),
+        .exec_valid         (mul_exec_valid),
+        .exec_have_writeback(exec_have_writeback),
+        .exec_rd            (exec_rd),
+        .exec_id            (exec_id),
+        .op1                (rs1_data),
+        .op2                (rs2_data),
+        .exec_reg_addr      (mul_exec_reg_wr_addr),
+        .exec_reg_wr_en     (mul_exec_reg_wr_en),
+        .exec_reg_wr_data   (mul_exec_reg_wr_data),
+        .exec_complete      (mul_exec_complete_valid),
+        .exec_complete_id   (mul_exec_complete_id),
+        .exec_uop           (exec_uop)
     );
 
     RXVLSU #(

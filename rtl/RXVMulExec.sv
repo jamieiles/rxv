@@ -12,6 +12,7 @@ module RXVMulExec #(
     input  logic                           kill_valid,
     input  logic                           exec_valid,
     input  phys_reg_tag                    exec_rd,
+    input  logic                           exec_have_writeback,
     input  logic        [commit_width-1:0] exec_id,
     input  logic        [            31:0] op1,
     input  logic        [            31:0] op2,
@@ -31,6 +32,7 @@ module RXVMulExec #(
         logic high;
         phys_reg_tag addr;
         logic [commit_width-1:0] complete_id;
+        logic have_writeback;
     } mul_op;
 
     mul_op                          mul_op_in;
@@ -55,10 +57,11 @@ module RXVMulExec #(
     );
 
     always_comb begin
-        mul_op_in.valid       = exec_valid & ~kill_valid;
-        mul_op_in.addr        = exec_rd;
-        mul_op_in.complete_id = exec_id;
-        mul_op_in.high        = exec_uop != RXVTypes::UOP_MUL;
+        mul_op_in.valid          = exec_valid & ~kill_valid;
+        mul_op_in.addr           = exec_rd;
+        mul_op_in.complete_id    = exec_id;
+        mul_op_in.high           = exec_uop != RXVTypes::UOP_MUL;
+        mul_op_in.have_writeback = exec_valid & ~kill_valid & exec_have_writeback;
 
         unique case (exec_uop)
             RXVTypes::UOP_MUL, RXVTypes::UOP_MULH: begin
@@ -82,7 +85,7 @@ module RXVMulExec #(
 
     always_comb begin
         exec_reg_addr_next    = mul_op_out.addr;
-        exec_reg_wr_en_next   = mul_op_out.valid;
+        exec_reg_wr_en_next   = mul_op_out.have_writeback;
         exec_reg_wr_data_next = mul_op_out.high ? result[63:32] : result[31:0];
         exec_complete_next    = mul_op_out.valid;
         exec_complete_id_next = mul_op_out.complete_id;

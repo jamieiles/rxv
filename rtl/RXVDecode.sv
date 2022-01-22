@@ -55,13 +55,13 @@ module RXVDecode #(
     output logic                              busy_valid_out,
     input  logic          [num_phys_regs-1:0] busy_status,
     // Scheduler
-    output logic                              dispatch_int,
+    output logic                              schedule_int,
     input  logic                              int_ready,
-    output logic                              dispatch_lsu,
+    output logic                              schedule_lsu,
     input  logic                              lsu_ready,
-    output logic                              dispatch_mul,
+    output logic                              schedule_mul,
     input  logic                              mul_ready,
-    output logic                              dispatch_div,
+    output logic                              schedule_div,
     input  logic                              div_ready,
     input  logic                              lsu_busy,
     input  logic                              div_exec_busy,
@@ -133,6 +133,10 @@ module RXVDecode #(
     logic                                misc_mem_stall;
     RXVException                         decode_exception_next;
     logic        [     commit_width-1:0] decode_except_id_next;
+    logic                                dispatch_lsu;
+    logic                                dispatch_mul;
+    logic                                dispatch_int;
+    logic                                dispatch_div;
 
     logic                                is_branch;
 
@@ -633,24 +637,28 @@ module RXVDecode #(
         dispatch_int = exec_pipe_en[EXEC_PIPE_INT] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
+        schedule_int = dispatch_int & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_lsu = exec_pipe_en[EXEC_PIPE_LSU] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
+        schedule_lsu = dispatch_lsu & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_mul = exec_pipe_en[EXEC_PIPE_MUL] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
+        schedule_mul = dispatch_mul & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_div = exec_pipe_en[EXEC_PIPE_DIV] &&
             !illegal_instruction && decode_valid && !decode_stall &&
             !kill_valid && !exec_resteer;
+        schedule_div = dispatch_div & exec_have_writeback_next;
     end
 
     always_comb begin

@@ -13,20 +13,20 @@ public:
         reset();
     }
 
-    void dispatch_int()
+    void schedule_int()
     {
         after_n_cycles(0, [&] {
-            this->dut.dispatch_int = 1;
-            after_n_cycles(1, [&] { this->dut.dispatch_int = 0; });
+            this->dut.schedule_int = 1;
+            after_n_cycles(1, [&] { this->dut.schedule_int = 0; });
         });
         cycle();
     }
 
-    void dispatch_lsu()
+    void schedule_lsu()
     {
         after_n_cycles(0, [&] {
-            this->dut.dispatch_lsu = 1;
-            after_n_cycles(1, [&] { this->dut.dispatch_lsu = 0; });
+            this->dut.schedule_lsu = 1;
+            after_n_cycles(1, [&] { this->dut.schedule_lsu = 0; });
         });
         cycle();
     }
@@ -41,7 +41,7 @@ TEST_F(RXVSchedulerTest, ReadyAtReset)
 TEST_F(RXVSchedulerTest, IntPerCycle)
 {
     for (int i = 0; i < 64; ++i) {
-        dispatch_int();
+        schedule_int();
         EXPECT_TRUE(this->dut.int_ready);
     }
 }
@@ -49,14 +49,14 @@ TEST_F(RXVSchedulerTest, IntPerCycle)
 TEST_F(RXVSchedulerTest, LSUPerCycle)
 {
     for (int i = 0; i < 64; ++i) {
-        dispatch_lsu();
+        schedule_lsu();
         EXPECT_TRUE(this->dut.lsu_ready);
     }
 }
 
 TEST_F(RXVSchedulerTest, LSUInhibitsInt)
 {
-    dispatch_lsu();
+    schedule_lsu();
     EXPECT_TRUE(this->dut.int_ready);
     cycle();
     EXPECT_TRUE(this->dut.int_ready);

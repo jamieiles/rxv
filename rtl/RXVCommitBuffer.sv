@@ -20,6 +20,10 @@ module RXVCommitBuffer #(
     input  logic                         int_complete_valid,
     input  logic        [addr_width-1:0] lsu_complete_id,
     input  logic                         lsu_complete_valid,
+    input  logic        [addr_width-1:0] mul_complete_id,
+    input  logic                         mul_complete_valid,
+    input  logic        [addr_width-1:0] div_complete_id,
+    input  logic                         div_complete_valid,
     // Exception
     input  logic        [addr_width-1:0] except_id,
     input  logic                         except_valid,
@@ -126,6 +130,8 @@ module RXVCommitBuffer #(
             completed_next[i] = completed[i];
             if (int_complete_id == addr_width'(i) && int_complete_valid) completed_next[i] = 1'b1;
             if (lsu_complete_id == addr_width'(i) && lsu_complete_valid) completed_next[i] = 1'b1;
+            if (mul_complete_id == addr_width'(i) && mul_complete_valid) completed_next[i] = 1'b1;
+            if (div_complete_id == addr_width'(i) && div_complete_valid) completed_next[i] = 1'b1;
             if (commit_id == addr_width'(i) && commit_valid) completed_next[i] = 1'b0;
         end
     end

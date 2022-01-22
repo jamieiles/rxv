@@ -8,10 +8,10 @@ import RXVTypes::div_latency;
 module RXVScheduler (
     input  logic clk,
     input  logic reset,
-    input  logic dispatch_int,
-    input  logic dispatch_lsu,
-    input  logic dispatch_mul,
-    input  logic dispatch_div,
+    input  logic schedule_int,
+    input  logic schedule_lsu,
+    input  logic schedule_mul,
+    input  logic schedule_div,
     input  logic global_stall_start,
     input  logic global_stall_end,
     output logic int_ready,
@@ -38,10 +38,10 @@ module RXVScheduler (
 
     always_comb begin
         commit_schedule_next = {1'b0, commit_schedule[div_latency:1]};
-        if (dispatch_int) commit_schedule_next[int_latency-1] = 1'b1;
-        if (dispatch_lsu) commit_schedule_next[lsu_latency-1] = 1'b1;
-        if (dispatch_mul) commit_schedule_next[mul_latency-1] = 1'b1;
-        if (dispatch_div) commit_schedule_next[div_latency-1] = 1'b1;
+        if (schedule_int) commit_schedule_next[int_latency-1] = 1'b1;
+        if (schedule_lsu) commit_schedule_next[lsu_latency-1] = 1'b1;
+        if (schedule_mul) commit_schedule_next[mul_latency-1] = 1'b1;
+        if (schedule_div) commit_schedule_next[div_latency-1] = 1'b1;
     end
 
     always_comb begin
@@ -51,34 +51,34 @@ module RXVScheduler (
         div_ready = ~commit_schedule[div_latency] & ~global_stall;
     end
 
-    RXVAssert dispatch_int_idle (
+    RXVAssert schedule_int_idle (
         .clk      (clk),
-        .en       (dispatch_int),
+        .en       (schedule_int),
         .condition(!commit_schedule[int_latency])
     );
 
-    RXVAssert dispatch_lsu_idle (
+    RXVAssert schedule_lsu_idle (
         .clk      (clk),
-        .en       (dispatch_lsu),
+        .en       (schedule_lsu),
         .condition(!commit_schedule[lsu_latency])
     );
 
-    RXVAssert dispatch_mul_idle (
+    RXVAssert schedule_mul_idle (
         .clk      (clk),
-        .en       (dispatch_mul),
+        .en       (schedule_mul),
         .condition(!commit_schedule[mul_latency])
     );
 
-    RXVAssert dispatch_div_idle (
+    RXVAssert schedule_div_idle (
         .clk      (clk),
-        .en       (dispatch_div),
+        .en       (schedule_div),
         .condition(!commit_schedule[div_latency])
     );
 
     RXVAssert no_simultaneous_dispatch (
         .clk      (clk),
         .en       (1'b1),
-        .condition(3'(dispatch_lsu) + 3'(dispatch_int) + 3'(dispatch_mul) + 3'(dispatch_div) <= 1)
+        .condition(3'(schedule_lsu) + 3'(schedule_int) + 3'(schedule_mul) + 3'(schedule_div) <= 1)
     );
 
     RXVDFF #(

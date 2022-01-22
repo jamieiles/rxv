@@ -52,10 +52,10 @@ module RXVCore #(
     logic          [             31:2] fetch_predict_address;
     rxv_prediction                     fetch_prediction;
 
-    logic                              dispatch_int;
-    logic                              dispatch_lsu;
-    logic                              dispatch_mul;
-    logic                              dispatch_div;
+    logic                              schedule_int;
+    logic                              schedule_lsu;
+    logic                              schedule_mul;
+    logic                              schedule_div;
     logic                              int_ready;
     logic                              lsu_ready;
     logic                              mul_ready;
@@ -103,9 +103,6 @@ module RXVCore #(
     logic                              int_exec_reg_wr_en;
     phys_reg_tag                       int_exec_reg_wr_addr;
     logic          [             31:0] int_exec_reg_wr_data;
-
-    logic                              int_complete_valid;
-    logic          [ commit_width-1:0] int_complete_id;
 
     rxv_alu_op                         exec_alu_op;
     rxv_csr_op                         exec_csr_op;
@@ -314,10 +311,10 @@ module RXVCore #(
         .lsu_ready                  (lsu_ready),
         .mul_ready                  (mul_ready),
         .div_ready                  (div_ready),
-        .dispatch_int               (dispatch_int),
-        .dispatch_lsu               (dispatch_lsu),
-        .dispatch_mul               (dispatch_mul),
-        .dispatch_div               (dispatch_div),
+        .schedule_int               (schedule_int),
+        .schedule_lsu               (schedule_lsu),
+        .schedule_mul               (schedule_mul),
+        .schedule_div               (schedule_div),
         .lsu_busy                   (lsu_busy),
         .div_exec_busy              (div_exec_busy),
         .rename_out                 (rename_in),
@@ -504,7 +501,7 @@ module RXVCore #(
         .valid_csr_out (decode_valid_csr),
         .rd_addr       (decode_csr_addr),
         .rd_data       (exec_csr_rd_data),
-        .writeback_id  (int_complete_id),
+        .writeback_id  (int_exec_complete_id),
         .wr_addr       (exec_csr_wr_addr),
         .wr_data       (exec_csr_wr_data),
         .wr_en         (exec_csr_wr_en),
@@ -582,10 +579,14 @@ module RXVCore #(
         .dispatch_id        (dispatch_id),
         .kill_valid         (kill_valid),
         .lsu_busy_kill_valid(lsu_busy_kill),
-        .int_complete_id    (int_complete_id),
-        .int_complete_valid (int_complete_valid),
+        .int_complete_id    (int_exec_complete_id),
+        .int_complete_valid (int_exec_complete_valid),
         .lsu_complete_id    (lsu_complete_id),
         .lsu_complete_valid (lsu_complete_valid),
+        .mul_complete_id    (mul_exec_complete_id),
+        .mul_complete_valid (mul_exec_complete_valid),
+        .div_complete_id    (div_exec_complete_id),
+        .div_complete_valid (div_exec_complete_valid),
         .except_id          (except_id),
         .except_valid       (except_valid),
         .exception_pending  (exception_pending),
@@ -613,10 +614,10 @@ module RXVCore #(
     RXVScheduler RXVScheduler (
         .clk                (clk),
         .reset              (reset),
-        .dispatch_int       (dispatch_int),
-        .dispatch_lsu       (dispatch_lsu),
-        .dispatch_mul       (dispatch_mul),
-        .dispatch_div       (dispatch_div),
+        .schedule_int       (schedule_int),
+        .schedule_lsu       (schedule_lsu),
+        .schedule_mul       (schedule_mul),
+        .schedule_div       (schedule_div),
         .global_stall_start (lsu_global_stall_start),
         .global_stall_end   (lsu_global_stall_end),
         .global_stall_active(global_stall_active),
@@ -682,49 +683,41 @@ module RXVCore #(
     end
 
     always_comb begin
-        reg_wr_en          = 'b0;
-        reg_wr_addr        = 'b0;
-        reg_wr_data        = 'b0;
-        int_complete_id    = 'b0;
-        int_complete_valid = 1'b0;
+        reg_wr_en   = 'b0;
+        reg_wr_addr = 'b0;
+        reg_wr_data = 'b0;
 
-        if (lsu_complete_valid) begin
+        if (lsu_complete_valid && lsu_reg_wr_en) begin
             reg_wr_en   = lsu_reg_wr_en;
             reg_wr_addr = lsu_reg_wr_addr;
             reg_wr_data = lsu_reg_wr_data;
         end
 
-        if (int_exec_complete_valid) begin
-            reg_wr_en          = int_exec_reg_wr_en;
-            reg_wr_addr        = int_exec_reg_wr_addr;
-            reg_wr_data        = int_exec_reg_wr_data;
-            int_complete_valid = 1'b1;
-            int_complete_id    = int_exec_complete_id;
+        if (int_exec_complete_valid && int_exec_reg_wr_en) begin
+            reg_wr_en   = int_exec_reg_wr_en;
+            reg_wr_addr = int_exec_reg_wr_addr;
+            reg_wr_data = int_exec_reg_wr_data;
         end
 
-        if (mul_exec_complete_valid) begin
-            reg_wr_en          = mul_exec_reg_wr_en;
-            reg_wr_addr        = mul_exec_reg_wr_addr;
-            reg_wr_data        = mul_exec_reg_wr_data;
-            int_complete_valid = 1'b1;
-            int_complete_id    = mul_exec_complete_id;
+        if (mul_exec_complete_valid && mul_exec_reg_wr_en) begin
+            reg_wr_en   = mul_exec_reg_wr_en;
+            reg_wr_addr = mul_exec_reg_wr_addr;
+            reg_wr_data = mul_exec_reg_wr_data;
         end
 
-        if (div_exec_complete_valid) begin
-            reg_wr_en          = div_exec_reg_wr_en;
-            reg_wr_addr        = div_exec_reg_wr_addr;
-            reg_wr_data        = div_exec_reg_wr_data;
-            int_complete_valid = 1'b1;
-            int_complete_id    = div_exec_complete_id;
+        if (div_exec_complete_valid && div_exec_reg_wr_en) begin
+            reg_wr_en   = div_exec_reg_wr_en;
+            reg_wr_addr = div_exec_reg_wr_addr;
+            reg_wr_data = div_exec_reg_wr_data;
         end
 
         lsu_reg_busy = int_exec_reg_wr_en;
     end
 
-    RXVAssert no_simultaneous_completion (
-        .clk(clk),
-        .en(1'b1),
-        .condition(2'(int_exec_complete_valid) + 2'(mul_exec_complete_valid) + 2'(div_exec_complete_valid) <= 1)
+    RXVAssert no_simultaneous_writeback (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(2'(int_exec_reg_wr_en) + 2'(mul_exec_reg_wr_en) + 2'(div_exec_reg_wr_en) <= 1)
     );
 
     always_comb begin

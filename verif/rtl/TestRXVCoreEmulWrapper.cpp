@@ -1035,3 +1035,19 @@ TEST_F(RXVCoreEmulWrapperTest, Div)
     EXPECT_EQ(tracer->read_reg(3), 2);
     EXPECT_EQ(tracer->read_reg(4), 3);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, misa)
+{
+    load(R"objdump(
+        80000000:       301020f3                csrr    x1,misa
+        80000004:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000004; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 12) | (1 << 8));
+}

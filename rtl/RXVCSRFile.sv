@@ -58,29 +58,33 @@ module RXVCSRFile #(
     localparam int commit_num_entries = (1 << commit_order);
     localparam int commit_width = $clog2(commit_num_entries);
 
-    logic        [            31:0] rd_data_next;
-    logic        [            31:0] mscratch;
-    logic                           mscratch_wren;
+    localparam logic [31:0] misa_m = 32'd1 << 12;
+    localparam logic [31:0] misa_i = 32'd1 << 8;
+    localparam logic [31:0] misa = (32'd1 << 30) | misa_m | misa_i;
 
-    mstatus                         mstatus_reg;
-    logic                           mstatus_wren;
-    mtvec                           mtvec_reg;
-    logic                           mtvec_wren;
-    mepc                            mepc_reg;
-    logic                           mepc_wren;
-    mcause                          mcause_reg;
-    logic                           mcause_wren;
-    mtval                           mtval_reg;
-    logic                           mtval_wren;
+    logic        [31:0] rd_data_next;
+    logic        [31:0] mscratch;
+    logic               mscratch_wren;
 
-    logic                           exception_write;
-    mepc                            mepc_next;
-    mtval                           mtval_next;
-    mcause                          mcause_next;
-    mstatus                         mstatus_next;
-    mtvec                           mtvec_next;
+    mstatus             mstatus_reg;
+    logic               mstatus_wren;
+    mtvec               mtvec_reg;
+    logic               mtvec_wren;
+    mepc                mepc_reg;
+    logic               mepc_wren;
+    mcause              mcause_reg;
+    logic               mcause_wren;
+    mtval               mtval_reg;
+    logic               mtval_wren;
 
-    RXVException                    exception;
+    logic               exception_write;
+    mepc                mepc_next;
+    mtval               mtval_next;
+    mcause              mcause_next;
+    mstatus             mstatus_next;
+    mtvec               mtvec_next;
+
+    RXVException        exception;
 
     always_comb begin
         exception = exec_exception;
@@ -99,6 +103,7 @@ module RXVCSRFile #(
 
     always_comb begin
         unique case (rd_addr)
+            RXVCSR::CSR_MISA: rd_data_next = misa;
             RXVCSR::CSR_MVENDORID: rd_data_next = vendorid;
             RXVCSR::CSR_MARCHID: rd_data_next = archid;
             RXVCSR::CSR_MIMPID: rd_data_next = impid;
@@ -162,7 +167,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_MEPC, RXVCSR::CSR_MCAUSE, RXVCSR::CSR_MTVAL,
             RXVCSR::CSR_MCYCLE, RXVCSR::CSR_MCYCLEH, RXVCSR::CSR_MINSTRET,
             RXVCSR::CSR_MINSTRETH, RXVCSR::CSR_MHARTID, RXVCSR::CSR_SATP,
-            RXVCSR::CSR_MIE, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG:
+            RXVCSR::CSR_MIE, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG,
+            RXVCSR::CSR_MISA:
             valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase

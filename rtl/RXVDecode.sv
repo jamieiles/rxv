@@ -30,7 +30,7 @@ module RXVDecode (
     input  logic          [             31:0] decode_instr,
     output logic                              decode_predict_kill,
     output logic          [             31:2] decode_predict_kill_address,
-    output logic                              decode_stall,
+    output logic                              decode_fe_stall,
     output logic                              decode_resteer,
     output logic          [             31:2] decode_resteer_tgt,
     // CSR
@@ -133,6 +133,7 @@ module RXVDecode (
     logic                                dispatch_mul;
     logic                                dispatch_int;
     logic                                dispatch_div;
+    logic                                decode_be_stall;
 
     logic                                is_branch;
 
@@ -623,36 +624,39 @@ module RXVDecode (
         // Divider isn't pipelined so busy may not yet be raised, check if
         // another divide was just started
         div_stall = exec_pipe_en[EXEC_PIPE_DIV] && (!div_ready || div_exec_busy || div_exec_valid);
-        decode_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
+        decode_be_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
                                             ~src_regs_ready | system_stall | lsu_stall |
                                             int_stall | misc_mem_stall | mul_stall |
                                             div_stall);
+        // Stall the front-end when either the back-end is stalled or we are in
+        // a multi-uop instruction
+        decode_fe_stall = decode_be_stall;
     end
 
     always_comb begin
         dispatch_int = exec_pipe_en[EXEC_PIPE_INT] &&
-            !illegal_instruction && decode_valid && !decode_stall &&
+            !illegal_instruction && decode_valid && !decode_be_stall &&
             !kill_valid && !exec_resteer;
         schedule_int = dispatch_int & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_lsu = exec_pipe_en[EXEC_PIPE_LSU] &&
-            !illegal_instruction && decode_valid && !decode_stall &&
+            !illegal_instruction && decode_valid && !decode_be_stall &&
             !kill_valid && !exec_resteer;
         schedule_lsu = dispatch_lsu & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_mul = exec_pipe_en[EXEC_PIPE_MUL] &&
-            !illegal_instruction && decode_valid && !decode_stall &&
+            !illegal_instruction && decode_valid && !decode_be_stall &&
             !kill_valid && !exec_resteer;
         schedule_mul = dispatch_mul & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_div = exec_pipe_en[EXEC_PIPE_DIV] &&
-            !illegal_instruction && decode_valid && !decode_stall &&
+            !illegal_instruction && decode_valid && !decode_be_stall &&
             !kill_valid && !exec_resteer;
         schedule_div = dispatch_div & exec_have_writeback_next;
     end
@@ -935,7 +939,7 @@ module RXVDecode (
     );
 
     always_ff @(posedge clk) begin
-        if (decode_valid && !decode_stall && !kill_valid && !exec_resteer) begin
+        if (decode_valid && !decode_fe_stall && !kill_valid && !exec_resteer) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
         end
         if (decode_valid && decode_exception_next.valid) begin

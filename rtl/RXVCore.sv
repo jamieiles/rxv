@@ -60,7 +60,7 @@ module RXVCore #(
 
     logic                              decode_resteer;
     logic          [             31:2] decode_resteer_tgt;
-    logic                              decode_stall;
+    logic                              decode_fe_stall;
     logic                              decode_valid;
     logic          [             31:2] decode_pc;
     logic          [             31:2] decode_next_pc;
@@ -262,7 +262,7 @@ module RXVCore #(
         .prediction            (fetch_prediction),
         .decode_resteer        (decode_resteer),
         .decode_resteer_tgt    (decode_resteer_tgt),
-        .decode_stall          (decode_stall),
+        .decode_fe_stall       (decode_fe_stall),
         .decode_valid          (decode_valid),
         .decode_pc             (decode_pc),
         .decode_next_pc        (decode_next_pc),
@@ -286,7 +286,7 @@ module RXVCore #(
         .decode_predict_kill_address(decode_kill_address),
         .decode_resteer             (decode_resteer),
         .decode_resteer_tgt         (decode_resteer_tgt),
-        .decode_stall               (decode_stall),
+        .decode_fe_stall            (decode_fe_stall),
         .decode_csr_addr            (decode_csr_addr),
         .valid_csr_in               (decode_valid_csr),
         .reg_wr_addr                (reg_wr_addr),

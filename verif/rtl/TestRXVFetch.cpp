@@ -25,7 +25,7 @@ public:
         this->dut.branch_predict_strength = 0;
         this->dut.decode_resteer = 0;
         this->dut.decode_resteer_tgt = 0;
-        this->dut.decode_stall = 0;
+        this->dut.decode_fe_stall = 0;
         this->dut.exec_resteer = 0;
         this->dut.exec_resteer_tgt = 0;
 

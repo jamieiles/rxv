@@ -57,7 +57,8 @@ module RXVCSRFile #(
 
     localparam logic [31:0] misa_m = 32'd1 << 12;
     localparam logic [31:0] misa_i = 32'd1 << 8;
-    localparam logic [31:0] misa = (32'd1 << 30) | misa_m | misa_i;
+    localparam logic [31:0] misa_a = 32'd1 << 0;
+    localparam logic [31:0] misa = (32'd1 << 30) | misa_m | misa_i | misa_a;
 
     logic        [31:0] rd_data_next;
     logic        [31:0] mscratch;
@@ -110,6 +111,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_MEPC: rd_data_next = unpack_mepc(mepc_reg);
             RXVCSR::CSR_MCAUSE: rd_data_next = unpack_mcause(mcause_reg);
             RXVCSR::CSR_MTVAL: rd_data_next = unpack_mtval(mtval_reg);
+            RXVCSR::CSR_UCYCLE: rd_data_next = pmu_cycles[31:0];
+            RXVCSR::CSR_UCYCLEH: rd_data_next = pmu_cycles[63:32];
             RXVCSR::CSR_MCYCLE: rd_data_next = pmu_cycles[31:0];
             RXVCSR::CSR_MCYCLEH: rd_data_next = pmu_cycles[63:32];
             RXVCSR::CSR_MINSTRET: rd_data_next = pmu_instret[31:0];
@@ -165,7 +168,9 @@ module RXVCSRFile #(
             RXVCSR::CSR_MCYCLE, RXVCSR::CSR_MCYCLEH, RXVCSR::CSR_MINSTRET,
             RXVCSR::CSR_MINSTRETH, RXVCSR::CSR_MHARTID, RXVCSR::CSR_SATP,
             RXVCSR::CSR_MIE, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG,
-            RXVCSR::CSR_MISA:
+            RXVCSR::CSR_MISA, RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH,
+            RXVCSR::CSR_TSELECT, RXVCSR::CSR_TDATA1, RXVCSR::CSR_TDATA2,
+            RXVCSR::CSR_TDATA3:
             valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase

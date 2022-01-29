@@ -7,7 +7,9 @@ import RXVCSR::RXVException;
 import RXVTrace::trace_write_mem;
 import RXVTrace::trace_read_mem;
 
-module RXVLSU (
+module RXVLSU #(
+    parameter line_size_bytes = 16
+) (
     input  logic                           clk,
     input  logic                           reset,
     input  logic                           icache_busy,
@@ -44,6 +46,7 @@ module RXVLSU (
     output logic        [            31:0] dcache_wdata,
     output logic                           dcache_invalidate,
     output logic                           dcache_clean,
+    input  logic                           dcache_device_memory,
     // Exception handling
     output RXVException                    lsu_exception,
     output logic        [commit_width-1:0] lsu_except_id,
@@ -53,6 +56,16 @@ module RXVLSU (
     output logic                           global_stall_start,
     output logic                           global_stall_end
 );
+
+    localparam offset_bits = $clog2(line_size_bytes / 4);
+    localparam reservation_bits = 30 - offset_bits;
+
+    // verilator lint_off UNUSED
+    function [reservation_bits-1:0] get_reservation_addr;
+        input [31:2] address_in;
+        get_reservation_addr = address_in[2+offset_bits+:reservation_bits];
+    endfunction
+    // verilator lint_on UNUSED
 
     typedef enum bit [1:0] {
         WIDTH_8  = 2'b00,
@@ -69,6 +82,8 @@ module RXVLSU (
         lsu_width width;
         logic is_signed;
         logic valid;
+        logic is_sc;
+        logic reservation_held;
 `ifdef RXV_TRACE
         logic [31:0] address;
 `endif
@@ -89,39 +104,45 @@ module RXVLSU (
     //     If this stalls then only because the access itself stalled in which
     //     case any newer load/store will have been killed.
 
-    logic        [            31:0] address;
-    logic        [            31:0] dcache_wdata_next;
-    logic                           is_load;
-    logic                           is_store;
-    logic                           is_fencei;
-    lsu_op                          op_stage1_next;
-    lsu_op                          op_stage1;
-    lsu_op                          op_stage2_next;
-    lsu_op                          op_stage2;
-    logic        [            31:0] lsu_reg_wr_data_next;
-    phys_reg_tag                    lsu_reg_addr_next;
-    logic                           lsu_reg_wr_en_next;
-    logic                           lsu_complete_next;
-    logic                           lsu_complete_reg;
-    logic        [commit_width-1:0] lsu_complete_id_next;
-    logic                           is_unaligned;
-    lsu_width                       width;
-    RXVException                    lsu_exception_next;
-    logic                           lsu_busy_kill_next;
-    logic                           lsu_busy_next;
-    logic                           valid;
-    logic                           lsu_resteer_next;
-    logic        [            31:2] lsu_resteer_tgt_next;
-    logic                           lsu_resteer_tgt_update;
-    logic                           lsu_stall;
-    logic                           fencei_pending;
-    logic                           fencei_pending_next;
-    logic                           dcache_clean_next;
-    logic                           icache_invalidate_next;
-    logic                           global_stall_start_next;
-    logic                           global_stall_end_next;
-    logic                           fencei_active;
-    logic                           fencei_active_next;
+    logic        [                31:0] address;
+    logic        [                31:0] dcache_wdata_next;
+    logic                               is_load;
+    logic                               is_invalid_amo;
+    logic                               is_store;
+    logic                               is_fencei;
+    lsu_op                              op_stage1_next;
+    lsu_op                              op_stage1;
+    lsu_op                              op_stage2_next;
+    lsu_op                              op_stage2;
+    logic        [                31:0] lsu_reg_wr_data_next;
+    phys_reg_tag                        lsu_reg_addr_next;
+    logic                               lsu_reg_wr_en_next;
+    logic                               lsu_complete_next;
+    logic                               lsu_complete_reg;
+    logic        [    commit_width-1:0] lsu_complete_id_next;
+    logic                               is_unaligned;
+    lsu_width                           width;
+    RXVException                        lsu_exception_next;
+    logic                               lsu_busy_kill_next;
+    logic                               lsu_busy_next;
+    logic                               valid;
+    logic                               lsu_resteer_next;
+    logic        [                31:2] lsu_resteer_tgt_next;
+    logic                               lsu_resteer_tgt_update;
+    logic                               lsu_stall;
+    logic                               fencei_pending;
+    logic                               fencei_pending_next;
+    logic                               dcache_clean_next;
+    logic                               icache_invalidate_next;
+    logic                               global_stall_start_next;
+    logic                               global_stall_end_next;
+    logic                               fencei_active;
+    logic                               fencei_active_next;
+    logic        [reservation_bits-1:0] reservation_address;
+    logic        [reservation_bits-1:0] reservation_address_next;
+    logic                               reservation_held;
+    logic                               reservation_held_next;
+    logic                               reservation_matches;
 
     always_comb begin
         dcache_invalidate = 1'b0;
@@ -175,7 +196,26 @@ module RXVLSU (
     always_comb begin
         address        = op1 + exec_immed;
         dcache_address = address[31:2];
+    end
 
+    always_comb begin
+        reservation_held_next    = reservation_held;
+        reservation_address_next = reservation_address;
+
+        if (valid && exec_uop == RXVTypes::UOP_SC) reservation_held_next = 1'b0;
+        if (valid && get_reservation_addr(address[31:2]) != reservation_address)
+            reservation_held_next = 1'b0;
+
+        if (valid && exec_uop == RXVTypes::UOP_LR) begin
+            reservation_held_next    = ~dcache_device_memory;
+            reservation_address_next = get_reservation_addr(address[31:2]);
+        end
+
+        reservation_matches = reservation_held &&
+            get_reservation_addr(address[31:2]) == reservation_address;
+    end
+
+    always_comb begin
         unique case (exec_uop)
             RXVTypes::UOP_LB, RXVTypes::UOP_LBU, RXVTypes::UOP_SB: begin
                 dcache_bytesel = 4'b1 << address[1:0];
@@ -192,13 +232,13 @@ module RXVLSU (
         endcase
 
         unique case (exec_uop)
-            RXVTypes::UOP_LB, RXVTypes::UOP_LH, RXVTypes::UOP_LW, RXVTypes::UOP_LBU,
-            RXVTypes::UOP_LHU: begin
+            RXVTypes::UOP_LB, RXVTypes::UOP_LH, RXVTypes::UOP_LW, RXVTypes::UOP_LW_ATOMIC,
+            RXVTypes::UOP_LBU, RXVTypes::UOP_LHU, RXVTypes::UOP_LR: begin
                 is_load   = 1'b1;
                 is_store  = 1'b0;
                 is_fencei = 1'b0;
             end
-            RXVTypes::UOP_SB, RXVTypes::UOP_SH, RXVTypes::UOP_SW: begin
+            RXVTypes::UOP_SB, RXVTypes::UOP_SH, RXVTypes::UOP_SW, RXVTypes::UOP_SC: begin
                 is_store  = 1'b1;
                 is_load   = 1'b0;
                 is_fencei = 1'b0;
@@ -215,20 +255,26 @@ module RXVLSU (
             end
         endcase
 
+        is_invalid_amo = ((exec_uop == RXVTypes::UOP_LW_ATOMIC ||
+                           exec_uop == RXVTypes::UOP_LR ||
+                           exec_uop == RXVTypes::UOP_SC) && dcache_device_memory);
+
         unique case (exec_uop)
             RXVTypes::UOP_LB, RXVTypes::UOP_LBU, RXVTypes::UOP_SB: width = WIDTH_8;
             RXVTypes::UOP_LH, RXVTypes::UOP_LHU, RXVTypes::UOP_SH: width = WIDTH_16;
             default: width = WIDTH_32;
         endcase
 
-        op_stage1_next.rd          = exec_rd;
-        op_stage1_next.reg_wr_en   = exec_have_writeback;
-        op_stage1_next.id          = exec_id;
-        op_stage1_next.read_mask   = dcache_bytesel;
+        op_stage1_next.rd = exec_rd;
+        op_stage1_next.reg_wr_en = exec_have_writeback;
+        op_stage1_next.id = exec_id;
+        op_stage1_next.read_mask = dcache_bytesel;
         op_stage1_next.addr_offset = address[1:0];
-        op_stage1_next.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
-        op_stage1_next.width       = width;
-        op_stage1_next.is_signed   = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
+        op_stage1_next.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid & ~is_invalid_amo;
+        op_stage1_next.width = width;
+        op_stage1_next.is_signed = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
+        op_stage1_next.is_sc = exec_uop == RXVTypes::UOP_SC;
+        op_stage1_next.reservation_held = reservation_matches;
 `ifdef RXV_TRACE
         op_stage1_next.address = address;
 `endif
@@ -249,6 +295,7 @@ module RXVLSU (
             lsu_reg_wr_data_next = 32'($signed(lsu_reg_wr_data_next[7:0]));
         if (op_stage2.width == WIDTH_16 && op_stage2.is_signed)
             lsu_reg_wr_data_next = 32'($signed(lsu_reg_wr_data_next[15:0]));
+        if (op_stage2.is_sc) lsu_reg_wr_data_next = {31'b0, ~op_stage2.reservation_held};
         lsu_reg_addr_next    = op_stage2.rd;
         lsu_reg_wr_en_next   = op_stage2.valid & op_stage2.reg_wr_en;
         lsu_complete_next    = op_stage2.valid;
@@ -276,8 +323,9 @@ module RXVLSU (
     always_comb begin
         lsu_exception_next.pc = exec_pc;
         lsu_exception_next.val = address;
-        lsu_exception_next.cause = is_load ? RXVCSR::MCAUSE_LOAD_MISALIGN : RXVCSR::MCAUSE_STORE_MISALIGN;
-        lsu_exception_next.valid = (is_load | is_store) & valid & is_unaligned;
+        lsu_exception_next.cause = is_invalid_amo ? RXVCSR::MCAUSE_LOAD_ACCESS_FAULT :
+        is_load ? RXVCSR::MCAUSE_LOAD_MISALIGN : RXVCSR::MCAUSE_STORE_MISALIGN;
+        lsu_exception_next.valid = (is_load | is_store) & valid & (is_unaligned | is_invalid_amo);
     end
 
     always_comb begin
@@ -289,11 +337,12 @@ module RXVLSU (
     end
 
     always_comb begin
-        dcache_wren = valid & is_store;
+        dcache_wren = dcache_valid & is_store;
     end
 
     always_comb begin
-        dcache_valid = (is_load | is_store) & valid & ~is_unaligned;
+        dcache_valid = (is_load | is_store) & valid & ~is_unaligned & ~is_invalid_amo;
+        if (exec_uop == RXVTypes::UOP_SC && !reservation_matches) dcache_valid = 1'b0;
     end
 
     always_comb begin
@@ -313,10 +362,10 @@ module RXVLSU (
                 RXVTypes::UOP_SW: size = 4;
                 default: size = 4;
             endcase
-            trace_write_mem(32'(exec_id), address, address, op2, size);
+            if (dcache_valid) trace_write_mem(32'(exec_id), address, address, op2, size);
         end
 
-        if (lsu_complete_next && lsu_reg_wr_en_next) begin
+        if (lsu_complete_next && lsu_reg_wr_en_next && !op_stage2.is_sc) begin
             unique case (op_stage2.width)
                 WIDTH_8:  size = 1;
                 WIDTH_16: size = 2;
@@ -505,6 +554,24 @@ module RXVLSU (
         .en   (1'b1),
         .d    (fencei_active_next),
         .q    (fencei_active)
+    );
+
+    RXVDFF #(
+        .width(reservation_bits)
+    ) reservation_address_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (reservation_address_next),
+        .q    (reservation_address)
+    );
+
+    RXVDFF reservation_held_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (reservation_held_next),
+        .q    (reservation_held)
     );
 
 endmodule

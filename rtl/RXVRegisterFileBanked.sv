@@ -38,4 +38,12 @@ module RXVRegisterFileBanked (
     end
     // verilator lint_on BLKSEQ
 
+`ifdef RXV_TRACE
+    function logic [31:0] read_reg;
+        input phys_reg_tag r;
+
+        read_reg = bank_a[r];
+    endfunction
+`endif
+
 endmodule

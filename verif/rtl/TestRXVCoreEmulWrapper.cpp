@@ -921,9 +921,9 @@ TEST_F(RXVCoreEmulWrapperTest, FenceI)
         8000002c:       fff00513                li      x10,-1
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000028; ++i) {
+    for (int i = 0; i < 16384 && tracer->get_last_pc() != 0x80000028; ++i) {
         cycle();
-        if (i == 511)
+        if (i == 16383)
             FAIL() << "failed to complete test";
     }
 
@@ -1049,5 +1049,196 @@ TEST_F(RXVCoreEmulWrapperTest, misa)
             FAIL() << "failed to complete test";
     }
 
-    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 12) | (1 << 8));
+    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 12) | (1 << 8) | (1 << 0));
+}
+
+TEST_F(RXVCoreEmulWrapperTest, amoadd)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01808093                addi    x1,x1,20 # 0x80000018
+        80000008:       00100113                li      x2,1
+        8000000c:       0020a1af                amoadd.w        x3,x2,(x1)
+        80000010:       0000a203                lw      x4,0(x1)
+        80000014:       00000013                nop
+        80000018:       00010002                XXX
+    )objdump");
+
+    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
+        cycle();
+        if (i == 511)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 0x80000018);
+    EXPECT_EQ(tracer->read_reg(2), 1);
+    EXPECT_EQ(tracer->read_reg(3), 0x00010002);
+    EXPECT_EQ(tracer->read_reg(4), 0x00010003);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, AMORegFree)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02008093                addi    x1,x1,32 # 0x80000020
+        80000008:       00100113                li      x2,1
+        8000000c:       10000293                li      x5,256
+        80000010:       0020a1af                amoadd.w        x3,x2,(x1)
+        80000014:       00120213                addi    x4,x4,1 # 0x1
+        80000018:       fe524ce3                blt     x4,x5,0x80000010
+        8000001c:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x8000001c; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(3), 255);
+    EXPECT_EQ(tracer->read_reg(4), 256);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, AMOSwap)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01c08093                addi    x1,x1,28 # 0x8000001c
+        80000008:       12345137                lui     x2,0x12345
+        8000000c:       67810113                addi    x2,x2,1656 # 0x12345678
+        80000010:       0820a1af                amoswap.w       x3,x2,(x1)
+        80000014:       0000a203                lw      x4,0(x1)
+        80000018:       00000013                nop
+        8000001c:       aa55a5a5                0xaa55a5a5
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000018; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(3), 0xaa55a5a5);
+    EXPECT_EQ(tracer->read_reg(4), 0x12345678);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, AMOX0)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01408093                addi    x1,x1,20 # 0x80000014
+        80000008:       00100113                li      x2,1
+        8000000c:       0020a02f                amoadd.w        x0,x2,(x1)
+        80000010:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000010; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+}
+
+TEST_F(RXVCoreEmulWrapperTest, AMODeviceAborts)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01c08093                addi    x1,x1,28 # 0x8000001c
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       f00000b7                lui     x1,0xf0000
+        80000010:       00100113                li      x2,1
+        80000014:       0020a02f                amoadd.w        x0,x2,(x1)
+        80000018:       0000006f                j       0x80000018
+        8000001c:       00a00513                li      x10,10
+        80000020:       341025f3                csrr    x11,mepc
+        80000024:       34202673                csrr    x12,mcause
+        80000028:       343026f3                csrr    x13,mtval
+        8000002c:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x8000002c; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(10), 10);
+    EXPECT_EQ(tracer->read_reg(11), 0x80000014);
+    EXPECT_EQ(tracer->read_reg(12), 5);
+    EXPECT_EQ(tracer->read_reg(13), 0xf0000000);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, LRSC)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01c08093                addi    x1,x1,28 # 0x8000001c
+        80000008:       1000a12f                lr.w    x2,(x1)
+        8000000c:       00110113                addi    x2,x2,1
+        80000010:       1820a1af                sc.w    x3,x2,(x1)
+        80000014:       0000a203                lw      x4,0(x1)
+        80000018:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000018; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 1);
+    EXPECT_EQ(tracer->read_reg(3), 0);
+    EXPECT_EQ(tracer->read_reg(4), 1);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, ReservationLost)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02408093                addi    x1,x1,36 # 0x80000024
+        80000008:       10008513                addi    x10,x1,256
+        8000000c:       1000a12f                lr.w    x2,(x1)
+        80000010:       00052583                lw      x11,0(x10)
+        80000014:       00110113                addi    x2,x2,1
+        80000018:       1820a1af                sc.w    x3,x2,(x1)
+        8000001c:       0000a203                lw      x4,0(x1)
+        80000020:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000020; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 1);
+    EXPECT_EQ(tracer->read_reg(3), 1);
+    EXPECT_EQ(tracer->read_reg(4), 0);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, SequentialSCLosesReservation)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02408093                addi    x1,x1,36 # 0x80000024
+        80000008:       1000a12f                lr.w    x2,(x1)
+        8000000c:       00110113                addi    x2,x2,1
+        80000010:       06410613                addi    x12,x2,100
+        80000014:       1820a1af                sc.w    x3,x2,(x1)
+        80000018:       18c0a22f                sc.w    x4,x12,(x1)
+        8000001c:       0000a283                lw      x5,0(x1)
+        80000020:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000020; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 1);
+    EXPECT_EQ(tracer->read_reg(12), 101);
+    EXPECT_EQ(tracer->read_reg(3), 0);
+    EXPECT_EQ(tracer->read_reg(4), 1);
+    EXPECT_EQ(tracer->read_reg(5), 1);
 }

@@ -21,6 +21,11 @@ module RXVALU (
             RXVTypes::ALU_AND: q = a & b;
             RXVTypes::ALU_SLT: q = {31'b0, $signed(a) < $signed(b)};
             RXVTypes::ALU_SLTU: q = {31'b0, a < b};
+            RXVTypes::ALU_MIN: q = $signed(a) < $signed(b) ? a : b;
+            RXVTypes::ALU_MAX: q = $signed(a) > $signed(b) ? a : b;
+            RXVTypes::ALU_MINU: q = a < b ? a : b;
+            RXVTypes::ALU_MAXU: q = a > b ? a : b;
+            RXVTypes::ALU_RS2: q = b;
             default: q = 'b0;
         endcase
 

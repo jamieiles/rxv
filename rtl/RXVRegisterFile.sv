@@ -20,7 +20,7 @@ module RXVRegisterFile #(
 );
 
     generate
-        if (banked == 0)
+        if (banked == 0) begin : DFF
             RXVRegisterFileDFF RXVRegisterFileDFF (
                 .clk      (clk),
                 .reset    (reset),
@@ -32,7 +32,7 @@ module RXVRegisterFile #(
                 .wr_addr  (wr_addr),
                 .wr_data  (wr_data)
             );
-        else
+        end else begin : RAM
             RXVRegisterFileBanked RXVRegisterFileBanked (
                 .clk      (clk),
                 .rd_addr_a(rd_addr_a),
@@ -43,6 +43,7 @@ module RXVRegisterFile #(
                 .wr_addr  (wr_addr),
                 .wr_data  (wr_data)
             );
+        end
     endgenerate
 
 endmodule

@@ -16,6 +16,7 @@ import RXVTypes::s_immed;
 import RXVTypes::u_immed;
 import RXVTypes::commit_width;
 import RXVTrace::trace_start_instruction;
+import RXVTrace::trace_uop;
 import RXVCSR::RXVException;
 import RXVCSR::MCAUSE_id;
 
@@ -116,6 +117,12 @@ module RXVDecode (
         EXEC_PIPE_DIV = 2'b11
     } exec_pipe_sel;
 
+    typedef enum bit [1:0] {
+        AMO_TYPE_LR,
+        AMO_TYPE_SC,
+        AMO_TYPE_FETCH_OP
+    } amo_type;
+
     logic                                rs1_busy;
     logic                                rs2_busy;
     logic                                src_regs_ready;
@@ -201,6 +208,32 @@ module RXVDecode (
     logic                                load_illegal_instr;
     rxv_uop                              load_uop;
 
+    logic                                opc_amo;
+    logic                                amo_illegal_instr;
+    rxv_uop                              amo_uop;
+    logic                                amo_uop_wb;
+    rxv_alu_op                           amo_alu_op;
+    logic        [                  3:0] amo_exec_pipe_en;
+    logic        [                  1:0] amo_uop_idx;
+    logic        [                  1:0] amo_uop_idx_next;
+    logic                                amo_alloc_tmp_reg;
+    phys_reg_tag                         amo_tmp_reg;
+    phys_reg_tag                         amo_tmp_reg_next;
+    logic                                amo_alloc_dst_reg;
+    phys_reg_tag                         amo_dst_reg;
+    phys_reg_tag                         amo_dst_reg_next;
+    logic        [                  2:0] amo_num_uops;
+    logic                                amo_alloc_reg;
+    logic                                amo_rs1_is_dst;
+    logic                                amo_rs2_is_tmp;
+    logic                                amo_rename_valid;
+    logic                                amo_opc_valid;
+    logic                                amo_complete;
+    phys_reg_tag                         amo_stale_reg;
+    logic        [     commit_width-1:0] amo_parent;
+    logic        [     commit_width-1:0] amo_parent_next;
+    amo_type                             amo_op_type;
+
     logic        [                  3:0] exec_pipe_en;
     logic                                dispatch_ready;
 
@@ -216,6 +249,7 @@ module RXVDecode (
         opc_auipc       = 1'b0;
         opc_system      = 1'b0;
         opc_misc_mem    = 1'b0;
+        opc_amo         = 1'b0;
         exec_immed_next = 'b0;
         is_branch       = 1'b0;
         have_rs1        = 1'b0;
@@ -296,6 +330,12 @@ module RXVDecode (
                 opc_load                    = 1'b1;
                 have_rs1                    = 1'b1;
                 exec_immed_next             = i_immed(decode_instr);
+            end
+            RXVTypes::OPC_AMO: begin
+                exec_pipe_en = amo_exec_pipe_en;
+                opc_amo      = 1'b1;
+                have_rs1     = 1'b1;
+                have_rs2     = 1'b1;
             end
             default: illegal_opcode = 1'b1;
         endcase
@@ -440,6 +480,112 @@ module RXVDecode (
     end
 
     always_comb begin
+        amo_uop_idx_next = amo_uop_idx;
+        if (dispatch_ready && opc_amo) amo_uop_idx_next = amo_uop_idx + 1'b1;
+        if (amo_complete || kill_valid) amo_uop_idx_next = 'b0;
+
+        amo_tmp_reg_next = amo_alloc_tmp_reg ? allocated_reg : amo_tmp_reg;
+        amo_dst_reg_next = amo_alloc_dst_reg ? allocated_reg : amo_dst_reg;
+        amo_parent_next  = amo_opc_valid && amo_uop_idx == 2'b0 ? dispatch_id : amo_parent;
+    end
+
+    always_comb begin
+        amo_illegal_instr = 1'b0;
+        amo_uop           = RXVTypes::UOP_LW;
+        amo_alu_op        = RXVTypes::ALU_ADD;
+        amo_uop_wb        = 1'b0;
+        amo_exec_pipe_en  = 'b0;
+        amo_alloc_reg     = 1'b0;
+        amo_rs1_is_dst    = 1'b0;
+        amo_alloc_tmp_reg = 1'b0;
+        amo_alloc_dst_reg = 1'b0;
+        amo_rs2_is_tmp    = 1'b0;
+        amo_rename_valid  = 1'b0;
+        amo_op_type       = AMO_TYPE_LR;
+
+        unique casez (funct7[6:2])
+            // LR/SC
+            5'b00010, 5'b00011: begin
+                amo_num_uops = 3'd1;
+                amo_op_type  = funct7[6:2] == 5'b00010 ? AMO_TYPE_LR : AMO_TYPE_SC;
+            end
+            // Fetch and Op
+            5'b00000, 5'b00001, 5'b00100, 5'b01100, 5'b01000, 5'b10000, 5'b10100,
+            5'b11000, 5'b11100: begin
+                amo_num_uops = 3'd4;
+                amo_op_type  = AMO_TYPE_FETCH_OP;
+            end
+            default: begin
+                amo_num_uops      = 3'd1;
+                amo_illegal_instr = 1'b1;
+                amo_op_type       = AMO_TYPE_FETCH_OP;
+            end
+        endcase
+
+        unique casez (funct7[6:2])
+            5'b00000: amo_alu_op = RXVTypes::ALU_ADD;
+            5'b00001: amo_alu_op = RXVTypes::ALU_RS2;
+            5'b00100: amo_alu_op = RXVTypes::ALU_XOR;
+            5'b01100: amo_alu_op = RXVTypes::ALU_AND;
+            5'b01000: amo_alu_op = RXVTypes::ALU_OR;
+            5'b10000: amo_alu_op = RXVTypes::ALU_MIN;
+            5'b10100: amo_alu_op = RXVTypes::ALU_MAX;
+            5'b11000: amo_alu_op = RXVTypes::ALU_MINU;
+            5'b11100: amo_alu_op = RXVTypes::ALU_MAXU;
+            default:  amo_alu_op = RXVTypes::ALU_ADD;
+        endcase
+
+        amo_opc_valid = opc_amo & ~amo_illegal_instr;
+
+        unique case (amo_op_type)
+            AMO_TYPE_FETCH_OP: begin
+                unique case (amo_uop_idx)
+                    2'b00: begin
+                        amo_uop                         = RXVTypes::UOP_LW_ATOMIC;
+                        amo_exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+                        amo_alloc_dst_reg               = amo_opc_valid;
+                        amo_uop_wb                      = 1'b1;
+                    end
+                    2'b01: begin
+                        amo_uop                         = RXVTypes::UOP_ALU;
+                        amo_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                        amo_rs1_is_dst                  = amo_opc_valid;
+                        amo_alloc_tmp_reg               = 1'b1;
+                        amo_uop_wb                      = 1'b1;
+                    end
+                    2'b10: begin
+                        amo_uop                         = RXVTypes::UOP_SW;
+                        amo_exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+                        amo_rs2_is_tmp                  = 1'b1;
+                    end
+                    2'b11: begin
+                        amo_uop                         = RXVTypes::UOP_ALU;
+                        amo_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                        amo_rename_valid                = |rd;
+                    end
+                    default: begin
+                        amo_uop = RXVTypes::UOP_ALU;
+                    end
+                endcase
+            end
+            AMO_TYPE_LR: begin
+                amo_uop                         = RXVTypes::UOP_LR;
+                amo_exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+                amo_uop_wb                      = 1'b1;
+            end
+            AMO_TYPE_SC: begin
+                amo_uop                         = RXVTypes::UOP_SC;
+                amo_exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+                amo_uop_wb                      = 1'b1;
+            end
+            default: ;
+        endcase
+
+        amo_alloc_reg = amo_alloc_tmp_reg | amo_alloc_dst_reg;
+        amo_complete  = 3'(amo_uop_idx) == amo_num_uops - 1'b1;
+    end
+
+    always_comb begin
         jal_uop = RXVTypes::UOP_JAL;
     end
 
@@ -545,6 +691,7 @@ module RXVDecode (
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_imm}} & imm_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_branch}} & branch_alu_op);
         exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_jalr}} & jalr_alu_op);
+        exec_alu_op_next |= ({$bits(rxv_alu_op) {opc_amo}} & amo_alu_op);
     end
 
     always_comb begin
@@ -573,8 +720,9 @@ module RXVDecode (
         exec_have_writeback_next |= opc_load;
         exec_have_writeback_next |= opc_mul & ~mul_illegal_instr;
         exec_have_writeback_next |= opc_div & ~div_illegal_instr;
+        exec_have_writeback_next |= opc_amo & amo_uop_wb & ~amo_illegal_instr;
 
-        if (~|rd || illegal_instruction) exec_have_writeback_next = 1'b0;
+        if ((!amo_alloc_reg && ~|rd) || illegal_instruction) exec_have_writeback_next = 1'b0;
     end
 
     always_comb begin
@@ -592,6 +740,7 @@ module RXVDecode (
         exec_uop_next |= ({$bits(rxv_uop) {opc_load}} & load_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_mul}} & mul_uop);
         exec_uop_next |= ({$bits(rxv_uop) {opc_div}} & div_uop);
+        exec_uop_next |= ({$bits(rxv_uop) {opc_amo}} & amo_uop);
     end
 
     always_comb begin
@@ -604,6 +753,7 @@ module RXVDecode (
             (opc_load & load_illegal_instr) |
             (opc_mul & mul_illegal_instr) |
             (opc_div & div_illegal_instr) |
+            (opc_amo & amo_illegal_instr) |
             illegal_opcode;
     end
 
@@ -630,7 +780,7 @@ module RXVDecode (
                                             div_stall);
         // Stall the front-end when either the back-end is stalled or we are in
         // a multi-uop instruction
-        decode_fe_stall = decode_be_stall;
+        decode_fe_stall = decode_be_stall || (opc_amo && 3'(amo_uop_idx) < amo_num_uops - 1'b1);
     end
 
     always_comb begin
@@ -678,14 +828,14 @@ module RXVDecode (
     end
 
     always_comb begin
-        rs1_busy = busy_status[rename_lookup_phys[0]];
-        if (reg_wr_en && reg_wr_addr == rename_lookup_phys[0]) rs1_busy = 1'b0;
+        rs1_busy = busy_status[ra_phys];
+        if (reg_wr_en && reg_wr_addr == ra_phys) rs1_busy = 1'b0;
         if (exec_bypass_rs1_next) rs1_busy = 1'b0;
     end
 
     always_comb begin
-        rs2_busy = busy_status[rename_lookup_phys[1]];
-        if (reg_wr_en && reg_wr_addr == rename_lookup_phys[1]) rs2_busy = 1'b0;
+        rs2_busy = busy_status[rb_phys];
+        if (reg_wr_en && reg_wr_addr == rb_phys) rs2_busy = 1'b0;
         if (exec_bypass_rs2_next) rs2_busy = 1'b0;
     end
 
@@ -698,33 +848,56 @@ module RXVDecode (
     end
 
     always_comb begin
-        commit_dispatch.stale_phys     = rename_out_valid ? stale_phys_reg : 'b0;
-        commit_dispatch.dest_reg       = rename_out_valid ? rename_out : 'b0;
+        amo_stale_reg = 'b0;
+
+        if (amo_uop_idx == 2'b10) amo_stale_reg = amo_tmp_reg;
+        else if (amo_uop_idx == 2'b11) amo_stale_reg = |rd ? stale_phys_reg : 'b0;
+    end
+
+    always_comb begin
+        if (amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP) begin
+            commit_dispatch.stale_phys    = amo_stale_reg;
+            commit_dispatch.dest_reg.arch = rd;
+            commit_dispatch.dest_reg.phys = amo_dst_reg;
+        end else begin
+            commit_dispatch.stale_phys = exec_have_writeback_next ? stale_phys_reg : phys_reg_tag'('b0);
+            commit_dispatch.dest_reg = exec_have_writeback_next ? rename_out : renamed_reg'('b0);
+        end
+
         commit_dispatch.pc             = decode_pc;
         commit_dispatch.have_writeback = exec_have_writeback_next;
+        commit_dispatch.have_rename    = rename_out_valid;
+`ifdef RXV_TRACE
+        if (amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP) commit_dispatch.last = amo_complete;
+        else commit_dispatch.last = 1'b1;
 
-        commit_dispatch_valid = ~kill_valid & (dispatch_ready | (decode_valid & illegal_instruction));
+        commit_dispatch.parent_id = amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP ? amo_parent : dispatch_id;
+`endif  // RXV_TRACE
+
+        commit_dispatch_valid = ~kill_valid & ~commit_buffer_full & (dispatch_ready | (decode_valid & illegal_instruction));
     end
 
     always_comb begin
-        rename_out.arch  = rd;
-        rename_out.phys  = allocated_reg;
+        rename_out.arch = rd;
+        rename_out.phys = opc_amo && amo_op_type == AMO_TYPE_FETCH_OP ? amo_dst_reg : allocated_reg;
 
-        rename_out_valid = dispatch_ready & |rd & exec_have_writeback_next;
+        if (opc_amo && amo_op_type == AMO_TYPE_FETCH_OP)
+            rename_out_valid = dispatch_ready & amo_rename_valid;
+        else rename_out_valid = dispatch_ready & |rd & exec_have_writeback_next;
     end
 
     always_comb begin
-        busy_reg_out   = rename_out.phys;
-        busy_valid_out = dispatch_ready & |rd & exec_have_writeback_next;
+        busy_reg_out   = allocated_reg;
+        busy_valid_out = dispatch_ready & (|rd | amo_alloc_reg) & exec_have_writeback_next;
     end
 
     always_comb begin
-        reg_alloc_valid = dispatch_ready & |rd & exec_have_writeback_next;
+        reg_alloc_valid = dispatch_ready & (|rd | amo_alloc_reg) & exec_have_writeback_next;
     end
 
     always_comb begin
-        ra_phys = rename_lookup_phys[0];
-        rb_phys = rename_lookup_phys[1];
+        ra_phys = amo_rs1_is_dst ? amo_dst_reg : rename_lookup_phys[0];
+        rb_phys = amo_rs2_is_tmp ? amo_tmp_reg : rename_lookup_phys[1];
     end
 
     always_comb begin
@@ -938,10 +1111,53 @@ module RXVDecode (
         .q    (decode_except_id)
     );
 
+    RXVDFF #(
+        .width($bits(amo_uop_idx))
+    ) amo_uop_idx_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (amo_uop_idx_next),
+        .q    (amo_uop_idx)
+    );
+
+    RXVDFF #(
+        .width($bits(amo_tmp_reg))
+    ) amo_tmp_reg_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (amo_tmp_reg_next),
+        .q    (amo_tmp_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(amo_dst_reg))
+    ) amo_dst_reg_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (amo_dst_reg_next),
+        .q    (amo_dst_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(amo_parent))
+    ) amo_parent_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (amo_parent_next),
+        .q    (amo_parent)
+    );
+
     always_ff @(posedge clk) begin
-        if (decode_valid && !decode_fe_stall && !kill_valid && !exec_resteer) begin
+        if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx == 'b0) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
+        end else if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx != 'b0) begin
+            trace_uop(32'(amo_parent), 32'(dispatch_id));
         end
+
         if (decode_valid && decode_exception_next.valid) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
         end

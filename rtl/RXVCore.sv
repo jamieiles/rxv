@@ -131,7 +131,7 @@ module RXVCore #(
     logic                              div_exec_reg_wr_en;
     phys_reg_tag                       div_exec_reg_wr_addr;
     logic          [             31:0] div_exec_reg_wr_data;
-    logic div_exec_busy;
+    logic                              div_exec_busy;
 
     logic          [ commit_width-1:0] lsu_complete_id;
     logic                              lsu_complete_valid;
@@ -422,45 +422,48 @@ module RXVCore #(
         .busy               (div_exec_busy)
     );
 
-    RXVLSU RXVLSU (
-        .clk                (clk),
-        .reset              (reset),
-        .icache_busy        (icache_busy),
-        .icache_invalidate  (icache_invalidate),
-        .kill_valid         (kill_valid),
-        .exec_valid         (lsu_exec_valid),
-        .exec_have_writeback(exec_have_writeback),
-        .exec_rd            (exec_rd),
-        .exec_id            (exec_id),
-        .op1                (rs1_data),
-        .op2                (rs2_data),
-        .exec_immed         (exec_immed),
-        .exec_pc            (exec_pc),
-        .exec_next_pc       (exec_next_pc),
-        .exec_uop           (exec_uop),
-        .lsu_busy           (lsu_busy),
-        .lsu_reg_busy       (lsu_reg_busy),
-        .lsu_reg_addr       (lsu_reg_wr_addr),
-        .lsu_reg_wr_en      (lsu_reg_wr_en),
-        .lsu_reg_wr_data    (lsu_reg_wr_data),
-        .lsu_complete       (lsu_complete_valid),
-        .lsu_complete_id    (lsu_complete_id),
-        .dcache_address     (dcache_address),
-        .dcache_valid       (dcache_valid),
-        .dcache_busy        (dcache_busy),
-        .dcache_rdata       (dcache_dout),
-        .dcache_wren        (dcache_wren),
-        .dcache_bytesel     (dcache_bytesel),
-        .dcache_wdata       (dcache_din),
-        .dcache_invalidate  (dcache_invalidate),
-        .dcache_clean       (dcache_clean),
-        .lsu_exception      (lsu_exception),
-        .lsu_except_id      (lsu_except_id),
-        .lsu_busy_kill      (lsu_busy_kill),
-        .lsu_resteer        (lsu_resteer),
-        .lsu_resteer_tgt    (lsu_resteer_tgt),
-        .global_stall_start (lsu_global_stall_start),
-        .global_stall_end   (lsu_global_stall_end)
+    RXVLSU #(
+        .line_size_bytes(dcache_line_size_bytes)
+    ) RXVLSU (
+        .clk                 (clk),
+        .reset               (reset),
+        .icache_busy         (icache_busy),
+        .icache_invalidate   (icache_invalidate),
+        .kill_valid          (kill_valid),
+        .exec_valid          (lsu_exec_valid),
+        .exec_have_writeback (exec_have_writeback),
+        .exec_rd             (exec_rd),
+        .exec_id             (exec_id),
+        .op1                 (rs1_data),
+        .op2                 (rs2_data),
+        .exec_immed          (exec_immed),
+        .exec_pc             (exec_pc),
+        .exec_next_pc        (exec_next_pc),
+        .exec_uop            (exec_uop),
+        .lsu_busy            (lsu_busy),
+        .lsu_reg_busy        (lsu_reg_busy),
+        .lsu_reg_addr        (lsu_reg_wr_addr),
+        .lsu_reg_wr_en       (lsu_reg_wr_en),
+        .lsu_reg_wr_data     (lsu_reg_wr_data),
+        .lsu_complete        (lsu_complete_valid),
+        .lsu_complete_id     (lsu_complete_id),
+        .dcache_address      (dcache_address),
+        .dcache_valid        (dcache_valid),
+        .dcache_busy         (dcache_busy),
+        .dcache_rdata        (dcache_dout),
+        .dcache_wren         (dcache_wren),
+        .dcache_bytesel      (dcache_bytesel),
+        .dcache_wdata        (dcache_din),
+        .dcache_invalidate   (dcache_invalidate),
+        .dcache_clean        (dcache_clean),
+        .dcache_device_memory(dcache_device_memory),
+        .lsu_exception       (lsu_exception),
+        .lsu_except_id       (lsu_except_id),
+        .lsu_busy_kill       (lsu_busy_kill),
+        .lsu_resteer         (lsu_resteer),
+        .lsu_resteer_tgt     (lsu_resteer_tgt),
+        .global_stall_start  (lsu_global_stall_start),
+        .global_stall_end    (lsu_global_stall_end)
     );
 
     RXVRegisterFile #(
@@ -620,7 +623,6 @@ module RXVCore #(
         .commit_killed         (commit_killed_out),
         .commit_excepted       (commit_excepted_out),
         .commit_valid          (commit_valid),
-        .commit_id             (commit_id),
         .retired               (retired),
         .commit_rename_out     (commit_rename_out),
         .commit_rename_valid   (commit_rename_valid),
@@ -647,8 +649,8 @@ module RXVCore #(
     );
 
     always_comb begin
-        rs1_data = exec_bypass_rs1 ? reg_wr_data : rd_data_a;
-        rs2_data = exec_bypass_rs2 ? reg_wr_data : rd_data_b;
+        rs1_data = exec_bypass_rs1 ? int_exec_reg_wr_data : rd_data_a;
+        rs2_data = exec_bypass_rs2 ? int_exec_reg_wr_data : rd_data_b;
     end
 
     always_comb begin
@@ -715,21 +717,35 @@ module RXVCore #(
 `ifdef verilator
     `include "RXVTrace_cpp.svh"
 
-    always_ff @(posedge clk) begin
-        logic [commit_width-1:0] complete_id;
+    generate
+        if (banked_register_file == 0) begin
+            always_ff @(posedge clk) begin
+                if (commit_rename_valid) begin
+                    trace_write_reg(32'(commit_id), commit_out.dest_reg.arch,
+                                    RXVRegisterFile.DFF.RXVRegisterFileDFF.read_reg(
+                                    commit_out.dest_reg.phys));
+                end
 
-        if (int_exec_complete_valid) complete_id = int_exec_complete_id;
-        else if (mul_exec_complete_valid) complete_id = mul_exec_complete_id;
-        else if (div_exec_complete_valid) complete_id = div_exec_complete_id;
-        else complete_id = lsu_complete_id;
+                if (((commit_valid && !commit_killed_out) || (commit_valid && commit_excepted_out))) begin
+                    if (commit_excepted_out) trace_exception(32'(commit_id));
+                    if (commit_out.last) trace_end_instruction(32'(commit_id));
+                end
+            end
+        end else begin
+            always_ff @(posedge clk) begin
+                if (commit_rename_valid) begin
+                    trace_write_reg(32'(commit_id), commit_out.dest_reg.arch,
+                                    RXVRegisterFile.RAM.RXVRegisterFileBanked.read_reg(
+                                    commit_out.dest_reg.phys));
+                end
 
-        if (reg_wr_en && |reg_wr_addr) begin
-            // verilator lint_off UNUSED
-            commit_entry ce = RXVCommitBuffer.commit_fifo.mem[complete_id];
-            // verilator lint_on UNUSED
-            trace_write_reg(32'(complete_id), ce.dest_reg.arch, reg_wr_data);
+                if (((commit_valid && !commit_killed_out) || (commit_valid && commit_excepted_out))) begin
+                    if (commit_excepted_out) trace_exception(32'(commit_id));
+                    if (commit_out.last) trace_end_instruction(32'(commit_id));
+                end
+            end
         end
-    end
+    endgenerate
 `endif  // verilator
 
 endmodule

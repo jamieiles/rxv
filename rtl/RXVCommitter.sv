@@ -21,7 +21,6 @@ module RXVCommitter (
     input  logic                           commit_killed,
     input  logic                           commit_excepted,
     output logic                           commit_valid,
-    input  logic        [commit_width-1:0] commit_id,
     output logic                           retired,
     // To rename file
     output renamed_reg                     commit_rename_out,
@@ -54,7 +53,8 @@ module RXVCommitter (
         commit_rename_valid    = 1'b0;
         commit_rename_rollback = 1'b0;
 
-        if (!commit_empty && commit_complete && |commit_in.dest_reg.arch) begin
+        if (!commit_empty && commit_complete && commit_in.have_rename &&
+            |commit_in.dest_reg.arch) begin
             commit_rename_valid = 1'b1;
         end
 
@@ -66,7 +66,6 @@ module RXVCommitter (
     always_comb begin
         commit_reg_reg = commit_in.stale_phys;
 
-        if (!commit_empty && commit_complete) commit_reg_reg = commit_in.stale_phys;
         if (!commit_empty && (commit_excepted || commit_killed))
             commit_reg_reg = commit_in.dest_reg.phys;
 
@@ -99,12 +98,5 @@ module RXVCommitter (
         .d    (exception_resteer_tgt_next),
         .q    (exception_resteer_tgt)
     );
-
-    always_ff @(posedge clk) begin
-        if (((commit_valid && !commit_killed) || (commit_valid && commit_excepted))) begin
-            if (commit_excepted) trace_exception(32'(commit_id));
-            trace_end_instruction(32'(commit_id));
-        end
-    end
 
 endmodule

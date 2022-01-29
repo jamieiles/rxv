@@ -27,6 +27,11 @@ package RXVTypes;
         renamed_reg dest_reg;
         logic [31:2] pc;
         logic have_writeback;
+        logic have_rename;
+`ifdef RXV_TRACE
+        logic last;
+        logic [commit_width-1:0] parent_id;
+`endif  // RXV_TRACE
     } commit_entry;
 
     typedef struct packed {
@@ -46,7 +51,12 @@ package RXVTypes;
         ALU_OR,
         ALU_AND,
         ALU_SLT,
-        ALU_SLTU
+        ALU_SLTU,
+        ALU_MIN,
+        ALU_MAX,
+        ALU_MINU,
+        ALU_MAXU,
+        ALU_RS2
     } rxv_alu_op  /* verilator public */;
 
     typedef enum logic [1:0] {
@@ -87,7 +97,7 @@ package RXVTypes;
         OPC_CUSTOM_3 = 5'b11110
     } rxv_opcode;
 
-    typedef enum logic [4:0] {
+    typedef enum logic [5:0] {
         UOP_ALU,
         UOP_BEQ,
         UOP_BNE,
@@ -105,6 +115,9 @@ package RXVTypes;
         UOP_LB,
         UOP_LH,
         UOP_LW,
+        UOP_LW_ATOMIC,
+        UOP_LR,
+        UOP_SC,
         UOP_LBU,
         UOP_LHU,
         UOP_SB,

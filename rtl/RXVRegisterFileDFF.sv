@@ -73,4 +73,12 @@ module RXVRegisterFileDFF (
         .q    (rd_data_b)
     );
 
+`ifdef RXV_TRACE
+    function logic [31:0] read_reg;
+        input phys_reg_tag r;
+
+        read_reg = reg_out[r];
+    endfunction
+`endif
+
 endmodule

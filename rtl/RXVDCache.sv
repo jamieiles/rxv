@@ -123,6 +123,7 @@ module RXVDCache #(
     logic   [data_addr_bits-1:0] data_ram_addr;
     logic   [              31:0] bus_wdata;
     logic                        cmo_active;
+    logic                        lookup_device_memory;
     state_t                      state;
     state_t                      next_state;
 
@@ -207,8 +208,8 @@ module RXVDCache #(
             way_hit[i] = way_valid[i] && way_tag[i] == addr_tag(lookup_address);
         end
 
-        miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && device_memory);
-        phys_out = {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'(0), 2'b0};
+        miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && lookup_device_memory);
+        phys_out = {address, 2'b0};
 
         unique case (state)
             STATE_RUN: busy = miss;
@@ -243,7 +244,7 @@ module RXVDCache #(
                     dirty_next    = 1'b0;
                 end
             endcase
-            if (device_memory) dirty_wren[i] = 1'b0;
+            if (lookup_device_memory) dirty_wren[i] = 1'b0;
         end
     end
 
@@ -358,7 +359,7 @@ module RXVDCache #(
                     offset_bits'(bus_beat_num);
             end
             STATE_RUN: begin
-                data_write_en      = ~miss & write_wren & ~device_memory;
+                data_write_en      = ~miss & write_wren & ~lookup_device_memory;
                 data_write_bytesel = write_bytesel;
                 data_way_sel       = hit_way;
                 data_din           = din;
@@ -428,7 +429,7 @@ module RXVDCache #(
 
     RXVAssert device_not_cached (
         .clk      (clk),
-        .en       (state == STATE_RUN && tag_compare_valid && device_memory),
+        .en       (state == STATE_RUN && tag_compare_valid && lookup_device_memory),
         .condition(miss)
     );
 
@@ -439,7 +440,7 @@ module RXVDCache #(
                 if (invalidate) next_state = STATE_INVAL;
                 if (clean) next_state = STATE_CLEAN;
                 if (miss) next_state = STATE_MISS;
-                if (tag_compare_valid && device_memory) next_state = STATE_UNCACHED;
+                if (tag_compare_valid && lookup_device_memory) next_state = STATE_UNCACHED;
             end
             STATE_MISS: begin
                 next_state = dirty[fill_way_next] ? STATE_FLUSH : STATE_FILL;
@@ -568,6 +569,14 @@ module RXVDCache #(
         .en   (1'b1),
         .d    (next_state),
         .q    (state)
+    );
+
+    RXVDFF lookup_device_memory_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (start_access),
+        .d    (device_memory),
+        .q    (lookup_device_memory)
     );
 
 endmodule

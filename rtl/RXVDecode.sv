@@ -694,9 +694,9 @@ module RXVDecode (
     end
 
     always_comb begin
-        commit_dispatch.stale_phys = stale_phys_reg;
-        commit_dispatch.dest_reg = rename_out;
-        commit_dispatch.pc = decode_pc;
+        commit_dispatch.stale_phys     = rename_out_valid ? stale_phys_reg : 'b0;
+        commit_dispatch.dest_reg       = rename_out_valid ? rename_out : 'b0;
+        commit_dispatch.pc             = decode_pc;
         commit_dispatch.have_writeback = exec_have_writeback_next;
 
         commit_dispatch_valid = ~kill_valid & (dispatch_ready | (decode_valid & illegal_instruction));

@@ -54,7 +54,7 @@ module RXVCommitter (
         commit_rename_valid    = 1'b0;
         commit_rename_rollback = 1'b0;
 
-        if (!commit_empty && commit_complete && commit_in.have_writeback) begin
+        if (!commit_empty && commit_complete && |commit_in.dest_reg.arch) begin
             commit_rename_valid = 1'b1;
         end
 
@@ -70,7 +70,7 @@ module RXVCommitter (
         if (!commit_empty && (commit_excepted || commit_killed))
             commit_reg_reg = commit_in.dest_reg.phys;
 
-        commit_reg_push = commit_in.have_writeback && commit_ready & |commit_reg_reg;
+        commit_reg_push = commit_ready & |commit_reg_reg;
     end
 
     always_comb begin

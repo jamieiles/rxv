@@ -86,6 +86,9 @@ void RiscVELF::init_elf()
 
 const Elf32_Shdr *RiscVELF::find_section(const std::string &name) const
 {
+    if (!section_strings)
+        return nullptr;
+
     for (auto n = 1; n < ehdr->e_shnum; ++n) {
         auto sec_name = section_strings + shdrs[n].sh_name;
 

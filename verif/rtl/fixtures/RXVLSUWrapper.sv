@@ -2,13 +2,13 @@
 
 import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_uop;
+import RXVTypes::commit_width;
 import RXVCSR::RXVException;
 
 module RXVLSUWrapper #(
-    parameter     nr_lines        = 4,
-    parameter     nr_ways         = 4,
-    parameter     line_size_bytes = 16,
-    parameter int commit_order    = 3
+    parameter nr_lines        = 4,
+    parameter nr_ways         = 4,
+    parameter line_size_bytes = 16
 ) (
     input  logic                           clk,
     input  logic                           reset,
@@ -45,9 +45,6 @@ module RXVLSUWrapper #(
     output logic                           global_stall_start,
     output logic                           global_stall_end
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     logic [31:2] dcache_address;
     logic        dcache_valid;

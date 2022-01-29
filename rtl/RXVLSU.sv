@@ -2,13 +2,12 @@
 
 import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_uop;
+import RXVTypes::commit_width;
 import RXVCSR::RXVException;
 import RXVTrace::trace_write_mem;
 import RXVTrace::trace_read_mem;
 
-module RXVLSU #(
-    parameter int commit_order = 3
-) (
+module RXVLSU (
     input  logic                           clk,
     input  logic                           reset,
     input  logic                           icache_busy,
@@ -54,9 +53,6 @@ module RXVLSU #(
     output logic                           global_stall_start,
     output logic                           global_stall_end
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     typedef enum bit [1:0] {
         WIDTH_8  = 2'b00,

@@ -1,54 +1,52 @@
 `default_nettype none
 
 import RXVTypes::commit_entry;
+import RXVTypes::commit_order;
+import RXVTypes::commit_width;
+import RXVTypes::commit_num_entries;
 
-module RXVCommitBuffer #(
-    parameter int order = 3
-) (
-    input  logic                         clk,
-    input  logic                         reset,
+module RXVCommitBuffer (
+    input  logic                           clk,
+    input  logic                           reset,
     // Dispatch
-    output logic                         full,
-    input  commit_entry                  dispatch_in,
-    input  logic                         dispatch_valid,
-    output logic        [addr_width-1:0] dispatch_id,
+    output logic                           full,
+    input  commit_entry                    dispatch_in,
+    input  logic                           dispatch_valid,
+    output logic        [commit_width-1:0] dispatch_id,
     // Kill
-    input  logic                         kill_valid,
-    input  logic                         lsu_busy_kill_valid,
+    input  logic                           kill_valid,
+    input  logic                           lsu_busy_kill_valid,
     // Completion
-    input  logic        [addr_width-1:0] int_complete_id,
-    input  logic                         int_complete_valid,
-    input  logic        [addr_width-1:0] lsu_complete_id,
-    input  logic                         lsu_complete_valid,
-    input  logic        [addr_width-1:0] mul_complete_id,
-    input  logic                         mul_complete_valid,
-    input  logic        [addr_width-1:0] div_complete_id,
-    input  logic                         div_complete_valid,
+    input  logic        [commit_width-1:0] int_complete_id,
+    input  logic                           int_complete_valid,
+    input  logic        [commit_width-1:0] lsu_complete_id,
+    input  logic                           lsu_complete_valid,
+    input  logic        [commit_width-1:0] mul_complete_id,
+    input  logic                           mul_complete_valid,
+    input  logic        [commit_width-1:0] div_complete_id,
+    input  logic                           div_complete_valid,
     // Exception
-    input  logic        [addr_width-1:0] except_id,
-    input  logic                         except_valid,
-    output logic                         exception_pending,
+    input  logic        [commit_width-1:0] except_id,
+    input  logic                           except_valid,
+    output logic                           exception_pending,
     // Retirement
-    output logic                         empty,
-    output commit_entry                  commit_out,
-    output logic                         commit_complete_out,
-    output logic                         commit_killed_out,
-    output logic                         commit_excepted_out,
-    input  logic                         commit_valid,
-    output logic        [addr_width-1:0] commit_id
+    output logic                           empty,
+    output commit_entry                    commit_out,
+    output logic                           commit_complete_out,
+    output logic                           commit_killed_out,
+    output logic                           commit_excepted_out,
+    input  logic                           commit_valid,
+    output logic        [commit_width-1:0] commit_id
 );
 
-    localparam int num_entries = (1 << order);
-    localparam int addr_width = $clog2(num_entries);
-
     typedef struct packed {
-        logic [addr_width-1:0] id;
+        logic [commit_width-1:0] id;
         logic valid;
     } dispatch_record;
 
     Fifo #(
         .data_width($bits(commit_entry)),
-        .order     (order)
+        .order     (commit_order)
     ) commit_fifo (
         .clk        (clk),
         .reset      (reset),
@@ -66,19 +64,19 @@ module RXVCommitBuffer #(
         // verilator lint_on PINCONNECTEMPTY
     );
 
-    logic           [num_entries-1:0] completed;
-    logic           [num_entries-1:0] completed_next;
-    logic           [num_entries-1:0] killed;
-    logic           [num_entries-1:0] killed_next;
-    logic           [num_entries-1:0] excepted;
-    logic           [num_entries-1:0] excepted_next;
+    logic           [commit_num_entries-1:0] completed;
+    logic           [commit_num_entries-1:0] completed_next;
+    logic           [commit_num_entries-1:0] killed;
+    logic           [commit_num_entries-1:0] killed_next;
+    logic           [commit_num_entries-1:0] excepted;
+    logic           [commit_num_entries-1:0] excepted_next;
 
-    logic                             killing;
-    logic                             killing_next;
-    logic                             exception_pending_next;
+    logic                                    killing;
+    logic                                    killing_next;
+    logic                                    exception_pending_next;
 
-    dispatch_record                   last_dispatch          [0:1];
-    dispatch_record                   last_dispatch_next     [0:1];
+    dispatch_record                          last_dispatch          [0:1];
+    dispatch_record                          last_dispatch_next     [0:1];
 
     always_comb begin
         killing_next = killing;
@@ -88,24 +86,24 @@ module RXVCommitBuffer #(
 
     always_comb begin
         integer i;
-        for (i = 0; i < num_entries; i = i + 1) begin
+        for (i = 0; i < commit_num_entries; i = i + 1) begin
             excepted_next[i] = excepted[i];
-            if (except_id == addr_width'(i) && except_valid) excepted_next[i] = 1'b1;
-            if (commit_id == addr_width'(i) && commit_valid) excepted_next[i] = 1'b0;
+            if (except_id == commit_width'(i) && except_valid) excepted_next[i] = 1'b1;
+            if (commit_id == commit_width'(i) && commit_valid) excepted_next[i] = 1'b0;
         end
     end
 
     always_comb begin
         integer i;
-        for (i = 0; i < num_entries; i = i + 1) begin
+        for (i = 0; i < commit_num_entries; i = i + 1) begin
             killed_next[i] = killed[i];
-            if (dispatch_id - 1'b1 == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
-            if (last_dispatch[1].valid && last_dispatch[1].id == addr_width'(i) && (kill_valid || lsu_busy_kill_valid))
+            if (dispatch_id - 1'b1 == commit_width'(i) && except_valid) killed_next[i] = 1'b1;
+            if (last_dispatch[1].valid && last_dispatch[1].id == commit_width'(i) && (kill_valid || lsu_busy_kill_valid))
                 killed_next[i] = 1'b1;
-            if (last_dispatch[0].valid && last_dispatch[0].id == addr_width'(i) && lsu_busy_kill_valid)
+            if (last_dispatch[0].valid && last_dispatch[0].id == commit_width'(i) && lsu_busy_kill_valid)
                 killed_next[i] = 1'b1;
-            if (except_id == addr_width'(i) && except_valid) killed_next[i] = 1'b1;
-            if (commit_id == addr_width'(i) && commit_valid) killed_next[i] = 1'b0;
+            if (except_id == commit_width'(i) && except_valid) killed_next[i] = 1'b1;
+            if (commit_id == commit_width'(i) && commit_valid) killed_next[i] = 1'b0;
         end
     end
 
@@ -126,13 +124,13 @@ module RXVCommitBuffer #(
 
     always_comb begin
         integer i;
-        for (i = 0; i < num_entries; i = i + 1) begin
+        for (i = 0; i < commit_num_entries; i = i + 1) begin
             completed_next[i] = completed[i];
-            if (int_complete_id == addr_width'(i) && int_complete_valid) completed_next[i] = 1'b1;
-            if (lsu_complete_id == addr_width'(i) && lsu_complete_valid) completed_next[i] = 1'b1;
-            if (mul_complete_id == addr_width'(i) && mul_complete_valid) completed_next[i] = 1'b1;
-            if (div_complete_id == addr_width'(i) && div_complete_valid) completed_next[i] = 1'b1;
-            if (commit_id == addr_width'(i) && commit_valid) completed_next[i] = 1'b0;
+            if (int_complete_id == commit_width'(i) && int_complete_valid) completed_next[i] = 1'b1;
+            if (lsu_complete_id == commit_width'(i) && lsu_complete_valid) completed_next[i] = 1'b1;
+            if (mul_complete_id == commit_width'(i) && mul_complete_valid) completed_next[i] = 1'b1;
+            if (div_complete_id == commit_width'(i) && div_complete_valid) completed_next[i] = 1'b1;
+            if (commit_id == commit_width'(i) && commit_valid) completed_next[i] = 1'b0;
         end
     end
 
@@ -165,7 +163,7 @@ module RXVCommitBuffer #(
     );
 
     RXVDFF #(
-        .width(num_entries)
+        .width(commit_num_entries)
     ) completed_dff (
         .clk  (clk),
         .reset(reset),
@@ -175,7 +173,7 @@ module RXVCommitBuffer #(
     );
 
     RXVDFF #(
-        .width(num_entries)
+        .width(commit_num_entries)
     ) killed_dff (
         .clk  (clk),
         .reset(reset),
@@ -185,7 +183,7 @@ module RXVCommitBuffer #(
     );
 
     RXVDFF #(
-        .width(num_entries)
+        .width(commit_num_entries)
     ) excepted_dff (
         .clk  (clk),
         .reset(reset),

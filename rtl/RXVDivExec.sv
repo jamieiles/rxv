@@ -3,10 +3,9 @@
 import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_uop;
+import RXVTypes::commit_width;
 
-module RXVDivExec #(
-    parameter int commit_order = 3
-) (
+module RXVDivExec (
     input  logic                           clk,
     input  logic                           reset,
     input  logic                           kill_valid,
@@ -24,9 +23,6 @@ module RXVDivExec #(
     input  rxv_uop                         exec_uop,
     output logic                           busy
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     logic        is_signed;
     logic [31:0] dividend;

@@ -5,11 +5,10 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_prediction;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_uop;
+import RXVTypes::commit_width;
 import RXVCSR::RXVException;
 
-module RXVIntExec #(
-    parameter int commit_order = 3
-) (
+module RXVIntExec (
     input  logic                             clk,
     input  logic                             reset,
     input  logic                             kill_valid,
@@ -55,9 +54,6 @@ module RXVIntExec #(
     output RXVException                      exec_exception,
     output logic          [commit_width-1:0] exec_except_id
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     logic                           valid;
     logic        [            31:0] alu_q;

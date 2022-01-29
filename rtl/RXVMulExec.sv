@@ -3,10 +3,9 @@
 import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_uop;
+import RXVTypes::commit_width;
 
-module RXVMulExec #(
-    parameter int commit_order = 3
-) (
+module RXVMulExec (
     input  logic                           clk,
     input  logic                           reset,
     input  logic                           kill_valid,
@@ -23,9 +22,6 @@ module RXVMulExec #(
     output logic        [commit_width-1:0] exec_complete_id,
     input  rxv_uop                         exec_uop
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     typedef struct packed {
         logic valid;

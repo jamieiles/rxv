@@ -14,13 +14,12 @@ import RXVTypes::i_immed;
 import RXVTypes::j_immed;
 import RXVTypes::s_immed;
 import RXVTypes::u_immed;
+import RXVTypes::commit_width;
 import RXVTrace::trace_start_instruction;
 import RXVCSR::RXVException;
 import RXVCSR::MCAUSE_id;
 
-module RXVDecode #(
-    parameter int commit_order = 3
-) (
+module RXVDecode (
     input  logic                              clk,
     input  logic                              reset,
     // From fetch
@@ -109,9 +108,6 @@ module RXVDecode #(
     // verilator lint_off UNUSED
     wire [ 6:0] opcode = decode_instr[6:0];
     // verilator lint_on UNUSED
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     typedef enum bit [1:0] {
         EXEC_PIPE_INT = 2'b00,

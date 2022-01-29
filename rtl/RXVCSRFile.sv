@@ -19,12 +19,12 @@ import RXVCSR::unpack_mtval;
 import RXVCSR::RXVException;
 import RXVCSR::MCAUSE_id;
 import RXVTrace::trace_write_csr;
+import RXVTypes::commit_width;
 
 module RXVCSRFile #(
-    parameter logic [31:0] vendorid     = 0,
-    parameter logic [31:0] archid       = 0,
-    parameter logic [31:0] impid        = 0,
-    parameter int          commit_order = 3
+    parameter logic [31:0] vendorid = 0,
+    parameter logic [31:0] archid   = 0,
+    parameter logic [31:0] impid    = 0
 ) (
     input  logic                           clk,
     input  logic                           reset,
@@ -54,9 +54,6 @@ module RXVCSRFile #(
     input  logic        [            63:0] pmu_cycles,
     input  logic        [            63:0] pmu_instret
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     localparam logic [31:0] misa_m = 32'd1 << 12;
     localparam logic [31:0] misa_i = 32'd1 << 8;

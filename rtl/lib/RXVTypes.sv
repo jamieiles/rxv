@@ -5,10 +5,13 @@ package RXVTypes;
     localparam arch_reg_bits  /* verilator public */ = $clog2(num_arch_regs);
     localparam phys_reg_bits  /* verilator public */ = $clog2(num_phys_regs);
     // verilator lint_off UNUSED
-    localparam int_latency = 1;
-    localparam lsu_latency = 3;
-    localparam mul_latency = 5;
-    localparam div_latency = 33;
+    localparam int int_latency = 1;
+    localparam int lsu_latency = 3;
+    localparam int mul_latency = 5;
+    localparam int div_latency = 33;
+    localparam int commit_order = 3;
+    localparam int commit_num_entries = (1 << commit_order);
+    localparam int commit_width = $clog2(commit_num_entries);
     // verilator lint_on UNUSED
 
     typedef logic [arch_reg_bits-1:0] arch_reg_tag;

@@ -10,6 +10,7 @@ import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_alu_op;
 import RXVTypes::rxv_csr_op;
 import RXVTypes::rxv_uop;
+import RXVTypes::commit_width;
 import RXVTrace::trace_write_reg;
 import RXVTrace::trace_write_csr;
 import RXVCSR::RXVException;
@@ -25,7 +26,6 @@ module RXVCore #(
     parameter int          dcache_line_size_bytes = 32,
     parameter int          btb_num_entries        = 256,
     parameter int          btb_tag_bits           = 10,
-    parameter int          commit_order           = 4,
     parameter int          banked_register_file   = 0,
     parameter logic [31:0] reset_address          = 32'h80000000,
     parameter logic [31:0] vendorid               = 0,
@@ -39,9 +39,6 @@ module RXVCore #(
           MemInterface.Manager instruction_bus,
           MemInterface.Manager data_bus
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     logic          [             31:2] icache_address;
     logic                              icache_valid;
@@ -277,9 +274,7 @@ module RXVCore #(
         .exception_resteer_tgt (exception_resteer_tgt)
     );
 
-    RXVDecode #(
-        .commit_order(commit_order)
-    ) RXVDecode (
+    RXVDecode RXVDecode (
         .clk                        (clk),
         .reset                      (reset),
         .decode_valid               (decode_valid),
@@ -348,9 +343,7 @@ module RXVCore #(
         .decode_except_id           (decode_except_id)
     );
 
-    RXVIntExec #(
-        .commit_order(commit_order)
-    ) RXVIntExec (
+    RXVIntExec RXVIntExec (
         .clk                        (clk),
         .reset                      (reset),
         .kill_valid                 (kill_valid),
@@ -392,9 +385,7 @@ module RXVCore #(
         .exec_except_id             (exec_except_id)
     );
 
-    RXVMulExec #(
-        .commit_order(commit_order)
-    ) RXVMulExec (
+    RXVMulExec RXVMulExec (
         .clk                (clk),
         .reset              (reset),
         .kill_valid         (kill_valid),
@@ -412,9 +403,7 @@ module RXVCore #(
         .exec_uop           (exec_uop)
     );
 
-    RXVDivExec #(
-        .commit_order(commit_order)
-    ) RXVDivExec (
+    RXVDivExec RXVDivExec (
         .clk                (clk),
         .reset              (reset),
         .kill_valid         (kill_valid),
@@ -433,9 +422,7 @@ module RXVCore #(
         .busy               (div_exec_busy)
     );
 
-    RXVLSU #(
-        .commit_order(commit_order)
-    ) RXVLSU (
+    RXVLSU RXVLSU (
         .clk                (clk),
         .reset              (reset),
         .icache_busy        (icache_busy),
@@ -491,10 +478,9 @@ module RXVCore #(
     );
 
     RXVCSRFile #(
-        .vendorid    (vendorid),
-        .archid      (archid),
-        .impid       (impid),
-        .commit_order(commit_order)
+        .vendorid(vendorid),
+        .archid  (archid),
+        .impid   (impid)
     ) RXVCSRFile (
         .clk           (clk),
         .reset         (reset),
@@ -568,9 +554,7 @@ module RXVCore #(
         .invalidate   (dcache_invalidate)
     );
 
-    RXVCommitBuffer #(
-        .order(commit_order)
-    ) RXVCommitBuffer (
+    RXVCommitBuffer RXVCommitBuffer (
         .clk                (clk),
         .reset              (reset),
         .full               (commit_full),
@@ -627,9 +611,7 @@ module RXVCore #(
         .div_ready          (div_ready)
     );
 
-    RXVCommitter #(
-        .commit_order(commit_order)
-    ) RXVCommitter (
+    RXVCommitter RXVCommitter (
         .clk                   (clk),
         .reset                 (reset),
         .commit_empty          (commit_empty),

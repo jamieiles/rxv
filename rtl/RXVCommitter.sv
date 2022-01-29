@@ -3,14 +3,13 @@
 import RXVTypes::commit_entry;
 import RXVTypes::phys_reg_tag;
 import RXVTypes::renamed_reg;
+import RXVTypes::commit_width;
 import RXVTrace::trace_end_instruction;
 import RXVTrace::trace_exception;
 import RXVCSR::mtvec;
 import RXVCSR::mtvec_dest;
 
-module RXVCommitter #(
-    parameter int commit_order = 3
-) (
+module RXVCommitter (
     input  logic                           clk,
     input  logic                           reset,
     // Commit buffer
@@ -37,9 +36,6 @@ module RXVCommitter #(
     input  mtvec                           mtvec_in,
     input  mcause                          mcause_in
 );
-
-    localparam int commit_num_entries = (1 << commit_order);
-    localparam int commit_width = $clog2(commit_num_entries);
 
     logic        commit_ready;
     logic        exception_resteer_next;

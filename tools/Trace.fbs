@@ -81,8 +81,12 @@ table InstructionTrace {
     privilege:Privilege;
 }
 
+union Event {
+    InstructionTrace
+}
+
 table ProcessorTrace {
-    instructions:[InstructionTrace];
+    events:[Event];
 }
 
 root_type ProcessorTrace;

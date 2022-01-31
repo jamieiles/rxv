@@ -293,14 +293,20 @@ int main(int argc, char **argv)
 
     unsigned long start = 0;
     auto last = vm["last"].as<unsigned long>();
-    auto num_instructions = proc_trace->instructions()->size();
+    auto num_events = proc_trace->events()->size();
     bool count_instructions = vm.count("instruction-count");
     if (last != 0) {
-        if (last < num_instructions)
-            start = num_instructions - last;
+        if (last < num_events)
+            start = num_events - last;
     }
-    for (unsigned long idx = start; idx < num_instructions; ++idx) {
-        auto instr = (*proc_trace->instructions())[idx];
+    for (unsigned long idx = start; idx < num_events; ++idx) {
+        auto event = (*proc_trace->events())[idx];
+        if ((*proc_trace->events_type())[idx] !=
+            RXV::Trace::Event_InstructionTrace)
+            continue;
+
+        auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
+            (*proc_trace->events())[idx]);
         union {
             uint32_t instr;
             uint8_t bytes[4];

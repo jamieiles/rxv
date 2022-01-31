@@ -200,9 +200,10 @@ public:
         insn_builder.add_mem_accesses(mem_accesses);
         insn_builder.add_privilege(
             static_cast<RXV::Trace::Privilege>(instr_trace.privilege));
-        traced_insns.emplace_back(insn_builder.Finish());
+        traced_events.emplace_back(insn_builder.Finish().Union());
+        event_types.emplace_back(RXV::Trace::Event_InstructionTrace);
 
-        if (traced_insns.size() == 10000000)
+        if (traced_events.size() == 10000000)
             flush();
 
         instr_trace.traced = false;
@@ -218,8 +219,10 @@ public:
         if (!enabled)
             return;
 
-        auto insns = trace_builder.CreateVector(traced_insns);
-        auto trace = RXV::Trace::CreateProcessorTrace(trace_builder, insns);
+        auto events = trace_builder.CreateVector(traced_events);
+        auto types = trace_builder.CreateVector(event_types);
+        auto trace =
+            RXV::Trace::CreateProcessorTrace(trace_builder, types, events);
         trace_builder.Finish(trace);
 
         std::ofstream insn_trace_file;
@@ -233,7 +236,8 @@ public:
             trace_builder.GetSize());
         insn_trace_file.close();
 
-        traced_insns.clear();
+        traced_events.clear();
+        event_types.clear();
         trace_builder.Reset();
         ++file_count;
     }
@@ -242,7 +246,8 @@ private:
     bool enabled;
     unsigned file_count;
     flatbuffers::FlatBufferBuilder trace_builder;
-    std::vector<flatbuffers::Offset<RXV::Trace::InstructionTrace>> traced_insns;
+    std::vector<flatbuffers::Offset<void>> traced_events;
+    std::vector<uint8_t> event_types;
     std::string filename_base;
     std::map<int, InstructionTrace> inflight;
 };

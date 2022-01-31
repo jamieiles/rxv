@@ -300,9 +300,15 @@ private:
     {
         auto proc_trace = get_trace(trace_file);
 
-        auto num_instructions = proc_trace->instructions()->size();
-        for (unsigned long idx = 0; idx < num_instructions; ++idx) {
-            auto instr = (*proc_trace->instructions())[idx];
+        auto num_events = proc_trace->events()->size();
+        for (unsigned long idx = 0; idx < num_events; ++idx) {
+            auto event = (*proc_trace->events())[idx];
+            if ((*proc_trace->events_type())[idx] !=
+                RXV::Trace::Event_InstructionTrace)
+                continue;
+
+            auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
+                (*proc_trace->events())[idx]);
 
             prstatus.pr_reg.pc = instr->pc();
             if (until && instr->cycle_num() >= until)

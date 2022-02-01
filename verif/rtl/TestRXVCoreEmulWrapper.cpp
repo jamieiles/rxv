@@ -1242,3 +1242,57 @@ TEST_F(RXVCoreEmulWrapperTest, SequentialSCLosesReservation)
     EXPECT_EQ(tracer->read_reg(4), 1);
     EXPECT_EQ(tracer->read_reg(5), 1);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, MStatusIRQStack)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02008093                addi    x1,x1,32 # 0x80000020
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       30045073                csrwi   mstatus,8
+        80000010:       300020f3                csrr    x1,mstatus
+        80000014:       00000073                ecall
+        80000018:       30002273                csrr    x4,mstatus
+        8000001c:       00000013                nop
+        80000020:       30002173                csrr    x2,mstatus
+        80000024:       341021f3                csrr    x3,mepc
+        80000028:       00418193                addi    x3,x3,4
+        8000002c:       34119073                csrw    mepc,x3
+        80000030:       30200073                mret
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x8000001c; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(1), 0x1808);
+    EXPECT_EQ(tracer->read_reg(2), 0x1880);
+    EXPECT_EQ(tracer->read_reg(4), 0x1808);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, SWIRQ)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       02008093                addi    x1,x1,32 # 0x80000020
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       30045073                csrwi   mstatus,8
+        80000010:       00800093                li      x1,8
+        80000014:       30409073                csrw    mie,x1
+        80000018:       34409073                csrw    mip,x1
+        8000001c:       0000006f                j       0x8000001c
+        80000020:       30002173                csrr    x2,mstatus
+        80000024:       34401073                csrw    mip,x0
+        80000028:       30200073                mret
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_num_instructions() != 256; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+
+    EXPECT_EQ(tracer->read_reg(2), 0x1880);
+}

@@ -130,6 +130,19 @@ package RXVTrace;
 `endif
     endfunction
 
+    function void trace_irq;
+        input [1:0] privilege;
+        input [31:0] cause;
+        input [31:0] status;
+        input [31:0] epc;
+
+`ifdef RXV_TRACE
+        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_irq(",
+           "static_cast<PrivilegeLevel>(", privilege, ")", ", ", $time, ", ", cause, ", ", status,
+           ", ", epc, ");");
+`endif
+    endfunction
+
     function void trace_flush;
 `ifdef RXV_TRACE
         $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->flush();");

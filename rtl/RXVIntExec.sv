@@ -47,6 +47,7 @@ module RXVIntExec (
     output logic          [            31:2] exec_resteer_tgt,
     // Exception return
     input  logic          [            31:2] mepc_in,
+    output logic                             exception_return,
     // Exception handling
     input  RXVException                      decode_exception,
     input  logic          [commit_width-1:0] decode_except_id,
@@ -90,6 +91,7 @@ module RXVIntExec (
 
     RXVException                    exec_exception_next;
     logic        [commit_width-1:0] exec_except_id_next;
+    logic                           exception_return_next;
 
     RXVALU RXVALU (
         .a   (op1),
@@ -161,7 +163,8 @@ module RXVIntExec (
     always_comb begin
         unique case (exec_uop)
             RXVTypes::UOP_BEQ, RXVTypes::UOP_BNE, RXVTypes::UOP_BLT,
-            RXVTypes::UOP_BGE, RXVTypes::UOP_JAL, RXVTypes::UOP_JALR: is_branch = 1'b1;
+            RXVTypes::UOP_BGE, RXVTypes::UOP_JAL, RXVTypes::UOP_JALR:
+            is_branch = 1'b1;
             default: is_branch = 1'b0;
         endcase
     end
@@ -180,8 +183,7 @@ module RXVIntExec (
 
     always_comb begin
         branch_mispredict = 1'b0;
-        if (branch_taken && !exec_prediction.predicted)
-            branch_mispredict = 1'b1;
+        if (branch_taken && !exec_prediction.predicted) branch_mispredict = 1'b1;
         if (exec_prediction.predicted && exec_prediction.predict_taken != branch_taken)
             branch_mispredict = 1'b1;
         if (exec_prediction.predicted && exec_prediction.prediction != exec_branch_target[31:2])
@@ -196,6 +198,10 @@ module RXVIntExec (
         exec_update_predict_target_next = branch_target[31:2];
         exec_resteer_next = valid && (branch_mispredict || exec_uop == RXVTypes::UOP_MRET) && !branch_misalign;
         exec_resteer_tgt_next = branch_taken || exec_uop == RXVTypes::UOP_MRET ? branch_target[31:2] : exec_next_pc;
+    end
+
+    always_comb begin
+        exception_return_next = valid && exec_uop == RXVTypes::UOP_MRET && !exec_exception_next.valid;
     end
 
     always_comb begin
@@ -217,6 +223,7 @@ module RXVIntExec (
             exec_exception_next.val   = branch_target;
             exec_exception_next.cause = RXVCSR::MCAUSE_INSTR_MISALIGN;
             exec_exception_next.valid = 1'b1;
+            exec_exception_next.irq   = 1'b0;
         end
 
         if (valid && exec_uop == RXVTypes::UOP_ECALL) begin
@@ -224,6 +231,7 @@ module RXVIntExec (
             exec_exception_next.val   = 32'b0;
             exec_exception_next.cause = RXVCSR::MCAUSE_M_ECALL;
             exec_exception_next.valid = 1'b1;
+            exec_exception_next.irq   = 1'b0;
         end
 
         if (valid && exec_uop == RXVTypes::UOP_EBREAK) begin
@@ -231,6 +239,7 @@ module RXVIntExec (
             exec_exception_next.val   = 32'b0;
             exec_exception_next.cause = RXVCSR::MCAUSE_BREAKPOINT;
             exec_exception_next.valid = 1'b1;
+            exec_exception_next.irq   = 1'b0;
         end
     end
 
@@ -390,6 +399,14 @@ module RXVIntExec (
         .en   (1'b1),
         .d    (exec_except_id_next),
         .q    (exec_except_id)
+    );
+
+    RXVDFF exception_return_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exception_return_next),
+        .q    (exception_return)
     );
 
 `ifdef FORMAL

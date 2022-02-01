@@ -299,6 +299,7 @@ verilate(RXVCoreEmul
          VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/MtimeTransactor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv

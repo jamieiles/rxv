@@ -42,7 +42,9 @@ module RXVCoreSynthTop (
     output logic [ 3:0] d_rlen,
     output logic [ 3:0] d_wlen,
     output logic        d_bready,
-    input  logic        d_bvalid
+    input  logic        d_bvalid,
+    input  logic [63:0] mtime,
+    input  logic        mtime_irq
 );
 
     MemInterface i_mem_bus ();
@@ -108,7 +110,9 @@ module RXVCoreSynthTop (
         .clk            (clk),
         .reset          (reset),
         .instruction_bus(i_mem_bus.Manager),
-        .data_bus       (d_mem_bus.Manager)
+        .data_bus       (d_mem_bus.Manager),
+        .mtime          (mtime),
+        .mtime_irq      (mtime_irq)
     );
 
 endmodule

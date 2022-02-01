@@ -34,6 +34,7 @@ set_location_assignment PIN_N9 -to reset
 
 set_instance_assignment -to i_* -name VIRTUAL_PIN ON
 set_instance_assignment -to d_* -name VIRTUAL_PIN ON
+set_instance_assignment -to mtime* -name VIRTUAL_PIN ON
 
 set_global_assignment -name AUTO_SHIFT_REGISTER_RECOGNITION ALWAYS
 set_global_assignment -name ALLOW_ANY_ROM_SIZE_FOR_RECOGNITION ON

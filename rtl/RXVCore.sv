@@ -14,8 +14,8 @@ import RXVTypes::commit_width;
 import RXVTrace::trace_write_reg;
 import RXVTrace::trace_write_csr;
 import RXVCSR::RXVException;
-import RXVCSR::mtvec;
-import RXVCSR::mcause;
+import RXVCSR::mtvec_t;
+import RXVCSR::mcause_t;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -34,10 +34,12 @@ module RXVCore #(
     parameter logic [31:0] device_base            = 32'hf0000000,
     parameter logic [31:0] device_end             = 32'hffffffff
 ) (
-    input logic                clk,
-    input logic                reset,
-          MemInterface.Manager instruction_bus,
-          MemInterface.Manager data_bus
+    input logic                       clk,
+    input logic                       reset,
+          MemInterface.Manager        instruction_bus,
+          MemInterface.Manager        data_bus,
+    input logic                [63:0] mtime,
+    input logic                       mtime_irq
 );
 
     logic          [             31:2] icache_address;
@@ -48,6 +50,8 @@ module RXVCore #(
 
     logic          [             31:2] fetch_predict_address;
     rxv_prediction                     fetch_prediction;
+    logic                              fetch_idle;
+    logic          [             31:2] irq_epc;
 
     logic                              schedule_int;
     logic                              schedule_lsu;
@@ -95,6 +99,8 @@ module RXVCore #(
     logic          [             31:2] mepc_val;
     RXVException                       exec_exception;
     logic          [ commit_width-1:0] exec_except_id;
+    logic                              exception_return;
+    logic                              irq_pending;
     logic          [ commit_width-1:0] int_exec_complete_id;
     logic                              int_exec_complete_valid;
     logic                              int_exec_reg_wr_en;
@@ -200,8 +206,8 @@ module RXVCore #(
     logic                              retired;
     logic                              exception_resteer;
     logic          [             31:2] exception_resteer_tgt;
-    mtvec                              mtvec_val;
-    mcause                             mcause_val;
+    mtvec_t                            mtvec_val;
+    mcause_t                           mcause_val;
 
     phys_reg_tag                       busy_reg_in;
     logic                              busy_valid_in;
@@ -213,6 +219,9 @@ module RXVCore #(
     logic                              pmu_instretl_wren;
     logic          [             63:0] pmu_cycles;
     logic          [             63:0] pmu_instret;
+
+    logic                              irq_resteer;
+    logic          [             31:2] irq_resteer_tgt;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -254,6 +263,9 @@ module RXVCore #(
         .except_valid          (except_valid),
         .exception_pending     (exception_pending),
         .global_stall_active   (global_stall_active),
+        .irq_pending           (irq_pending),
+        .fetch_idle            (fetch_idle),
+        .irq_epc               (irq_epc),
         .icache_address        (icache_address),
         .icache_valid          (icache_valid),
         .icache_busy           (icache_busy),
@@ -379,6 +391,7 @@ module RXVCore #(
         .exec_resteer               (int_exec_resteer),
         .exec_resteer_tgt           (int_exec_resteer_tgt),
         .mepc_in                    (mepc_val),
+        .exception_return           (exception_return),
         .decode_exception           (decode_exception),
         .decode_except_id           (decode_except_id),
         .exec_exception             (exec_exception),
@@ -485,28 +498,37 @@ module RXVCore #(
         .archid  (archid),
         .impid   (impid)
     ) RXVCSRFile (
-        .clk           (clk),
-        .reset         (reset),
-        .valid_csr_out (decode_valid_csr),
-        .rd_addr       (decode_csr_addr),
-        .rd_data       (exec_csr_rd_data),
-        .writeback_id  (int_exec_complete_id),
-        .wr_addr       (exec_csr_wr_addr),
-        .wr_data       (exec_csr_wr_data),
-        .wr_en         (exec_csr_wr_en),
-        .mepc_out      (mepc_val),
-        .mtvec_out     (mtvec_val),
-        .mcause_out    (mcause_val),
-        .exec_exception(exec_exception),
-        .exec_except_id(exec_except_id),
-        .lsu_exception (lsu_exception),
-        .lsu_except_id (lsu_except_id),
-        .cyclesh_wren  (pmu_cyclesh_wren),
-        .cyclesl_wren  (pmu_cyclesl_wren),
-        .instreth_wren (pmu_instreth_wren),
-        .instretl_wren (pmu_instretl_wren),
-        .pmu_cycles    (pmu_cycles),
-        .pmu_instret   (pmu_instret)
+        .clk             (clk),
+        .reset           (reset),
+        .valid_csr_out   (decode_valid_csr),
+        .rd_addr         (decode_csr_addr),
+        .rd_data         (exec_csr_rd_data),
+        .writeback_id    (int_exec_complete_id),
+        .wr_addr         (exec_csr_wr_addr),
+        .wr_data         (exec_csr_wr_data),
+        .wr_en           (exec_csr_wr_en),
+        .mepc_out        (mepc_val),
+        .mtvec_out       (mtvec_val),
+        .mcause_out      (mcause_val),
+        .exec_exception  (exec_exception),
+        .exec_except_id  (exec_except_id),
+        .lsu_exception   (lsu_exception),
+        .lsu_except_id   (lsu_except_id),
+        .exception_return(exception_return),
+        .irq_pending     (irq_pending),
+        .fetch_idle      (fetch_idle),
+        .commit_empty    (commit_empty),
+        .irq_epc         (irq_epc),
+        .irq_resteer     (irq_resteer),
+        .irq_resteer_tgt (irq_resteer_tgt),
+        .mtime           (mtime),
+        .mtime_irq       (mtime_irq),
+        .cyclesh_wren    (pmu_cyclesh_wren),
+        .cyclesl_wren    (pmu_cyclesl_wren),
+        .instreth_wren   (pmu_instreth_wren),
+        .instretl_wren   (pmu_instretl_wren),
+        .pmu_cycles      (pmu_cycles),
+        .pmu_instret     (pmu_instret)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -709,10 +731,23 @@ module RXVCore #(
     end
 
     always_comb begin
-        exec_resteer = int_exec_resteer | lsu_resteer;
+        exec_resteer = int_exec_resteer | lsu_resteer | irq_resteer;
         exec_resteer_tgt = ({30{int_exec_resteer}} & int_exec_resteer_tgt) |
-                           ({30{lsu_resteer}} & lsu_resteer_tgt);
+                           ({30{lsu_resteer}} & lsu_resteer_tgt) |
+                           ({30{irq_resteer}} & irq_resteer_tgt);
     end
+
+    RXVAssert no_simultaneous_resteer (
+        .clk(clk),
+        .en(1'b1),
+        .condition((3'(int_exec_resteer) | 3'(lsu_resteer)) + 3'(irq_resteer) + 3'(exception_resteer) <= 3'b1)
+    );
+
+    RXVAssert no_irq_when_busy (
+        .clk      (clk),
+        .en       (irq_resteer),
+        .condition(fetch_idle)
+    );
 
 `ifdef verilator
     `include "RXVTrace_cpp.svh"

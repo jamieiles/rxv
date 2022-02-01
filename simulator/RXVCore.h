@@ -140,6 +140,48 @@ private:
     MemoryBus *shadow_bus;
 };
 
+class RTLMtime : public IOPeripheral
+{
+public:
+    RTLMtime(uint64_t *mtime, uint64_t *mtimecmp, uint32_t base, size_t len)
+        : mtime(mtime), mtimecmp(mtimecmp), IOPeripheral(base, len)
+    {
+    }
+
+    void write(uint32_t offset, const char *v, size_t len)
+    {
+        if (offset + len > 2 * sizeof(uint64_t))
+            return;
+
+        if (offset < sizeof(uint64_t)) {
+            memcpy(reinterpret_cast<char *>(mtimecmp) + offset, v, len);
+        } else {
+            memcpy(reinterpret_cast<char *>(mtime) + offset - sizeof(uint64_t),
+                   v, len);
+        }
+    }
+
+    void read(uint32_t offset, char *v, size_t len)
+    {
+        if (offset + len > 2 * sizeof(uint64_t)) {
+            memset(v, 0, len);
+            return;
+        }
+
+        if (offset < sizeof(uint64_t)) {
+            memcpy(v, reinterpret_cast<char *>(mtimecmp) + offset, len);
+        } else {
+            memcpy(v,
+                   reinterpret_cast<char *>(mtime) + offset - sizeof(uint64_t),
+                   len);
+        }
+    }
+
+private:
+    uint64_t *mtime;
+    uint64_t *mtimecmp;
+};
+
 template <bool debug_enabled = false>
 class RXVCore
     : public SimulatorBase
@@ -159,6 +201,10 @@ public:
         this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         bus = std::make_shared<MemoryBus>(mem_base, mem_size);
         bus->add_peripheral(std::make_unique<UART>(uart_base, 4096));
+        bus->add_peripheral(std::make_unique<RTLMtime>(
+            &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtime_reg,
+            &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtimecmp_reg,
+            mtime_base, 4096));
         this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
         this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
     }
@@ -198,8 +244,11 @@ public:
             do_reset();
         auto start = tracer->get_num_instructions();
 
-        while (tracer->get_num_instructions() == start)
+        int cycles = 0;
+        while (tracer->get_num_instructions() == start) {
+            this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtime_reg++;
             this->cycle();
+        }
     }
 
     uint64_t get_cycle() const

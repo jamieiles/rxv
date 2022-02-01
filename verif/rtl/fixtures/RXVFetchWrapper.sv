@@ -9,6 +9,9 @@ module RXVFetchWrapper #(
     input  logic        except_valid,
     input  logic        exception_pending,
     input  logic        global_stall_active,
+    input  logic        irq_pending,
+    output logic        fetch_idle,
+    output logic [31:2] irq_epc,
     // To instruction cache
     output logic [31:2] icache_address,
     output logic        icache_valid,

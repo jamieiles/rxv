@@ -8,7 +8,10 @@ module RXVFetch #(
     input  logic                 reset,
     input  logic                 except_valid,
     input  logic                 exception_pending,
-    input logic global_stall_active,
+    input  logic                 global_stall_active,
+    input  logic                 irq_pending,
+    output logic                 fetch_idle,
+    output logic          [31:2] irq_epc,
     // To instruction cache
     output logic          [31:2] icache_address,
     output logic                 icache_valid,
@@ -81,6 +84,7 @@ module RXVFetch #(
     logic                 prefetch_nearly_full;
     rxv_prediction        prediction_reg;
     logic                 prefetch_flush;
+    logic                 fetch_idle_next;
 
     PosedgeDetect ICacheBusyStart (
         .clk  (clk),
@@ -164,7 +168,7 @@ module RXVFetch #(
     end
 
     always_comb begin
-        icache_valid_next = ~prefetch_nearly_full & ~global_stall_active & ~exception_pending & ~except_valid;
+        icache_valid_next = ~prefetch_nearly_full & ~global_stall_active & ~exception_pending & ~except_valid & ~irq_pending;
     end
 
     always_comb begin
@@ -182,6 +186,10 @@ module RXVFetch #(
     end
 
     always_comb begin
+        irq_epc = pc;
+    end
+
+    always_comb begin
         resteer_target_next = resteer_target;
         if (decode_resteer) resteer_target_next = decode_resteer_tgt;
         if (exec_resteer) resteer_target_next = exec_resteer_tgt;
@@ -192,6 +200,11 @@ module RXVFetch #(
         resteer_pending_next = resteer_pending;
         if (~icache_busy) resteer_pending_next = 1'b0;
         if (resteer) resteer_pending_next = 1'b1;
+    end
+
+    always_comb begin
+        fetch_idle_next = prefetch_empty & ~icache_valid & ~fetched & ~icache_busy &
+            ~resteer_pending & ~exec_resteer;
     end
 
     RXVDFF #(
@@ -277,6 +290,14 @@ module RXVFetch #(
         .en   (1'b1),
         .d    (fetched_next),
         .q    (fetched)
+    );
+
+    RXVDFF fetch_idle_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (fetch_idle_next),
+        .q    (fetch_idle)
     );
 
 endmodule

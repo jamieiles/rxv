@@ -909,6 +909,7 @@ module RXVDecode (
         decode_exception_next.val = decode_instr;
         decode_exception_next.cause = RXVCSR::MCAUSE_ILLEGAL_INSTR;
         decode_exception_next.valid = ~kill_valid & ~exec_resteer & ~commit_buffer_full & decode_valid & illegal_instruction;
+        decode_exception_next.irq = 1'b0;
     end
 
     always_comb begin

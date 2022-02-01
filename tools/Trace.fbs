@@ -81,8 +81,15 @@ table InstructionTrace {
     privilege:Privilege;
 }
 
+table InterruptTrace {
+    cycle_num:uint64;
+    target_level:Privilege;
+    csr_writes:[CSRValue];
+}
+
 union Event {
-    InstructionTrace
+    InstructionTrace,
+    InterruptTrace
 }
 
 table ProcessorTrace {

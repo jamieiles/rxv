@@ -416,6 +416,9 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
 
     new_privilege_level = target_level;
 
+    if (type & mcause_interrupt)
+        tracer.trace_irq(target_level, get_cycle(), type,
+                         status.value(privilege_level), pc);
     tracer.trace_exception(0);
     exception_taken = true;
 }
@@ -1170,12 +1173,11 @@ void RXVSim::step()
     privilege_level = new_privilege_level;
 
     timer_tick();
+    tracer.trace_end_instruction(0);
     check_interrupts();
 
     pc = new_pc;
     privilege_level = new_privilege_level;
-
-    tracer.trace_end_instruction(0);
 
     ++cur_cycle;
 }

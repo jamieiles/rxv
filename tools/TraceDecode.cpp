@@ -263,6 +263,69 @@ static void load_symbols(RXV::Trace::Privilege level,
     std::sort(symbols[level].begin(), symbols[level].end(), symbol_compare);
 }
 
+static void dump_instruction(const LLVMDisasmContextRef &dcr,
+                             int id,
+                             const RXV::Trace::InstructionTrace *instr)
+{
+    union {
+        uint32_t instr;
+        uint8_t bytes[4];
+    } converter;
+    converter.instr = instr->instruction();
+
+    char instr_string[128] = " invalid";
+    LLVMDisasmInstruction(dcr, converter.bytes, sizeof(converter), 0,
+                          instr_string, sizeof(instr_string) - 1);
+
+    while (strchr(instr_string, '\t'))
+        *strchr(instr_string, '\t') = ' ';
+
+    std::string notes;
+    std::string symbol = lookup_pc_symbol(instr->privilege(), instr->pc());
+
+    if (instr->exception_raised())
+        notes += " /EXCEPTION";
+
+    fmt::print("@ {:<10d} {:s} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n", id,
+               EnumNamePrivilege(instr->privilege()), instr->pc(), instr_string,
+               converter.instr, symbol, notes);
+    for (auto reg : *instr->gpr_accesses()) {
+        if (reg->id() == 0)
+            continue;
+        fmt::print("{:25s}{:<3s} {:s} {:08x}\n", "", reg_name(reg->id()),
+                   reg->read() ? "==" : ":=", reg->value());
+    }
+    for (auto csr : *instr->csr_writes()) {
+        std::string decoding = "";
+        if (csr->id() == RXV::Trace::CSRId_MCAUSE ||
+            csr->id() == RXV::Trace::CSRId_SCAUSE)
+            decoding = decode_mcause(csr->value());
+        fmt::print("{:25s}{:<10s} {:08x} {:s}\n", "", EnumNameCSRId(csr->id()),
+                   csr->value(), decoding);
+    }
+    for (auto mem : *instr->mem_accesses()) {
+        fmt::print(
+            "{:25s}{:c}{:<2d} M[{:08x}] {:s} {:08x}     # [v2p({:08x}) == "
+            "{:08x}]\n",
+            "", mem->read() ? 'R' : 'W', mem->size() * 8, mem->addr(),
+            mem->read() ? "==" : ":=", mem->value(), mem->addr(), mem->phys());
+    }
+}
+
+static void dump_interrupt(const RXV::Trace::InterruptTrace *irq)
+{
+    fmt::print("@ {:<10d} INTERRUPT target {:s}\n", irq->cycle_num(),
+               EnumNamePrivilege(irq->target_level()));
+    for (auto csr : *irq->csr_writes()) {
+        std::string decoding = "";
+        if (csr->id() == RXV::Trace::CSRId_MCAUSE ||
+            csr->id() == RXV::Trace::CSRId_SCAUSE)
+            decoding = decode_mcause(csr->value());
+        fmt::print("{:25s}{:<10s} {:08x} {:s}\n", "", EnumNameCSRId(csr->id()),
+                   csr->value(), decoding);
+    }
+}
+
 int main(int argc, char **argv)
 {
     boost::program_options::variables_map vm;
@@ -301,56 +364,19 @@ int main(int argc, char **argv)
     }
     for (unsigned long idx = start; idx < num_events; ++idx) {
         auto event = (*proc_trace->events())[idx];
-        if ((*proc_trace->events_type())[idx] !=
-            RXV::Trace::Event_InstructionTrace)
-            continue;
+        if ((*proc_trace->events_type())[idx] ==
+            RXV::Trace::Event_InstructionTrace) {
+            auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
+                (*proc_trace->events())[idx]);
 
-        auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
-            (*proc_trace->events())[idx]);
-        union {
-            uint32_t instr;
-            uint8_t bytes[4];
-        } converter;
-        converter.instr = instr->instruction();
+            int id = count_instructions ? idx : instr->cycle_num();
+            dump_instruction(dcr, id, instr);
+        } else if ((*proc_trace->events_type())[idx] ==
+                   RXV::Trace::Event_InterruptTrace) {
+            auto irq = static_cast<const RXV::Trace::InterruptTrace *>(
+                (*proc_trace->events())[idx]);
 
-        char instr_string[128] = " invalid";
-        LLVMDisasmInstruction(dcr, converter.bytes, sizeof(converter), 0,
-                              instr_string, sizeof(instr_string) - 1);
-
-        while (strchr(instr_string, '\t'))
-            *strchr(instr_string, '\t') = ' ';
-
-        std::string notes;
-        std::string symbol = lookup_pc_symbol(instr->privilege(), instr->pc());
-
-        if (instr->exception_raised())
-            notes += " /EXCEPTION";
-
-        fmt::print("@ {:<10d} {:s} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n",
-                   count_instructions ? idx : instr->cycle_num(),
-                   EnumNamePrivilege(instr->privilege()), instr->pc(),
-                   instr_string, converter.instr, symbol, notes);
-        for (auto reg : *instr->gpr_accesses()) {
-            if (reg->id() == 0)
-                continue;
-            fmt::print("{:25s}{:<3s} {:s} {:08x}\n", "", reg_name(reg->id()),
-                       reg->read() ? "==" : ":=", reg->value());
-        }
-        for (auto csr : *instr->csr_writes()) {
-            std::string decoding = "";
-            if (csr->id() == RXV::Trace::CSRId_MCAUSE ||
-                csr->id() == RXV::Trace::CSRId_SCAUSE)
-                decoding = decode_mcause(csr->value());
-            fmt::print("{:25s}{:<10s} {:08x} {:s}\n", "",
-                       EnumNameCSRId(csr->id()), csr->value(), decoding);
-        }
-        for (auto mem : *instr->mem_accesses()) {
-            fmt::print(
-                "{:25s}{:c}{:<2d} M[{:08x}] {:s} {:08x}     # [v2p({:08x}) == "
-                "{:08x}]\n",
-                "", mem->read() ? 'R' : 'W', mem->size() * 8, mem->addr(),
-                mem->read() ? "==" : ":=", mem->value(), mem->addr(),
-                mem->phys());
+            dump_interrupt(irq);
         }
     }
 

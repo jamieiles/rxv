@@ -163,6 +163,50 @@ public:
         inflight[id].exception_raised = true;
     }
 
+    virtual void trace_irq(PrivilegeLevel target_level,
+                           uint64_t cycle_num,
+                           uint32_t cause,
+                           uint32_t status,
+                           uint32_t epc)
+    {
+        RXV::Trace::CSRId xEPC;
+        RXV::Trace::CSRId xCAUSE;
+        RXV::Trace::CSRId xTVEC;
+        RXV::Trace::CSRId xSTATUS;
+
+        switch (target_level) {
+        case M:
+            xEPC = RXV::Trace::CSRId_MEPC;
+            xCAUSE = RXV::Trace::CSRId_MCAUSE;
+            xSTATUS = RXV::Trace::CSRId_MSTATUS;
+            break;
+        case S:
+            xEPC = RXV::Trace::CSRId_SEPC;
+            xCAUSE = RXV::Trace::CSRId_SCAUSE;
+            xSTATUS = RXV::Trace::CSRId_SSTATUS;
+            break;
+        default: throw std::runtime_error("No user-mode traps");
+        }
+
+        std::vector<flatbuffers::Offset<RXV::Trace::CSRValue>> csr_writes;
+        csr_writes.emplace_back(
+            RXV::Trace::CreateCSRValue(trace_builder, xCAUSE, cause));
+        csr_writes.emplace_back(
+            RXV::Trace::CreateCSRValue(trace_builder, xEPC, epc));
+        csr_writes.emplace_back(
+            RXV::Trace::CreateCSRValue(trace_builder, xSTATUS, status));
+        auto csr_offsets = trace_builder.CreateVector(csr_writes);
+
+        auto irq_builder = RXV::Trace::InterruptTraceBuilder(trace_builder);
+        irq_builder.add_cycle_num(cycle_num);
+        irq_builder.add_target_level(
+            static_cast<RXV::Trace::Privilege>(target_level));
+        irq_builder.add_csr_writes(csr_offsets);
+
+        traced_events.emplace_back(irq_builder.Finish().Union());
+        event_types.emplace_back(RXV::Trace::Event_InterruptTrace);
+    }
+
     virtual void trace_end_instruction(int id)
     {
         if (!inflight[id].traced)

@@ -851,7 +851,7 @@ module RXVDecode (
         amo_stale_reg = 'b0;
 
         if (amo_uop_idx == 2'b10) amo_stale_reg = amo_tmp_reg;
-        else if (amo_uop_idx == 2'b11) amo_stale_reg = |rd ? stale_phys_reg : 'b0;
+        else if (amo_uop_idx == 2'b11) amo_stale_reg = |rd ? stale_phys_reg : amo_dst_reg;
     end
 
     always_comb begin

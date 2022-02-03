@@ -17,6 +17,7 @@ struct mtime {
 struct SimPerfStats {
     uint64_t cycles;
     uint64_t retired;
+    uint64_t num_irqs;
 };
 
 class SimulatorBase

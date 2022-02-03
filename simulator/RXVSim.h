@@ -469,6 +469,7 @@ public:
 
         s.cycles = cur_cycle;
         s.retired = cur_cycle;
+        s.num_irqs = num_irqs;
 
         return s;
     }
@@ -645,4 +646,5 @@ private:
     MemoryBus bus;
     SimTracer tracer;
     uint64_t cur_cycle;
+    uint64_t num_irqs;
 };

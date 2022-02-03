@@ -25,6 +25,7 @@ public:
                  MemoryBus *shadow_bus)
         : SimTracer(filename)
         , num_instructions(0)
+        , num_irqs(0)
         , last_pc(0x80000000)
         , shadow_bus(shadow_bus)
     {
@@ -108,6 +109,17 @@ public:
         ++num_instructions;
     }
 
+    virtual void trace_irq(PrivilegeLevel target_level,
+                           uint64_t cycle_num,
+                           uint32_t cause,
+                           uint32_t status,
+                           uint32_t epc)
+    {
+        SimTracer::trace_irq(target_level, cycle_num, cause, status, epc);
+
+        ++num_irqs;
+    }
+
     uint32_t read_reg(int id) const
     {
         if (id < 0 || id >= 32)
@@ -126,6 +138,11 @@ public:
         return num_instructions;
     }
 
+    uint64_t get_num_irqs() const
+    {
+        return num_irqs;
+    }
+
     uint32_t get_last_pc() const
     {
         return last_pc;
@@ -135,6 +152,7 @@ private:
     uint32_t shadow_regs[32];
     uint32_t shadow_csrs[4096];
     int num_instructions;
+    uint64_t num_irqs;
     uint32_t last_pc;
     std::map<int, InstructionRecord> instruction_map;
     MemoryBus *shadow_bus;
@@ -277,6 +295,7 @@ public:
 
         s.cycles = this->dut.RXVCoreEmulWrapper->RXVCore->RXVPMU->pmu_cycles;
         s.retired = this->dut.RXVCoreEmulWrapper->RXVCore->RXVPMU->pmu_instret;
+        s.num_irqs = this->tracer->get_num_irqs();
 
         return s;
     }

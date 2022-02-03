@@ -183,6 +183,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , bus(ram_base, mem_size)
     , tracer(trace_name)
     , cur_cycle(0)
+    , num_irqs(0)
 {
     status.set(M, 0);
     status.mpp = M;
@@ -320,12 +321,14 @@ void RXVSim::check_interrupts()
     if (active_m_targets) {
         auto intr = 31 - __builtin_clz(active_m_targets);
         do_exception(static_cast<mcause_type>(mcause_interrupt | intr));
+        ++num_irqs;
     } else {
         auto intr = 31 - __builtin_clz(active_s_targets);
         if (privilege_level != M &&
             ((privilege_level == S && status.sie) || privilege_level == U)) {
             do_exception(static_cast<mcause_type>(mcause_interrupt | intr));
         }
+        ++num_irqs;
     }
 }
 

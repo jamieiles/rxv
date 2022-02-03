@@ -65,6 +65,7 @@ public:
         fmt::print(
             "instructions in {0:d} cycles ({1:0.2f} instructions per cycle)\n\r",
             stats.cycles, static_cast<double>(stats.retired) / stats.cycles);
+        fmt::print("{0:d} IRQs\n\r", stats.num_irqs);
         fmt::print("Simulation speed {0:s}\r\n",
                    human_freq(stats.cycles / duration.count()));
         // clang-format on

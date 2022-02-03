@@ -416,17 +416,20 @@ TEST_F(RXVCoreEmulWrapperTest, MRET)
 TEST_F(RXVCoreEmulWrapperTest, IllegalInstruction)
 {
     load(R"objdump(
-        80000000:   00000013                nop
-        80000004:   00200073                uret
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       01008093                addi    x1,x1,16 # 0x80000010
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       00200073                uret
+        80000010:       0000006f                j       0x80000010
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_num_instructions() != 2; ++i) {
+    for (int i = 0; i < 512 && tracer->get_num_instructions() != 5; ++i) {
         cycle();
         if (i == 511)
             FAIL() << "failed to complete test";
     }
 
-    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000004);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x8000000c);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x00200073);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x00000002);
 

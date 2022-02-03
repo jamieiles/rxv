@@ -482,11 +482,15 @@ module RXVDecode (
     always_comb begin
         amo_uop_idx_next = amo_uop_idx;
         if (dispatch_ready && opc_amo) amo_uop_idx_next = amo_uop_idx + 1'b1;
-        if (amo_complete || kill_valid) amo_uop_idx_next = 'b0;
+        if ((dispatch_ready && amo_complete) || kill_valid) amo_uop_idx_next = 'b0;
 
         amo_tmp_reg_next = amo_alloc_tmp_reg ? allocated_reg : amo_tmp_reg;
         amo_dst_reg_next = amo_alloc_dst_reg ? allocated_reg : amo_dst_reg;
-        amo_parent_next  = amo_opc_valid && amo_uop_idx == 2'b0 ? dispatch_id : amo_parent;
+        if (dispatch_ready && amo_complete) begin
+            amo_tmp_reg_next = 'b0;
+            amo_dst_reg_next = 'b0;
+        end
+        amo_parent_next = amo_opc_valid && amo_uop_idx == 2'b0 ? dispatch_id : amo_parent;
     end
 
     always_comb begin
@@ -858,7 +862,7 @@ module RXVDecode (
         if (amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP) begin
             commit_dispatch.stale_phys    = amo_stale_reg;
             commit_dispatch.dest_reg.arch = rd;
-            commit_dispatch.dest_reg.phys = amo_dst_reg;
+            commit_dispatch.dest_reg.phys = amo_alloc_dst_reg ? allocated_reg : amo_dst_reg;
         end else begin
             commit_dispatch.stale_phys = exec_have_writeback_next ? stale_phys_reg : phys_reg_tag'('b0);
             commit_dispatch.dest_reg = exec_have_writeback_next ? rename_out : renamed_reg'('b0);

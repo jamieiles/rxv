@@ -133,7 +133,7 @@ public:
         return shadow_csrs[id];
     }
 
-    int get_num_instructions() const
+    uint64_t get_num_instructions() const
     {
         return num_instructions;
     }
@@ -151,7 +151,7 @@ public:
 private:
     uint32_t shadow_regs[32];
     uint32_t shadow_csrs[4096];
-    int num_instructions;
+    uint64_t num_instructions;
     uint64_t num_irqs;
     uint32_t last_pc;
     std::map<int, InstructionRecord> instruction_map;

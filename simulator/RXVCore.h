@@ -266,6 +266,9 @@ public:
         while (tracer->get_num_instructions() == start) {
             this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtime_reg++;
             this->cycle();
+
+            if (++cycles > 65536)
+                throw std::runtime_error("timeout in step");
         }
     }
 

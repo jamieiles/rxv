@@ -50,8 +50,8 @@ public:
 class MemoryBus : public AbstractMemoryBus
 {
 public:
-    MemoryBus(uint32_t ram_base, size_t ram_size)
-        : ram_base(ram_base), ram_size(ram_size)
+    MemoryBus(uint32_t ram_base, size_t ram_size, bool log_unmapped = true)
+        : ram_base(ram_base), ram_size(ram_size), log_unmapped(log_unmapped)
     {
         mem = std::make_unique<uint32_t[]>(ram_size / 4);
     }
@@ -117,6 +117,10 @@ private:
             p->write(addr - p->get_base(), val, len);
             return;
         }
+
+        if (log_unmapped)
+            throw std::runtime_error("invalid write to   " +
+                                     std::to_string(addr));
     }
 
     void peripheral_read(uint32_t addr, char *val, size_t len)
@@ -130,6 +134,10 @@ private:
             p->read(addr - p->get_base(), val, len);
             return;
         }
+
+        if (log_unmapped)
+            throw std::runtime_error("invalid read from " +
+                                     std::to_string(addr));
     }
 
 private:
@@ -137,4 +145,5 @@ private:
     size_t ram_size;
     std::unique_ptr<uint32_t[]> mem;
     std::vector<std::unique_ptr<IOPeripheral>> peripherals;
+    bool log_unmapped;
 };

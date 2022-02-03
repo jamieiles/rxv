@@ -194,7 +194,7 @@ public:
             std::string instance_name = "VRXVCoreEmulWrapper")
         : VerilogDriver<VRXVCoreEmulWrapper, debug_enabled>(instance_name)
         , mem_base(mem_base)
-        , shadow_bus(mem_base, mem_size)
+        , shadow_bus(mem_base, mem_size, false)
         , have_reset(false)
     {
         tracer = std::make_shared<ShadowTracer>(trace_name, &shadow_bus);

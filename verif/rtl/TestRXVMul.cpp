@@ -64,7 +64,7 @@ TEST_P(MulSS, SignedMultiply)
     auto expected = std::get<0>(GetParam());
     EXPECT_EQ(result, expected);
 }
-INSTANTIATE_TEST_CASE_P(SignedMultiply,
+INSTANTIATE_TEST_SUITE_P(SignedMultiply,
                         MulSS,
                         ::testing::Values(std::make_tuple(0, 0, 0),
                                           std::make_tuple(0, 1, 0),
@@ -87,7 +87,7 @@ TEST_P(MulSU, SignedUnsignedMultiply)
     auto expected = std::get<0>(GetParam());
     EXPECT_EQ(result, expected);
 }
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SignedUnsignedMultiply,
     MulSU,
     ::testing::Values(std::make_tuple(0, 0, 0),
@@ -112,7 +112,7 @@ TEST_P(MulUU, UnsignedUnsignedMultiply)
     auto expected = std::get<0>(GetParam());
     EXPECT_EQ(result, expected);
 }
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     UnsignedUnsignedMultiply,
     MulUU,
     ::testing::Values(

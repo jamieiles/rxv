@@ -58,7 +58,7 @@ TEST_P(AddFixture, Add)
     EXPECT_EQ(add(GetParam().a, GetParam().b), GetParam().result);
     EXPECT_EQ(GetParam().zero, alu.zero);
 }
-INSTANTIATE_TEST_CASE_P(AddSanity,
+INSTANTIATE_TEST_SUITE_P(AddSanity,
                         AddFixture,
                         ::testing::Values(ALUTestParams{0, 0, 0, true},
                                           ALUTestParams{0x7fffffff, 1,
@@ -74,7 +74,7 @@ TEST_P(SubFixture, Sub)
     EXPECT_EQ(sub(GetParam().a, GetParam().b), GetParam().result);
     EXPECT_EQ(GetParam().zero, alu.zero);
 }
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SubSanity,
     SubFixture,
     ::testing::Values(ALUTestParams{0, 0, 0, true},
@@ -89,7 +89,7 @@ TEST_P(SRAFixture, SRA)
 {
     EXPECT_EQ(asr(GetParam().a, GetParam().b), GetParam().result);
 }
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SraSanity,
     SRAFixture,
     ::testing::Values(ALUTestParams{0, 0, 0, true},

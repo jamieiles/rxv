@@ -179,6 +179,6 @@ TEST_P(RXVFetchLineFill, ResteerDuringLineFill)
     }
     cycle(8);
 }
-INSTANTIATE_TEST_CASE_P(ResteerLineFillLatency,
+INSTANTIATE_TEST_SUITE_P(ResteerLineFillLatency,
                         RXVFetchLineFill,
                         ::testing::Values(0, 1, 2, 3));

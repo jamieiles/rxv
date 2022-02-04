@@ -61,7 +61,7 @@ TEST_P(Div, SignedDivide)
     EXPECT_EQ(quotient, expected_quotient);
     EXPECT_EQ(remainder, expected_remainder);
 }
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     SignedDiv,
     Div,
     ::testing::Values(
@@ -92,7 +92,7 @@ TEST_P(DivU, UnsignedDivide)
     EXPECT_EQ(quotient, expected_quotient);
     EXPECT_EQ(remainder, expected_remainder);
 }
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     UnsignedDiv,
     DivU,
     ::testing::Values(std::make_tuple(UINT32_MAX,

@@ -151,9 +151,11 @@ module BusTransactor #(
     end
 
     always_ff @(posedge clk) begin
-        if (write_state == WRITE_STATE_DATA && bus.wvalid && bus.wready)
+        if (write_state == WRITE_STATE_DATA && bus.wvalid && bus.wready) begin
             $c("this->bus->write(", bus.waddr + addr_bits'(write_beats) * 4, ", ", bus.wdata, ", ",
                bus.wstb, ");");
+            assert (|bus.wstb);
+        end
     end
 
     always_ff @(posedge clk) begin

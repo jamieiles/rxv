@@ -431,7 +431,7 @@ bool RXVSim::csr_access_allowed(int r, bool write)
     if (csrs.find(r) == csrs.end())
         return false;
 
-    if ((((r >> 10) & 0x3) != 0x3) && write)
+    if ((((r >> 10) & 0x3) == 0x3) && write)
         return false;
 
     auto required_privilege = (r >> 8) & 0x3;

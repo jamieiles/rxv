@@ -107,8 +107,6 @@ module RXVDCache #(
     logic   [               1:0] dout_use_uncached;
     logic   [               1:0] dout_use_uncached_next;
     logic   [               3:0] bus_len;
-    logic                        bus_active;
-    logic                        bus_active_next;
     logic   [              31:2] bus_address;
     logic                        bus_valid;
     logic                        bus_complete;
@@ -283,9 +281,8 @@ module RXVDCache #(
     always_comb begin
         unique case (state)
             STATE_FILL: begin
-                bus_valid = 1'b1;
+                bus_valid = 1'b1 & ~bus_complete;
                 bus_wren = 1'b0;
-                bus_active_next = bus_valid;
                 bus_len = fill_beats;
                 bus_address = {
                     addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)
@@ -294,40 +291,36 @@ module RXVDCache #(
                 bus_bytesel = 4'b1111;
             end
             STATE_FLUSH: begin
-                bus_valid = 1'b1 & ~bus_active;
-                bus_wren = 1'b1;
-                bus_active_next = bus_valid;
-                bus_len = fill_beats;
+                bus_valid   = 1'b1 & ~bus_complete;
+                bus_wren    = 1'b1;
+                bus_len     = fill_beats;
                 bus_address = {way_tag[fill_way], addr_index(lookup_address), offset_bits'('b0)};
-                bus_wdata = dout_cached;
+                bus_wdata   = dout_cached;
                 bus_bytesel = 4'b1111;
             end
             STATE_CLEAN: begin
-                bus_valid       = 1'b1 & ~bus_active & dirty[cmo_way];
-                bus_wren        = 1'b1;
-                bus_active_next = bus_valid;
-                bus_len         = fill_beats;
-                bus_address     = {way_tag[cmo_way], cmo_index, offset_bits'('b0)};
-                bus_wdata       = dout_cached;
-                bus_bytesel     = 4'b1111;
+                bus_valid   = 1'b1 & ~bus_complete & dirty[cmo_way];
+                bus_wren    = 1'b1;
+                bus_len     = fill_beats;
+                bus_address = {way_tag[cmo_way], cmo_index, offset_bits'('b0)};
+                bus_wdata   = dout_cached;
+                bus_bytesel = 4'b1111;
             end
             STATE_UNCACHED: begin
-                bus_valid       = 1'b1 & ~bus_active;
-                bus_wren        = write_wren;
-                bus_active_next = bus_valid;
-                bus_len         = 4'b0;
-                bus_address     = lookup_address;
-                bus_wdata       = din;
-                bus_bytesel     = write_bytesel;
+                bus_valid   = 1'b1 & ~bus_complete;
+                bus_wren    = write_wren;
+                bus_len     = 4'b0;
+                bus_address = lookup_address;
+                bus_wdata   = din;
+                bus_bytesel = write_bytesel;
             end
             default: begin
-                bus_valid       = 1'b0;
-                bus_wren        = 1'b0;
-                bus_active_next = 1'b0;
-                bus_len         = 4'b0;
-                bus_address     = 'b0;
-                bus_wdata       = din;
-                bus_bytesel     = 'b0;
+                bus_valid   = 1'b0;
+                bus_wren    = 1'b0;
+                bus_len     = 4'b0;
+                bus_address = 'b0;
+                bus_wdata   = din;
+                bus_bytesel = 'b0;
             end
         endcase
     end
@@ -455,7 +448,7 @@ module RXVDCache #(
                 next_state = &cmo_index ? STATE_RUN : STATE_INVAL;
             end
             STATE_CLEAN: begin
-                next_state = (&cmo_index && &cmo_way) ? STATE_RUN : STATE_CLEAN;
+                next_state = (&cmo_index && &cmo_way) && ~|dirty ? STATE_RUN : STATE_CLEAN;
             end
             STATE_ACCESS_COMPLETE: begin
                 next_state = STATE_RUN;
@@ -531,14 +524,6 @@ module RXVDCache #(
         .en   (write_wren_update),
         .d    (wren),
         .q    (write_wren)
-    );
-
-    RXVDFF bus_active_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (bus_active_next),
-        .q    (bus_active)
     );
 
     RXVDFF #(

@@ -51,9 +51,7 @@ class Cache
 {
 public:
     Cache(size_t size, unsigned num_ways, unsigned line_size, MemoryBus *bus)
-        : mem_read(mem_read)
-        , mem_write(mem_write)
-        , num_ways(num_ways)
+        : num_ways(num_ways)
         , words_per_line(line_size / sizeof(uint32_t))
         , victim(0)
         , reserved(false)
@@ -129,7 +127,7 @@ public:
                     *reservation_held = false;
                     return;
                 }
-                if (addr & ~((1 << index_shift) - 1) != reservation_addr) {
+                if ((addr & ~((1 << index_shift) - 1)) != reservation_addr) {
                     *reservation_held = false;
                     return;
                 }
@@ -260,9 +258,6 @@ private:
 
         return false;
     }
-
-    std::function<void(uint32_t, char *, size_t)> mem_read;
-    std::function<void(uint32_t, const char *, size_t)> mem_write;
 
     size_t num_ways;
     size_t lines_per_way;

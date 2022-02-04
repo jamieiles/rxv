@@ -431,7 +431,7 @@ bool RXVSim::csr_access_allowed(int r, bool write)
     if (csrs.find(r) == csrs.end())
         return false;
 
-    if (((r >> 10) & 0x3 != 0x3) && write)
+    if ((((r >> 10) & 0x3) != 0x3) && write)
         return false;
 
     auto required_privilege = (r >> 8) & 0x3;
@@ -499,7 +499,7 @@ bool RXVSim::translate(uint32_t virt,
         dcache.read(pte_addr, reinterpret_cast<char *>(&pte), sizeof(pte),
                     false);
 
-        if (!pte & pte_valid)
+        if (!(pte & pte_valid))
             return false;
         if (pte & (pte_read | pte_exec)) {
             if (i > 0 && (pte & 0x000ffc00))

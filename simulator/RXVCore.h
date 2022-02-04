@@ -61,7 +61,7 @@ public:
                                  uint32_t addr,
                                  uint32_t phys,
                                  const char *v,
-                                 size_t len)
+                                 size_t len) override
     {
         uint32_t val = 0;
 
@@ -113,7 +113,7 @@ public:
                            uint64_t cycle_num,
                            uint32_t cause,
                            uint32_t status,
-                           uint32_t epc)
+                           uint32_t epc) override
     {
         SimTracer::trace_irq(target_level, cycle_num, cause, status, epc);
 

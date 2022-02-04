@@ -18,7 +18,7 @@ module RAM #(
         if (wren) begin
             mem[addr] <= din;
         end
-        dout <= mem[addr];
+        dout <= wren ? din : mem[addr];
     end
 
     `include "RAM_formal.sv"

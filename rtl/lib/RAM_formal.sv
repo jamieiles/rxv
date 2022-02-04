@@ -27,8 +27,12 @@ always_ff @(posedge clk) begin
 end
 
 always_ff @(posedge clk) begin
-    if (f_past_valid && $past(addr) == f_addr) begin
+    if (f_past_valid && $past(addr) == f_addr && !$past(wren)) begin
         assert (dout == $past(f_data));
+    end
+
+    if (f_past_valid && $past(addr) == f_addr && $past(wren)) begin
+        assert (dout == $past(din));
     end
 
     if (wren && addr == f_addr) begin

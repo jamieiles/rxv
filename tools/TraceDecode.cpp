@@ -18,6 +18,7 @@
 #include "llvm-c/Target.h"
 
 #include "Trace_generated.h"
+#include "TraceFile.h"
 
 static std::string reg_name(int id)
 {
@@ -89,23 +90,6 @@ static boost::program_options::variables_map parse_options(int argc,
     }
 
     return vm;
-}
-
-static const RXV::Trace::ProcessorTrace *get_trace(const std::string &filename)
-{
-    auto fd = open(filename.c_str(), O_RDONLY);
-    if (fd < 0)
-        err(1, "failed to open %s trace", filename.c_str());
-    struct stat statbuf = {};
-    if (fstat(fd, &statbuf))
-        err(1, "failed to stat %s", filename.c_str());
-    auto pad_size =
-        ((statbuf.st_size + getpagesize() - 1) / getpagesize()) * getpagesize();
-    void *buf = mmap(NULL, pad_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (buf == MAP_FAILED)
-        err(1, "failed to map trace file");
-
-    return RXV::Trace::GetProcessorTrace(buf);
 }
 
 static LLVMDisasmContextRef get_disassembler()
@@ -352,32 +336,44 @@ int main(int argc, char **argv)
     }
 
     auto dcr = get_disassembler();
-    auto proc_trace = get_trace(vm["trace_file"].as<std::string>());
+    TraceFile tf(vm["trace_file"].as<std::string>());
 
     unsigned long start = 0;
     auto last = vm["last"].as<unsigned long>();
-    auto num_events = proc_trace->events()->size();
+    auto num_events = tf.num_events();
     bool count_instructions = vm.count("instruction-count");
     if (last != 0) {
         if (last < num_events)
             start = num_events - last;
     }
-    for (unsigned long idx = start; idx < num_events; ++idx) {
-        auto event = (*proc_trace->events())[idx];
-        if ((*proc_trace->events_type())[idx] ==
-            RXV::Trace::Event_InstructionTrace) {
-            auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
-                (*proc_trace->events())[idx]);
+    auto trace_range = tf.range_containing_event(start);
 
-            int id = count_instructions ? idx : instr->cycle_num();
-            dump_instruction(dcr, id, instr);
-        } else if ((*proc_trace->events_type())[idx] ==
-                   RXV::Trace::Event_InterruptTrace) {
-            auto irq = static_cast<const RXV::Trace::InterruptTrace *>(
-                (*proc_trace->events())[idx]);
+    for (;;) {
+        auto range_start = trace_range.event_offset;
+        auto range_end = range_start + trace_range.trace->events()->size() - 1;
 
-            dump_interrupt(irq);
+        for (unsigned long i = start > range_end ? 0 : start - range_start;
+             i <= range_end - range_start; ++i) {
+            auto event = (*trace_range.trace->events())[i];
+            if ((*trace_range.trace->events_type())[i] ==
+                RXV::Trace::Event_InstructionTrace) {
+                auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
+                    (*trace_range.trace->events())[i]);
+
+                int id = count_instructions ? i : instr->cycle_num();
+                dump_instruction(dcr, id, instr);
+            } else if ((*trace_range.trace->events_type())[i] ==
+                       RXV::Trace::Event_InterruptTrace) {
+                auto irq = static_cast<const RXV::Trace::InterruptTrace *>(
+                    (*trace_range.trace->events())[i]);
+
+                dump_interrupt(irq);
+            }
         }
+
+        if (tf.end_of_trace())
+            break;
+        trace_range = tf.next_range();
     }
 
     return 0;

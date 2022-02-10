@@ -46,12 +46,16 @@ class SimTracer
     static constexpr bool trace_reg_reads = false;
 
 public:
-    SimTracer(const std::optional<std::string> filename)
-        : enabled(false), file_count(0)
+    SimTracer(const std::optional<std::string> filename) : enabled(false)
     {
         if (filename) {
             this->enabled = true;
-            this->filename_base = *filename;
+            this->filename = *filename;
+
+            std::ofstream insn_trace_file;
+            insn_trace_file.open(this->filename,
+                                 std::ios::out | std::ios::binary);
+            insn_trace_file.close();
         }
     }
 
@@ -270,11 +274,12 @@ public:
         trace_builder.Finish(trace);
 
         std::ofstream insn_trace_file;
-        auto filename = filename_base;
 
-        if (file_count)
-            filename += "." + std::to_string(file_count);
-        insn_trace_file.open(filename, std::ios::out | std::ios::binary);
+        insn_trace_file.open(filename,
+                             std::ios::out | std::ios::binary | std::ios::app);
+        uint64_t size = trace_builder.GetSize();
+        insn_trace_file.write(reinterpret_cast<const char *>(&size),
+                              sizeof(size));
         insn_trace_file.write(
             reinterpret_cast<char *>(trace_builder.GetBufferPointer()),
             trace_builder.GetSize());
@@ -283,15 +288,13 @@ public:
         traced_events.clear();
         event_types.clear();
         trace_builder.Reset();
-        ++file_count;
     }
 
 private:
     bool enabled;
-    unsigned file_count;
     flatbuffers::FlatBufferBuilder trace_builder;
     std::vector<flatbuffers::Offset<void>> traced_events;
     std::vector<uint8_t> event_types;
-    std::string filename_base;
+    std::string filename;
     std::map<int, InstructionTrace> inflight;
 };

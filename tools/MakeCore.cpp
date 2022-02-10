@@ -14,6 +14,7 @@
 #include <elfio/elfio.hpp>
 
 #include "Trace_generated.h"
+#include "TraceFile.h"
 #include "MemoryDevice.h"
 
 #define NT_PRSTATUS 1
@@ -55,7 +56,9 @@ class TrackingMemoryBus : public MemoryBus
 {
 public:
     TrackingMemoryBus(uint32_t ram_base, size_t ram_size)
-        : MemoryBus(ram_base, ram_size), ram_base(ram_base), ram_size(ram_size)
+        : MemoryBus(ram_base, ram_size, false)
+        , ram_base(ram_base)
+        , ram_size(ram_size)
     {
         auto num_pages = ram_size / 4096;
         accessed.reserve(num_pages);
@@ -256,23 +259,6 @@ private:
     TrackingMemoryBus *bus;
 };
 
-static const RXV::Trace::ProcessorTrace *get_trace(const std::string &filename)
-{
-    auto fd = open(filename.c_str(), O_RDONLY);
-    if (fd < 0)
-        err(1, "failed to open %s trace", filename.c_str());
-    struct stat statbuf = {};
-    if (fstat(fd, &statbuf))
-        err(1, "failed to stat %s", filename.c_str());
-    auto pad_size =
-        ((statbuf.st_size + getpagesize() - 1) / getpagesize()) * getpagesize();
-    void *buf = mmap(NULL, pad_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (buf == MAP_FAILED)
-        err(1, "failed to map trace file");
-
-    return RXV::Trace::GetProcessorTrace(buf);
-}
-
 class CoreFileGenerator
 {
 public:
@@ -298,37 +284,40 @@ public:
 private:
     void run_trace()
     {
-        auto proc_trace = get_trace(trace_file);
+        TraceFile tf(trace_file);
 
-        auto num_events = proc_trace->events()->size();
-        for (unsigned long idx = 0; idx < num_events; ++idx) {
-            auto event = (*proc_trace->events())[idx];
-            if ((*proc_trace->events_type())[idx] !=
-                RXV::Trace::Event_InstructionTrace)
-                continue;
+        while (!tf.end_of_trace()) {
+            auto trace_range = tf.next_range();
+            auto num_events = trace_range.trace->events()->size();
+            for (unsigned long idx = 0; idx < num_events; ++idx) {
+                auto event = (*trace_range.trace->events())[idx];
+                if ((*trace_range.trace->events_type())[idx] !=
+                    RXV::Trace::Event_InstructionTrace)
+                    continue;
 
-            auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
-                (*proc_trace->events())[idx]);
+                auto instr = static_cast<const RXV::Trace::InstructionTrace *>(
+                    (*trace_range.trace->events())[idx]);
 
-            prstatus.pr_reg.pc = instr->pc();
-            if (until && instr->cycle_num() >= until)
-                break;
-            mode = instr->privilege();
+                prstatus.pr_reg.pc = instr->pc();
+                if (until && instr->cycle_num() >= until)
+                    break;
+                mode = instr->privilege();
 
-            bus.write(instr->pc_phys(), instr->instruction(), 0xf);
+                bus.write(instr->pc_phys(), instr->instruction(), 0xf);
 
-            for (auto mem : *instr->mem_accesses()) {
-                auto v = mem->value();
-                bus.write(mem->phys(), reinterpret_cast<const char *>(&v),
-                          mem->size());
-            }
-            for (auto gpr : *instr->gpr_accesses()) {
-                auto v = gpr->value();
-                prstatus.pr_reg.gpregs[gpr->id() - 1] = v;
-            }
-            for (auto csr : *instr->csr_writes()) {
-                if (csr->id() == RXV::Trace::CSRId_SATP)
-                    satp = csr->value();
+                for (auto mem : *instr->mem_accesses()) {
+                    auto v = mem->value();
+                    bus.write(mem->phys(), reinterpret_cast<const char *>(&v),
+                              mem->size());
+                }
+                for (auto gpr : *instr->gpr_accesses()) {
+                    auto v = gpr->value();
+                    prstatus.pr_reg.gpregs[gpr->id() - 1] = v;
+                }
+                for (auto csr : *instr->csr_writes()) {
+                    if (csr->id() == RXV::Trace::CSRId_SATP)
+                        satp = csr->value();
+                }
             }
         }
     }

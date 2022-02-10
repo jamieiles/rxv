@@ -10,35 +10,31 @@ import RXVCSR::mtvec_t;
 import RXVCSR::mtvec_dest;
 
 module RXVCommitter (
-    input  logic               clk,
-    input  logic               reset,
+    input  logic        clk,
+    input  logic        reset,
     // Commit buffer
-    input  logic               commit_empty,
+    input  logic        commit_empty,
     // verilator lint_off UNUSED
-    input  commit_entry        commit_in,
+    input  commit_entry commit_in,
     // verilator lint_on UNUSED
-    input  logic               commit_complete,
-    input  logic               commit_killed,
-    input  logic               commit_excepted,
-    output logic               commit_valid,
-    output logic               retired,
+    input  logic        commit_complete,
+    input  logic        commit_killed,
+    input  logic        commit_excepted,
+    output logic        commit_valid,
+    output logic        retired,
     // To rename file
-    output renamed_reg         commit_rename_out,
-    output logic               commit_rename_valid,
-    output logic               commit_rename_rollback,
+    output renamed_reg  commit_rename_out,
+    output logic        commit_rename_valid,
+    output logic        commit_rename_rollback,
     // To register allocator
-    output logic               commit_reg_push,
-    output phys_reg_tag        commit_reg_reg,
+    output logic        commit_reg_push,
+    output phys_reg_tag commit_reg_reg,
     // Exception handling
-    output logic               exception_resteer,
-    output logic        [31:2] exception_resteer_tgt,
-    input  mtvec_t             mtvec_in,
-    input  mcause_t            mcause_in
+    output logic        exception_resteer
 );
 
-    logic        commit_ready;
-    logic        exception_resteer_next;
-    logic [31:2] exception_resteer_tgt_next;
+    logic commit_ready;
+    logic exception_resteer_next;
 
     always_comb begin
         commit_ready = ~commit_empty & (commit_complete | commit_killed | commit_excepted);
@@ -77,8 +73,7 @@ module RXVCommitter (
     end
 
     always_comb begin
-        exception_resteer_tgt_next = mtvec_dest(mtvec_in, mcause_in);
-        exception_resteer_next     = commit_ready & commit_excepted;
+        exception_resteer_next = commit_ready & commit_excepted;
     end
 
     RXVDFF exception_resteer_dff (
@@ -87,16 +82,6 @@ module RXVCommitter (
         .en   (1'b1),
         .d    (exception_resteer_next),
         .q    (exception_resteer)
-    );
-
-    RXVDFF #(
-        .width(30)
-    ) exception_resteer_tgt_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (1'b1),
-        .d    (exception_resteer_tgt_next),
-        .q    (exception_resteer_tgt)
     );
 
 endmodule

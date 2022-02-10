@@ -110,9 +110,9 @@ public:
         return this->dut.RXVCSR->exception_val(this->dut.lsu_exception);
     }
 
-    VRXVLSUWrapper_RXVCSR::MCAUSE_id exception_cause() const
+    VRXVLSUWrapper_RXVCSR::CAUSE_id exception_cause() const
     {
-        return static_cast<VRXVLSUWrapper_RXVCSR::MCAUSE_id>(
+        return static_cast<VRXVLSUWrapper_RXVCSR::CAUSE_id>(
             this->dut.RXVCSR->exception_cause(this->dut.lsu_exception));
     }
 
@@ -138,7 +138,7 @@ TEST_F(LSUTestbench, ReadWordUnaligned)
     dispatch_read(0x80001005, 4);
     wait_for_completion();
     EXPECT_TRUE(is_excepted());
-    EXPECT_EQ(exception_cause(), VRXVLSUWrapper_RXVCSR::MCAUSE_LOAD_MISALIGN);
+    EXPECT_EQ(exception_cause(), VRXVLSUWrapper_RXVCSR::CAUSE_LOAD_MISALIGN);
     EXPECT_EQ(this->dut.lsu_except_id, 0);
 }
 

@@ -323,8 +323,8 @@ module RXVLSU #(
     always_comb begin
         lsu_exception_next.pc = exec_pc;
         lsu_exception_next.val = address;
-        lsu_exception_next.cause = is_invalid_amo ? RXVCSR::MCAUSE_LOAD_ACCESS_FAULT :
-        is_load ? RXVCSR::MCAUSE_LOAD_MISALIGN : RXVCSR::MCAUSE_STORE_MISALIGN;
+        lsu_exception_next.cause = is_invalid_amo ? RXVCSR::CAUSE_LOAD_ACCESS_FAULT :
+        is_load ? RXVCSR::CAUSE_LOAD_MISALIGN : RXVCSR::CAUSE_STORE_MISALIGN;
         lsu_exception_next.valid = (is_load | is_store) & valid & (is_unaligned | is_invalid_amo);
         lsu_exception_next.irq = 1'b0;
     end

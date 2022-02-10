@@ -6,7 +6,13 @@ import sys
 
 TEST_RE = {
     'software': r'.*rv32[msu][aim]-[pv]-[^\.]*$',
-    'rtl': r'.*rv32[mu][aim]-[p]-[^\.]*$',
+    'rtl': r'.*rv32[msu][aim]-[p]-[^\.]*$',
+}
+
+SKIP_TESTS = {
+    'software': [],
+    # rv32si-p-dirty uses sv32 VM
+    'rtl': ['rv32si-p-dirty']
 }
 
 def run_tests(runner, sim, test_tree):
@@ -14,6 +20,8 @@ def run_tests(runner, sim, test_tree):
     for root, dirs, files in os.walk(test_tree):
         for f in files:
             if not re.match(TEST_RE[sim], f):
+                continue
+            if f in SKIP_TESTS[sim]:
                 continue
             try:
                 subprocess.check_call(

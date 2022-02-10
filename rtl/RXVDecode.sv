@@ -18,12 +18,15 @@ import RXVTypes::commit_width;
 import RXVTrace::trace_start_instruction;
 import RXVTrace::trace_uop;
 import RXVCSR::RXVException;
-import RXVCSR::MCAUSE_id;
+import RXVCSR::CAUSE_id;
+import RXVCSR::privilege_t;
+import RXVCSR::mstatus_t;
 
 module RXVDecode (
     input  logic                              clk,
     input  logic                              reset,
     // From fetch
+    input  privilege_t                        current_privilege,
     input  logic                              decode_valid,
     input  logic          [             31:2] decode_pc,
     input  logic          [             31:2] decode_next_pc,
@@ -37,6 +40,9 @@ module RXVDecode (
     // CSR
     input  logic                              valid_csr_in,
     output logic          [             11:0] decode_csr_addr,
+    // verilator lint_off UNUSED
+    input  mstatus_t                          mstatus_in,
+    // verilator lint_on UNUSED
     // Register write snoop
     input  phys_reg_tag                       reg_wr_addr,
     input  logic                              reg_wr_en,
@@ -344,9 +350,9 @@ module RXVDecode (
     end
 
     always_comb begin
-        decode_predict_kill         = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
+        decode_predict_kill         = decode_valid & decode_prediction.predicted & ~is_branch;
         decode_predict_kill_address = decode_pc;
-        decode_resteer              = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
+        decode_resteer              = decode_valid & decode_prediction.predicted & ~is_branch;
         decode_resteer_tgt          = decode_next_pc;
     end
 
@@ -623,10 +629,13 @@ module RXVDecode (
     end
 
     always_comb begin
+        logic csr_write;
+
         system_illegal_instr  = 1'b0;
         csr_op_next           = RXVTypes::CSR_SWAP;
         system_uop            = RXVTypes::UOP_ALU;
         system_have_writeback = 1'b0;
+        csr_write             = 1'b0;
 
         unique case (funct3)
             3'b000: begin
@@ -639,9 +648,18 @@ module RXVDecode (
                         system_uop           = RXVTypes::UOP_EBREAK;
                         system_illegal_instr = 1'b0;
                     end
+                    25'b0001_0000_0010_0000_0000_0000_0: begin  // SRET
+                        system_uop           = RXVTypes::UOP_SRET;
+                        system_illegal_instr = 1'b0;
+
+                        if (mstatus_in.tsr && current_privilege != RXVCSR::PRIV_M)
+                            system_illegal_instr = 1'b1;
+                    end
                     25'b0011_0000_0010_0000_0000_0000_0: begin  // MRET
                         system_uop           = RXVTypes::UOP_MRET;
                         system_illegal_instr = 1'b0;
+
+                        if (current_privilege != RXVCSR::PRIV_M) system_illegal_instr = 1'b1;
                     end
                     25'b0001_0000_0101_0000_0000_0000_0: begin  // WFI
                         system_illegal_instr = 1'b0;
@@ -652,41 +670,49 @@ module RXVDecode (
             3'b001: begin  // CSRRW
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = RXVTypes::CSR_SWAP;
+                csr_write             = 1'b1;
                 system_have_writeback = 1'b1;
                 system_illegal_instr  = ~valid_csr_in;
             end
             3'b010: begin  // CSRRS
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
+                csr_write             = |rs1;
                 system_have_writeback = 1'b1;
                 system_illegal_instr  = ~valid_csr_in;
             end
             3'b011: begin  // CSRRC
                 system_uop            = RXVTypes::UOP_CSR;
                 csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
+                csr_write             = |rs1;
                 system_have_writeback = 1'b1;
                 system_illegal_instr  = ~valid_csr_in;
             end
             3'b101: begin  // CSRRWI
                 system_uop            = RXVTypes::UOP_CSRI;
                 csr_op_next           = RXVTypes::CSR_SWAP;
+                csr_write             = |rs1;
                 system_have_writeback = 1'b1;
                 system_illegal_instr  = ~valid_csr_in;
             end
             3'b110: begin  // CSRRSI
                 system_uop = RXVTypes::UOP_CSRI;
                 csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
+                csr_write = |rs1;
                 system_have_writeback = 1'b1;
                 system_illegal_instr = ~valid_csr_in;
             end
             3'b111: begin  // CSRRCI
                 system_uop = RXVTypes::UOP_CSRI;
                 csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
+                csr_write = |decode_instr[19:15];
                 system_have_writeback = 1'b1;
                 system_illegal_instr = ~valid_csr_in;
             end
             default: system_illegal_instr = 1'b1;
         endcase
+
+        if (csr_write && decode_csr_addr[11:10] == 2'b11) system_illegal_instr = 1'b1;
     end
 
     always_comb begin
@@ -911,7 +937,7 @@ module RXVDecode (
     always_comb begin
         decode_exception_next.pc = decode_pc;
         decode_exception_next.val = decode_instr;
-        decode_exception_next.cause = RXVCSR::MCAUSE_ILLEGAL_INSTR;
+        decode_exception_next.cause = RXVCSR::CAUSE_ILLEGAL_INSTR;
         decode_exception_next.valid = ~kill_valid & ~exec_resteer & ~commit_buffer_full & decode_valid & illegal_instruction;
         decode_exception_next.irq = 1'b0;
     end
@@ -1158,13 +1184,15 @@ module RXVDecode (
 
     always_ff @(posedge clk) begin
         if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx == 'b0) begin
-            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
+            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr,
+                                    current_privilege);
         end else if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx != 'b0) begin
             trace_uop(32'(amo_parent), 32'(dispatch_id));
         end
 
         if (decode_valid && decode_exception_next.valid) begin
-            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr, 2'b11);
+            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr,
+                                    current_privilege);
         end
     end
 

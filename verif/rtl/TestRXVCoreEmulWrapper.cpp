@@ -1052,7 +1052,7 @@ TEST_F(RXVCoreEmulWrapperTest, misa)
             FAIL() << "failed to complete test";
     }
 
-    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 12) | (1 << 8) | (1 << 0));
+    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 18) | (1 << 12) | (1 << 8) | (1 << 0));
 }
 
 TEST_F(RXVCoreEmulWrapperTest, amoadd)
@@ -1270,9 +1270,9 @@ TEST_F(RXVCoreEmulWrapperTest, MStatusIRQStack)
             FAIL() << "failed to complete test";
     }
 
-    EXPECT_EQ(tracer->read_reg(1), 0x1808);
+    EXPECT_EQ(tracer->read_reg(1), 0x0008);
     EXPECT_EQ(tracer->read_reg(2), 0x1880);
-    EXPECT_EQ(tracer->read_reg(4), 0x1808);
+    EXPECT_EQ(tracer->read_reg(4), 0x0008);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, SWIRQ)

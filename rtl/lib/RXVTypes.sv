@@ -110,6 +110,7 @@ package RXVTypes;
         UOP_CSR,
         UOP_CSRI,
         UOP_MRET,
+        UOP_SRET,
         UOP_ECALL,
         UOP_EBREAK,
         UOP_LB,

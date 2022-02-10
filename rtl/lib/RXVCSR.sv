@@ -44,27 +44,36 @@ package RXVCSR;
     } RXVCSR_id;
 
     typedef enum logic [3:0] {
-        MCAUSE_INSTR_MISALIGN = 4'd0,
-        MCAUSE_INSTR_ACCESS_FAULT = 4'd1,
-        MCAUSE_ILLEGAL_INSTR = 4'd2,
-        MCAUSE_BREAKPOINT = 4'd3,
-        MCAUSE_LOAD_MISALIGN = 4'd4,
-        MCAUSE_LOAD_ACCESS_FAULT = 4'd5,
-        MCAUSE_STORE_MISALIGN = 4'd6,
-        MCAUSE_STORE_ACCESS_FAULT = 4'd7,
-        MCAUSE_U_ECALL = 4'd8,
-        MCAUSE_S_ECALL = 4'd9,
-        MCAUSE_M_ECALL = 4'd11,
-        MCAUSE_INSTR_PAGE_FAULT = 4'd12,
-        MCAUSE_LOAD_PAGE_FAULT = 4'd13,
-        MCAUSE_STORE_PAGE_FAULT = 4'd15
-    } MCAUSE_id  /* verilator public */;
+        CAUSE_INSTR_MISALIGN = 4'd0,
+        CAUSE_INSTR_ACCESS_FAULT = 4'd1,
+        CAUSE_ILLEGAL_INSTR = 4'd2,
+        CAUSE_BREAKPOINT = 4'd3,
+        CAUSE_LOAD_MISALIGN = 4'd4,
+        CAUSE_LOAD_ACCESS_FAULT = 4'd5,
+        CAUSE_STORE_MISALIGN = 4'd6,
+        CAUSE_STORE_ACCESS_FAULT = 4'd7,
+        CAUSE_U_ECALL = 4'd8,
+        CAUSE_S_ECALL = 4'd9,
+        CAUSE_M_ECALL = 4'd11,
+        CAUSE_INSTR_PAGE_FAULT = 4'd12,
+        CAUSE_LOAD_PAGE_FAULT = 4'd13,
+        CAUSE_STORE_PAGE_FAULT = 4'd15
+    } CAUSE_id  /* verilator public */;
 
     typedef enum logic [3:0] {
+        MINT_S_SW = 4'd1,
         MINT_M_SW = 4'd3,
+        MINT_S_TIMER = 4'd5,
         MINT_M_TIMER = 4'd7,
+        MINT_S_EXT = 4'd9,
         MINT_M_EXT = 4'd11
     } MINT_id  /* verilator public */;
+
+    typedef enum logic [1:0] {
+        PRIV_U = 2'b00,
+        PRIV_S = 2'b01,
+        PRIV_M = 2'b11
+    } privilege_t;
 
     typedef struct packed {
         logic [31:2] pc;
@@ -90,7 +99,7 @@ package RXVCSR;
         exception_val = e.val;
     endfunction
 
-    function MCAUSE_id exception_cause;
+    function CAUSE_id exception_cause;
         // verilator public
         input RXVException e;
 
@@ -108,32 +117,84 @@ package RXVCSR;
 
     typedef struct packed {
         logic [1:0] mpp;
+        logic spp;
         logic mpie;
+        logic spie;
         logic mie;
+        logic sie;
+        logic tsr;
+        logic tw;
     } mstatus_t;
 
     function mstatus_t pack_mstatus;
         // verilator lint_off UNUSED
         input logic [31:0] v;
+        input mstatus_t orig;
         // verilator lint_on UNUSED
         begin
+            pack_mstatus.tsr = v[22];
+            pack_mstatus.tw  = v[21];
             pack_mstatus.mpp = v[12:11];
-            if (pack_mstatus.mpp != 2'b11) pack_mstatus.mpp = 2'b11;
+            if (v[12:11] == 2'b10) pack_mstatus.mpp = orig.mpp;
+            pack_mstatus.spp  = v[8];
             pack_mstatus.mpie = v[7];
+            pack_mstatus.spie = v[5];
             pack_mstatus.mie  = v[3];
+            pack_mstatus.sie  = v[1];
+        end
+    endfunction
+
+    function mstatus_t pack_sstatus;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        input mstatus_t orig;
+        // verilator lint_on UNUSED
+        begin
+            pack_sstatus      = orig;
+            pack_sstatus.spp  = v[8];
+            pack_sstatus.spie = v[5];
+            pack_sstatus.sie  = v[1];
         end
     endfunction
 
     function logic [31:0] unpack_mstatus;
         input mstatus_t v;
         begin
-            unpack_mstatus = {19'b0, v.mpp, 3'b0, v.mpie, 3'b0, v.mie, 3'b0};
+            unpack_mstatus = {
+                9'b0,
+                v.tsr,
+                v.tw,
+                8'b0,
+                v.mpp,
+                2'b0,
+                v.spp,
+                v.mpie,
+                1'b0,
+                v.spie,
+                1'b0,
+                v.mie,
+                1'b0,
+                v.sie,
+                1'b0
+            };
+        end
+    endfunction
+
+    function logic [31:0] unpack_sstatus;
+        // verilator lint_off UNUSED
+        input mstatus_t v;
+        // verilator lint_on UNUSED
+        begin
+            unpack_sstatus = {23'b0, v.spp, 2'b0, v.spie, 3'b0, v.sie, 1'b0};
         end
     endfunction
 
     typedef struct packed {
+        logic ssie;
         logic msie;
+        logic stie;
         logic mtie;
+        logic seie;
         logic meie;
     } mie_t;
 
@@ -142,8 +203,11 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
+            pack_mie.ssie = v[1];
             pack_mie.msie = v[3];
+            pack_mie.stie = v[5];
             pack_mie.mtie = v[7];
+            pack_mie.seie = v[9];
             pack_mie.meie = v[11];
         end
     endfunction
@@ -151,13 +215,52 @@ package RXVCSR;
     function logic [31:0] unpack_mie;
         input mie_t v;
         begin
-            unpack_mie = {20'b0, v.meie, 3'b0, v.mtie, 3'b0, v.msie, 3'b0};
+            unpack_mie = {
+                20'b0,
+                v.meie,
+                1'b0,
+                v.seie,
+                1'b0,
+                v.mtie,
+                1'b0,
+                v.stie,
+                1'b0,
+                v.msie,
+                1'b0,
+                v.ssie,
+                1'b0
+            };
+        end
+    endfunction
+
+    function mie_t pack_sie;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        input mie_t orig;
+        // verilator lint_on UNUSED
+        begin
+            pack_sie      = orig;
+            pack_sie.ssie = v[1];
+            pack_sie.stie = v[5];
+            pack_sie.seie = v[9];
+        end
+    endfunction
+
+    function logic [31:0] unpack_sie;
+        // verilator lint_off UNUSED
+        input mie_t v;
+        // verilator lint_on UNUSED
+        begin
+            unpack_sie = {22'b0, v.seie, 3'b0, v.stie, 3'b0, v.ssie, 1'b0};
         end
     endfunction
 
     typedef struct packed {
+        logic ssip;
         logic msip;
+        logic stip;
         logic mtip;
+        logic seip;
         logic meip;
     } mip_t;
 
@@ -166,8 +269,11 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
+            pack_mip.ssip = v[1];
             pack_mip.msip = v[3];
+            pack_mip.stip = v[5];
             pack_mip.mtip = v[7];
+            pack_mip.seip = v[9];
             pack_mip.meip = v[11];
         end
     endfunction
@@ -175,7 +281,43 @@ package RXVCSR;
     function logic [31:0] unpack_mip;
         input mip_t v;
         begin
-            unpack_mip = {20'b0, v.meip, 3'b0, v.mtip, 3'b0, v.msip, 3'b0};
+            unpack_mip = {
+                20'b0,
+                v.meip,
+                1'b0,
+                v.seip,
+                1'b0,
+                v.mtip,
+                1'b0,
+                v.stip,
+                1'b0,
+                v.msip,
+                1'b0,
+                v.ssip,
+                1'b0
+            };
+        end
+    endfunction
+
+    function mip_t pack_sip;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        input mip_t orig;
+        // verilator lint_on UNUSED
+        begin
+            pack_sip      = orig;
+            pack_sip.ssip = v[1];
+            pack_sip.stip = v[5];
+            pack_sip.seip = v[9];
+        end
+    endfunction
+
+    function logic [31:0] unpack_sip;
+        // verilator lint_off UNUSED
+        input mip_t v;
+        // verilator lint_on UNUSED
+        begin
+            unpack_sip = {22'b0, v.seip, 3'b0, v.stip, 3'b0, v.ssip, 1'b0};
         end
     endfunction
 
@@ -209,6 +351,36 @@ package RXVCSR;
         end
     endfunction
 
+    typedef enum logic {
+        STVEC_DIRECT   = 1'b0,
+        STVEC_VECTORED = 1'b1
+    } stvec_mode;
+
+    typedef struct packed {
+        logic [31:2] base;
+        stvec_mode   mode;
+    } stvec_t;
+
+    function stvec_t pack_stvec;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_stvec.mode = stvec_mode'(v[0]);
+            // Vectored mode is aligned to 64 bytes so that the cause can be
+            // OR'd in
+            if (pack_stvec.mode == STVEC_DIRECT) pack_stvec.base = v[31:2];
+            else pack_stvec.base = {v[31:6], 4'b0};
+        end
+    endfunction
+
+    function logic [31:0] unpack_stvec;
+        input stvec_t v;
+        begin
+            unpack_stvec = {v.base, 1'b0, v.mode};
+        end
+    endfunction
+
     typedef struct packed {logic [31:2] addr;} mepc_t;
 
     function mepc_t pack_mepc;
@@ -224,6 +396,24 @@ package RXVCSR;
         input mepc_t v;
         begin
             unpack_mepc = {v.addr, 2'b0};
+        end
+    endfunction
+
+    typedef struct packed {logic [31:2] addr;} sepc_t;
+
+    function sepc_t pack_sepc;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_sepc.addr = v[31:2];
+        end
+    endfunction
+
+    function logic [31:0] unpack_sepc;
+        input sepc_t v;
+        begin
+            unpack_sepc = {v.addr, 2'b0};
         end
     endfunction
 
@@ -249,6 +439,28 @@ package RXVCSR;
         end
     endfunction
 
+    typedef struct packed {
+        logic is_interrupt;
+        logic [3:0] cause;
+    } scause_t;
+
+    function scause_t pack_scause;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_scause.is_interrupt = v[31];
+            pack_scause.cause        = v[3:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_scause;
+        input scause_t v;
+        begin
+            unpack_scause = {v.is_interrupt, 27'b0, v.cause};
+        end
+    endfunction
+
     typedef struct packed {logic [31:0] val;} mtval_t;
 
     function mtval_t pack_mtval;
@@ -267,6 +479,109 @@ package RXVCSR;
         end
     endfunction
 
+    typedef struct packed {logic [31:0] val;} stval_t;
+
+    function stval_t pack_stval;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_stval.val = v[31:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_stval;
+        input stval_t v;
+        begin
+            unpack_stval = v.val;
+        end
+    endfunction
+
+    typedef struct packed {
+        logic instr_misalign;
+        logic instr_access_fault;
+        logic illegal_instr;
+        logic breakpoint;
+        logic load_misalign;
+        logic load_access_fault;
+        logic store_misalign;
+        logic store_access_fault;
+        logic u_ecall;
+        logic s_ecall;
+        logic instr_page_fault;
+        logic load_page_fault;
+        logic store_page_fault;
+    } medeleg_t;
+
+    function medeleg_t pack_medeleg;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_medeleg.instr_misalign     = v[0];
+            pack_medeleg.instr_access_fault = v[1];
+            pack_medeleg.illegal_instr      = v[2];
+            pack_medeleg.breakpoint         = v[3];
+            pack_medeleg.load_misalign      = v[4];
+            pack_medeleg.load_access_fault  = v[5];
+            pack_medeleg.store_misalign     = v[6];
+            pack_medeleg.store_access_fault = v[7];
+            pack_medeleg.u_ecall            = v[8];
+            pack_medeleg.s_ecall            = v[9];
+            pack_medeleg.instr_page_fault   = v[12];
+            pack_medeleg.load_page_fault    = v[13];
+            pack_medeleg.store_page_fault   = v[15];
+        end
+    endfunction
+
+    function logic [31:0] unpack_medeleg;
+        input medeleg_t v;
+        begin
+            unpack_medeleg = {
+                16'b0,
+                v.store_page_fault,
+                1'b0,
+                v.load_page_fault,
+                v.instr_page_fault,
+                2'b0,
+                v.s_ecall,
+                v.u_ecall,
+                v.store_access_fault,
+                v.store_misalign,
+                v.load_access_fault,
+                v.load_misalign,
+                v.breakpoint,
+                v.illegal_instr,
+                v.instr_access_fault,
+                v.instr_misalign
+            };
+        end
+    endfunction
+
+    typedef struct packed {
+        logic s_sw;
+        logic s_timer;
+        logic s_ext;
+    } mideleg_t;
+
+    function mideleg_t pack_mideleg;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mideleg.s_sw    = v[1];
+            pack_mideleg.s_timer = v[5];
+            pack_mideleg.s_ext   = v[9];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mideleg;
+        input mideleg_t v;
+        begin
+            unpack_mideleg = {22'b0, v.s_ext, 3'b0, v.s_timer, 3'b0, v.s_sw, 1'b0};
+        end
+    endfunction
+
     function logic [31:2] mtvec_dest;
         input mtvec_t vec;
         input mcause_t cause;
@@ -274,6 +589,16 @@ package RXVCSR;
         begin
             if (!cause.is_interrupt || vec.mode == MTVEC_DIRECT) mtvec_dest = vec.base;
             else mtvec_dest = vec.base | 30'(cause.cause);
+        end
+    endfunction
+
+    function logic [31:2] stvec_dest;
+        input stvec_t vec;
+        input mcause_t cause;
+
+        begin
+            if (!cause.is_interrupt || vec.mode == STVEC_DIRECT) stvec_dest = vec.base;
+            else stvec_dest = vec.base | 30'(cause.cause);
         end
     endfunction
 

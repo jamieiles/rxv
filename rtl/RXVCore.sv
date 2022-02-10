@@ -16,6 +16,8 @@ import RXVTrace::trace_write_csr;
 import RXVCSR::RXVException;
 import RXVCSR::mtvec_t;
 import RXVCSR::mcause_t;
+import RXVCSR::mstatus_t;
+import RXVCSR::privilege_t;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -52,6 +54,7 @@ module RXVCore #(
     rxv_prediction                     fetch_prediction;
     logic                              fetch_idle;
     logic          [             31:2] irq_epc;
+    privilege_t                        current_privilege;
 
     logic                              schedule_int;
     logic                              schedule_lsu;
@@ -97,9 +100,12 @@ module RXVCore #(
     logic          [             31:0] exec_csr_wr_data;
     logic                              exec_csr_wr_en;
     logic          [             31:2] mepc_val;
+    logic          [             31:2] sepc_val;
+    mstatus_t                          mstatus_val;
     RXVException                       exec_exception;
     logic          [ commit_width-1:0] exec_except_id;
-    logic                              exception_return;
+    logic                              do_mret;
+    logic                              do_sret;
     logic                              irq_pending;
     logic          [ commit_width-1:0] int_exec_complete_id;
     logic                              int_exec_complete_valid;
@@ -206,8 +212,6 @@ module RXVCore #(
     logic                              retired;
     logic                              exception_resteer;
     logic          [             31:2] exception_resteer_tgt;
-    mtvec_t                            mtvec_val;
-    mcause_t                           mcause_val;
 
     phys_reg_tag                       busy_reg_in;
     logic                              busy_valid_in;
@@ -289,6 +293,7 @@ module RXVCore #(
     RXVDecode RXVDecode (
         .clk                        (clk),
         .reset                      (reset),
+        .current_privilege          (current_privilege),
         .decode_valid               (decode_valid),
         .decode_pc                  (decode_pc),
         .decode_next_pc             (decode_next_pc),
@@ -300,6 +305,7 @@ module RXVCore #(
         .decode_resteer_tgt         (decode_resteer_tgt),
         .decode_fe_stall            (decode_fe_stall),
         .decode_csr_addr            (decode_csr_addr),
+        .mstatus_in                 (mstatus_val),
         .valid_csr_in               (decode_valid_csr),
         .reg_wr_addr                (reg_wr_addr),
         .reg_wr_en                  (reg_wr_en),
@@ -391,7 +397,9 @@ module RXVCore #(
         .exec_resteer               (int_exec_resteer),
         .exec_resteer_tgt           (int_exec_resteer_tgt),
         .mepc_in                    (mepc_val),
-        .exception_return           (exception_return),
+        .sepc_in                    (sepc_val),
+        .do_mret                    (do_mret),
+        .do_sret                    (do_sret),
         .decode_exception           (decode_exception),
         .decode_except_id           (decode_except_id),
         .exec_exception             (exec_exception),
@@ -498,37 +506,40 @@ module RXVCore #(
         .archid  (archid),
         .impid   (impid)
     ) RXVCSRFile (
-        .clk             (clk),
-        .reset           (reset),
-        .valid_csr_out   (decode_valid_csr),
-        .rd_addr         (decode_csr_addr),
-        .rd_data         (exec_csr_rd_data),
-        .writeback_id    (int_exec_complete_id),
-        .wr_addr         (exec_csr_wr_addr),
-        .wr_data         (exec_csr_wr_data),
-        .wr_en           (exec_csr_wr_en),
-        .mepc_out        (mepc_val),
-        .mtvec_out       (mtvec_val),
-        .mcause_out      (mcause_val),
-        .exec_exception  (exec_exception),
-        .exec_except_id  (exec_except_id),
-        .lsu_exception   (lsu_exception),
-        .lsu_except_id   (lsu_except_id),
-        .exception_return(exception_return),
-        .irq_pending     (irq_pending),
-        .fetch_idle      (fetch_idle),
-        .commit_empty    (commit_empty),
-        .irq_epc         (irq_epc),
-        .irq_resteer     (irq_resteer),
-        .irq_resteer_tgt (irq_resteer_tgt),
-        .mtime           (mtime),
-        .mtime_irq       (mtime_irq),
-        .cyclesh_wren    (pmu_cyclesh_wren),
-        .cyclesl_wren    (pmu_cyclesl_wren),
-        .instreth_wren   (pmu_instreth_wren),
-        .instretl_wren   (pmu_instretl_wren),
-        .pmu_cycles      (pmu_cycles),
-        .pmu_instret     (pmu_instret)
+        .clk                  (clk),
+        .reset                (reset),
+        .valid_csr_out        (decode_valid_csr),
+        .rd_addr              (decode_csr_addr),
+        .rd_data              (exec_csr_rd_data),
+        .writeback_id         (int_exec_complete_id),
+        .wr_addr              (exec_csr_wr_addr),
+        .wr_data              (exec_csr_wr_data),
+        .wr_en                (exec_csr_wr_en),
+        .mepc_out             (mepc_val),
+        .sepc_out             (sepc_val),
+        .mstatus_out          (mstatus_val),
+        .exception_resteer_tgt(exception_resteer_tgt),
+        .exec_exception       (exec_exception),
+        .exec_except_id       (exec_except_id),
+        .lsu_exception        (lsu_exception),
+        .lsu_except_id        (lsu_except_id),
+        .do_mret              (do_mret),
+        .do_sret              (do_sret),
+        .irq_pending          (irq_pending),
+        .fetch_idle           (fetch_idle),
+        .commit_empty         (commit_empty),
+        .irq_epc              (irq_epc),
+        .irq_resteer          (irq_resteer),
+        .irq_resteer_tgt      (irq_resteer_tgt),
+        .mtime                (mtime),
+        .mtime_irq            (mtime_irq),
+        .cyclesh_wren         (pmu_cyclesh_wren),
+        .cyclesl_wren         (pmu_cyclesl_wren),
+        .instreth_wren        (pmu_instreth_wren),
+        .instretl_wren        (pmu_instretl_wren),
+        .pmu_cycles           (pmu_cycles),
+        .pmu_instret          (pmu_instret),
+        .current_privilege    (current_privilege)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -651,10 +662,7 @@ module RXVCore #(
         .commit_rename_rollback(rename_rollback),
         .commit_reg_push       (reg_free),
         .commit_reg_reg        (reg_free_phys),
-        .exception_resteer     (exception_resteer),
-        .exception_resteer_tgt (exception_resteer_tgt),
-        .mtvec_in              (mtvec_val),
-        .mcause_in             (mcause_val)
+        .exception_resteer     (exception_resteer)
     );
 
     RXVPMU RXVPMU (

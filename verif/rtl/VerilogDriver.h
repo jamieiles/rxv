@@ -44,7 +44,7 @@ class VerilogDriver
 {
 public:
     VerilogDriver();
-    explicit VerilogDriver(const std::string &instance_name);
+    explicit VerilogDriver(const std::string &waves_file);
     VerilogDriver(const VerilogDriver &rhs) = delete;
     virtual ~VerilogDriver();
     void reset(int count = 2);
@@ -79,7 +79,7 @@ private:
     std::vector<std::function<void()>> deferred_events[max_deferred_delta];
     std::map<PeriodicEventType, std::vector<std::function<void()>>>
         periodic_events;
-    std::string instance_name;
+    std::string waves_file;
 };
 template <typename T, bool debug_enabled>
 VerilogDriver<T, debug_enabled>::VerilogDriver()
@@ -89,8 +89,8 @@ VerilogDriver<T, debug_enabled>::VerilogDriver()
 }
 
 template <typename T, bool debug_enabled>
-VerilogDriver<T, debug_enabled>::VerilogDriver(const std::string &instance_name)
-    : cycle_num(0), instance_name(instance_name)
+VerilogDriver<T, debug_enabled>::VerilogDriver(const std::string &waves_file)
+    : cycle_num(0), waves_file(waves_file)
 {
     dut.reset = 0;
     dut.clk = 0;
@@ -126,9 +126,7 @@ void VerilogDriver<T, debug_enabled>::setup_trace()
         Verilated::traceEverOn(true);
         tracer_impl<T, debug_enabled>::trace_dut(&dut, &tracer);
 
-        auto filename = (boost::format("%s.fst") % instance_name).str();
-        boost::replace_all(filename, "/", "_");
-        tracer.open(filename.c_str());
+        tracer.open(waves_file.c_str());
     }
 }
 

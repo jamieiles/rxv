@@ -83,7 +83,7 @@ static boost::program_options::variables_map parse_options(int argc,
     options.add_options()
         ("elf", boost::program_options::value<std::string>(), "ELF file")
         ("sim", boost::program_options::value<std::string>(), "Simulator")
-        ("waves", "Waves Enabled")
+        ("waves", boost::program_options::value<std::string>(), "Waves File")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
         ("compliance", "Run compliance test")
         ("help,h", "Help screen");
@@ -114,13 +114,6 @@ static boost::program_options::variables_map parse_options(int argc,
     return vm;
 }
 
-static std::string instance_name(const std::string &elf_path)
-{
-    auto bn = basename(elf_path.c_str());
-
-    return std::string(bn);
-}
-
 int main(int argc, char *argv[])
 {
     boost::program_options::variables_map vm;
@@ -148,7 +141,7 @@ int main(int argc, char *argv[])
             if (waves)
                 sim = std::make_unique<RXVCore<true>>(
                     trace_name, 256 * 1024 * 1024, 0x80000000,
-                    instance_name(vm["elf"].as<std::string>()));
+                    vm["waves"].as<std::string>());
             else
                 sim = std::make_unique<RXVCore<false>>(
                     trace_name, 256 * 1024 * 1024, 0x80000000);

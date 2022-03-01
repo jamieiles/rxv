@@ -209,8 +209,8 @@ public:
     RXVCore(const std::optional<std::string> trace_name,
             size_t mem_size = default_mem_size,
             uint32_t mem_base = default_ram_base,
-            std::string instance_name = "VRXVCoreEmulWrapper")
-        : VerilogDriver<VRXVCoreEmulWrapper, debug_enabled>(instance_name)
+            std::string waves_file = "VRXVCoreEmulWrapper.fst")
+        : VerilogDriver<VRXVCoreEmulWrapper, debug_enabled>(waves_file)
         , mem_base(mem_base)
         , shadow_bus(mem_base, mem_size, false)
         , have_reset(false)

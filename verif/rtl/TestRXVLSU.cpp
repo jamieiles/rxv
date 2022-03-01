@@ -97,23 +97,27 @@ public:
 
     bool is_excepted() const
     {
-        return this->dut.RXVCSR->exception_valid(this->dut.lsu_exception);
+        return this->dut.RXVCSR->exception_valid(
+            this->dut.lsu_exception.m_storage);
     }
 
     uint32_t exception_pc() const
     {
-        return this->dut.RXVCSR->exception_pc(this->dut.lsu_exception) << 2;
+        return this->dut.RXVCSR->exception_pc(this->dut.lsu_exception.m_storage)
+               << 2;
     }
 
     uint32_t exception_val() const
     {
-        return this->dut.RXVCSR->exception_val(this->dut.lsu_exception);
+        return this->dut.RXVCSR->exception_val(
+            this->dut.lsu_exception.m_storage);
     }
 
     VRXVLSUWrapper_RXVCSR::CAUSE_id exception_cause() const
     {
         return static_cast<VRXVLSUWrapper_RXVCSR::CAUSE_id>(
-            this->dut.RXVCSR->exception_cause(this->dut.lsu_exception));
+            this->dut.RXVCSR->exception_cause(
+                this->dut.lsu_exception.m_storage));
     }
 
     std::shared_ptr<MemoryBus> bus;

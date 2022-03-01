@@ -403,7 +403,8 @@ module RXVCore #(
         .decode_exception           (decode_exception),
         .decode_except_id           (decode_except_id),
         .exec_exception             (exec_exception),
-        .exec_except_id             (exec_except_id)
+        .exec_except_id             (exec_except_id),
+        .current_privilege          (current_privilege)
     );
 
     RXVMulExec RXVMulExec (

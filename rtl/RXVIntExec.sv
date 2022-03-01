@@ -7,6 +7,7 @@ import RXVTypes::rxv_opcode;
 import RXVTypes::rxv_uop;
 import RXVTypes::commit_width;
 import RXVCSR::RXVException;
+import RXVCSR::privilege_t;
 
 module RXVIntExec (
     input  logic                             clk,
@@ -55,7 +56,8 @@ module RXVIntExec (
     input  logic          [commit_width-1:0] decode_except_id,
     // Exception handling
     output RXVException                      exec_exception,
-    output logic          [commit_width-1:0] exec_except_id
+    output logic          [commit_width-1:0] exec_except_id,
+    input  privilege_t                       current_privilege
 );
 
     logic                           valid;
@@ -112,6 +114,15 @@ module RXVIntExec (
         .op     (exec_csr_op),
         .q      (csr_q)
     );
+
+    function logic [3:0] ecall_type;
+        case (current_privilege)
+            RXVCSR::PRIV_M: ecall_type = RXVCSR::CAUSE_M_ECALL;
+            RXVCSR::PRIV_S: ecall_type = RXVCSR::CAUSE_S_ECALL;
+            RXVCSR::PRIV_U: ecall_type = RXVCSR::CAUSE_U_ECALL;
+            default: ecall_type = RXVCSR::CAUSE_U_ECALL;
+        endcase
+    endfunction
 
     always_comb begin
         alu_op2_immed = exec_opcode == RXVTypes::OPC_IMM;
@@ -241,7 +252,7 @@ module RXVIntExec (
         if (valid && exec_uop == RXVTypes::UOP_ECALL) begin
             exec_exception_next.pc    = exec_pc;
             exec_exception_next.val   = 32'b0;
-            exec_exception_next.cause = RXVCSR::CAUSE_M_ECALL;
+            exec_exception_next.cause = ecall_type();
             exec_exception_next.valid = 1'b1;
             exec_exception_next.irq   = 1'b0;
         end

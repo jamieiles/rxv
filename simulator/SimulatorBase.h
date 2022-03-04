@@ -61,7 +61,7 @@ public:
                                         bool reserved = false)
     {
         std::vector<T> data;
-        for (auto m = 0; m < count; ++m, addr += sizeof(T))
+        for (size_t m = 0; m < count; ++m, addr += sizeof(T))
             data.push_back(read_phys_mem<T>(addr, reserved));
 
         return data;

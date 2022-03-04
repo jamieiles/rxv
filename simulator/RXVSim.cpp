@@ -434,7 +434,7 @@ bool RXVSim::csr_access_allowed(int r, bool write)
     if ((((r >> 10) & 0x3) == 0x3) && write)
         return false;
 
-    auto required_privilege = (r >> 8) & 0x3;
+    unsigned required_privilege = (r >> 8) & 0x3;
     if (static_cast<unsigned>(privilege_level) < required_privilege)
         return false;
 
@@ -475,8 +475,7 @@ bool RXVSim::access_valid(const translation *translation,
 
 bool RXVSim::translate(uint32_t virt,
                        struct translation **translation,
-                       bool write,
-                       bool ifetch)
+                       bool write)
 {
     for (auto i = 0, idx = last_tlb_hit; i < num_tlb_entries; ++i) {
         if (tlb[idx].valid && virt == tlb[idx].virt &&

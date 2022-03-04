@@ -50,20 +50,20 @@ class RXVSim;
 class Cache
 {
 public:
-    Cache(size_t size, unsigned num_ways, unsigned line_size, MemoryBus *bus)
+    Cache(size_t size, size_t num_ways, size_t line_size, MemoryBus *bus)
         : num_ways(num_ways)
         , words_per_line(line_size / sizeof(uint32_t))
         , victim(0)
-        , reserved(false)
         , reservation_addr(0)
+        , reserved(false)
         , bus(bus)
     {
         lines_per_way = (size / num_ways) / line_size;
 
         ways = std::make_unique<Way[]>(num_ways);
-        for (auto way = 0; way < num_ways; ++way) {
+        for (size_t way = 0; way < num_ways; ++way) {
             ways[way].lines = std::make_unique<Line[]>(lines_per_way);
-            for (auto line = 0; line < lines_per_way; ++line) {
+            for (size_t line = 0; line < lines_per_way; ++line) {
                 ways[way].lines[line].valid = ways[way].lines[line].dirty =
                     false;
                 ways[way].lines[line].words =
@@ -147,14 +147,14 @@ public:
 
     void clean()
     {
-        for (int way = 0; way < num_ways; ++way)
+        for (size_t way = 0; way < num_ways; ++way)
             for (int idx = 0; idx < (1 << index_bits); ++idx)
                 writeback(ways[way].lines[idx], idx);
     }
 
     void invalidate()
     {
-        for (int way = 0; way < num_ways; ++way) {
+        for (size_t way = 0; way < num_ways; ++way) {
             for (int idx = 0; idx < (1 << index_bits); ++idx) {
                 ways[way].lines[idx].valid = false;
                 ways[way].lines[idx].dirty = false;
@@ -181,7 +181,7 @@ private:
         auto addr_index = index(addr);
         auto addr_tag = tag(addr);
 
-        for (int i = 0; i < num_ways; ++i) {
+        for (size_t i = 0; i < num_ways; ++i) {
             auto line = &ways[i].lines[addr_index];
             if (line->valid && line->tag == addr_tag) {
                 return line;
@@ -210,7 +210,8 @@ private:
             reserved = false;
         assert(dst_addr == victim_line.line_addr);
 
-        for (int i = 0; i < words_per_line; ++i, dst_addr += sizeof(uint32_t))
+        for (size_t i = 0; i < words_per_line;
+             ++i, dst_addr += sizeof(uint32_t))
             bus->write(dst_addr,
                        reinterpret_cast<const char *>(&victim_line.words[i]),
                        sizeof(uint32_t));
@@ -226,7 +227,7 @@ private:
         victim_line.line_addr = addr;
         victim_line.tag = tag(addr);
 
-        for (int i = 0; i < words_per_line; ++i, addr += sizeof(uint32_t))
+        for (size_t i = 0; i < words_per_line; ++i, addr += sizeof(uint32_t))
             bus->read(addr, reinterpret_cast<char *>(&victim_line.words[i]),
                       sizeof(uint32_t));
 
@@ -406,7 +407,7 @@ public:
         struct translation *translation;
 
         if (need_translation(true)) {
-            if (!translate(addr, &translation, false, true))
+            if (!translate(addr, &translation, false))
                 return false;
 
             if (!access_valid(translation, false, false, true))
@@ -433,7 +434,7 @@ public:
         struct translation *translation;
 
         if (need_translation(false)) {
-            if (!translate(addr, &translation, true, false))
+            if (!translate(addr, &translation, true))
                 return false;
 
             if (!access_valid(translation, false, true, false))
@@ -522,10 +523,7 @@ private:
     };
     // clang-format on
 
-    bool translate(uint32_t virt,
-                   struct translation **translation,
-                   bool write,
-                   bool ifetch);
+    bool translate(uint32_t virt, struct translation **translation, bool write);
 
     template <typename T>
     std::optional<T> read_mem(uint32_t addr, bool reserved = false)
@@ -550,7 +548,7 @@ private:
         struct translation *translation;
 
         if (need_translation(false)) {
-            if (!translate(addr, &translation, false, false))
+            if (!translate(addr, &translation, false))
                 return false;
 
             if (!access_valid(translation, true, false, false))

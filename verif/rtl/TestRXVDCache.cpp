@@ -114,7 +114,7 @@ public:
 
         this->dut.invalidate = 0;
 
-        int i = 0, word = 0, idle_cycles = 0;
+        size_t i = 0, word = 0, idle_cycles = 0;
         do {
             if (word < addresses.size()) {
                 after_n_cycles(0, [&] {
@@ -149,7 +149,7 @@ TEST_F(DCacheTestbench, CompulsoryMissFills)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -161,7 +161,7 @@ TEST_F(DCacheTestbench, HitNoRefill)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -173,10 +173,10 @@ TEST_F(DCacheTestbench, ConflictMissRefill)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(64 + i * 4))
             .WillOnce(::testing::Return(0xaa550000 + i));
 
@@ -190,7 +190,7 @@ TEST_F(DCacheTestbench, PipelinedReads)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -205,7 +205,7 @@ TEST_F(DCacheTestbench, ReadDuringBusyDropped)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -219,10 +219,10 @@ TEST_F(DCacheTestbench, MultiWayHits)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + 4096 + i * 4))
             .WillOnce(::testing::Return(0xf00f0000 + i));
 
@@ -241,10 +241,10 @@ TEST_F(DCacheTestbench, MultiWayHitWrites)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + 4096 + i * 4))
             .WillOnce(::testing::Return(0xf00f0000 + i));
 
@@ -265,7 +265,7 @@ TEST_F(DCacheTestbench, InvalidateRefills)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -274,7 +274,7 @@ TEST_F(DCacheTestbench, InvalidateRefills)
     write(32, 0xdeadbeef);
     invalidate();
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -293,7 +293,7 @@ TEST_F(DCacheTestbench, NoFillWithoutValid)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -308,7 +308,7 @@ TEST_F(DCacheTestbench, WriteFills)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -319,7 +319,7 @@ TEST_F(DCacheTestbench, WriteUpdates)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -332,7 +332,7 @@ TEST_F(DCacheTestbench, WriteBytesel)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -346,10 +346,10 @@ TEST_F(DCacheTestbench, MultiIndex)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xf00ff00f + i));
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(48 + i * 4))
             .WillOnce(::testing::Return(0xf00ff00f + i));
 
@@ -364,28 +364,28 @@ TEST_F(DCacheTestbench, WriteConflictWritesBack)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < line_size_bytes / sizeof(uint32_t); ++j)
+    for (size_t i = 0; i < 4; ++i) {
+        for (size_t j = 0; j < line_size_bytes / sizeof(uint32_t); ++j)
             EXPECT_CALL(*this->bus, read((4096 * i) + (j * 4)))
                 .WillOnce(::testing::Return(i << 16 | j));
     }
 
     // Fill each way at the same index
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
         EXPECT_EQ(read(4096 * i), i << 16);
 
     // Dirty all ways
-    for (int i = 0; i < 4; ++i)
+    for (size_t i = 0; i < 4; ++i)
         write(4096 * i, 0xf00ff00f);
 
     // Expect write-back
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus,
                     write((4096 * 1) + i * 4,
                           i == 0 ? 0xf00ff00f : (1 << 16) | i, 0xf));
 
     // Expect line-fill
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(0x1000000 + i * 4))
             .WillOnce(::testing::Return(0x10001000 + i));
 
@@ -396,7 +396,7 @@ TEST_F(DCacheTestbench, NoDirtyNoWritebackOnClean)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
@@ -408,13 +408,13 @@ TEST_F(DCacheTestbench, CleanWritesBackDirty)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, write(32 + i * 4, 0xf00ff00f, 0xf));
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         write(32 + i * 4, 0xf00ff00f);
 
     clean();
@@ -424,22 +424,22 @@ TEST_F(DCacheTestbench, RepeatedCleanDirty)
 {
     ::testing::InSequence seq;
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, read(32 + i * 4))
             .WillOnce(::testing::Return(0xa5a50000 + i));
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, write(32 + i * 4, 0xf00ff00f, 0xf));
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         write(32 + i * 4, 0xf00ff00f);
 
     clean();
 
     // Re-dirty
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         write(32 + i * 4, i);
 
-    for (int i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
         EXPECT_CALL(*this->bus, write(32 + i * 4, i, 0xf));
     clean();
 }

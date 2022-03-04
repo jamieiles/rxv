@@ -232,6 +232,9 @@ private:
                bool writable,
                size_t len)
     {
+        (void)exec;
+        (void)writable;
+
         if (!bus->page_accessed(phys))
             return;
 
@@ -241,8 +244,8 @@ private:
         section->set_addr_align(len);
 
         char page_buf[len];
-        for (int i = 0; i < len; ++i)
-            bus->read(phys + i, &page_buf[i], 1);
+        for (size_t m = 0; m < len; ++m)
+            bus->read(phys + m, &page_buf[m], 1);
         section->set_data(page_buf, sizeof(page_buf));
 
         auto *seg = writer->segments.add();
@@ -290,7 +293,6 @@ private:
             auto trace_range = tf.next_range();
             auto num_events = trace_range.trace->events()->size();
             for (unsigned long idx = 0; idx < num_events; ++idx) {
-                auto event = (*trace_range.trace->events())[idx];
                 if ((*trace_range.trace->events_type())[idx] !=
                     RXV::Trace::Event_InstructionTrace)
                     continue;

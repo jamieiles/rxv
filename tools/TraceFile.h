@@ -62,7 +62,8 @@ public:
         TraceRange range;
 
         range.buf = std::make_unique<char[]>(size);
-        if (read(fd, reinterpret_cast<char *>(range.buf.get()), size) != size)
+        if (read(fd, reinterpret_cast<char *>(range.buf.get()), size) !=
+            static_cast<ssize_t>(size))
             throw std::runtime_error("failed to read trace contents");
 
         range.trace = RXV::Trace::GetProcessorTrace(range.buf.get());

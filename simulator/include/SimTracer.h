@@ -175,7 +175,6 @@ public:
     {
         RXV::Trace::CSRId xEPC;
         RXV::Trace::CSRId xCAUSE;
-        RXV::Trace::CSRId xTVEC;
         RXV::Trace::CSRId xSTATUS;
 
         switch (target_level) {

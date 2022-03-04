@@ -17,7 +17,7 @@ class ComplianceTest
 public:
     explicit ComplianceTest(std::unique_ptr<SimulatorBase> sim,
                             const std::string &filename)
-        : sim(std::move(sim)), elf(filename), test_status(RUNNING)
+        : elf(filename), sim(std::move(sim)), test_status(RUNNING)
     {
         this->sim->load_elf(elf);
 
@@ -57,8 +57,6 @@ public:
     }
 
 private:
-    enum { RUNNING, PASSED, FAILED } test_status;
-
     struct IOWrite {
         uint32_t instr_addr;
         uint32_t string_addr;
@@ -165,4 +163,5 @@ private:
     RiscVELF elf;
     std::unique_ptr<SimulatorBase> sim;
     uint32_t to_host_addr;
+    enum { RUNNING, PASSED, FAILED } test_status;
 };

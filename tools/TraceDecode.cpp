@@ -232,8 +232,9 @@ static void load_symbols(RXV::Trace::Privilege level,
             unsigned char type;
             ELFIO::Elf_Half section_index;
             unsigned char other;
-            symtab.get_symbol(j, name, value, size, bind, type, section_index,
-                              other);
+            if (!symtab.get_symbol(j, name, value, size, bind, type,
+                                   section_index, other))
+                continue;
 
             if (!is_interesting_symbol(name, type))
                 continue;
@@ -354,7 +355,6 @@ int main(int argc, char **argv)
 
         for (unsigned long i = start > range_end ? 0 : start - range_start;
              i <= range_end - range_start; ++i) {
-            auto event = (*trace_range.trace->events())[i];
             if ((*trace_range.trace->events_type())[i] ==
                 RXV::Trace::Event_InstructionTrace) {
                 auto instr = static_cast<const RXV::Trace::InstructionTrace *>(

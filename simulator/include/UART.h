@@ -47,12 +47,18 @@ public:
 
     void write(uint32_t offset, const char *v, size_t len)
     {
+        (void)offset;
+        (void)len;
+
         if (::write(STDIN_FILENO, v, 1) != 1)
             throw std::runtime_error("failed to write stdout");
     }
 
     void read(uint32_t offset, char *v, size_t len)
     {
+        (void)offset;
+        (void)len;
+
         char c;
         uint32_t val = 0;
         if (::read(STDIN_FILENO, &c, 1) == 1)

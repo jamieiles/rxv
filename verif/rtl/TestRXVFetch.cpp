@@ -61,7 +61,6 @@ TEST_F(RXVFetchTestBench, ICacheStall)
         after_n_cycles(3, [&] { this->dut.icache_busy = 0; });
     });
 
-    auto last_fetch_addr = this->dut.icache_address;
     auto last_decode_addr = this->dut.decode_pc;
     EXPECT_TRUE(this->dut.decode_valid);
     cycle();
@@ -71,7 +70,6 @@ TEST_F(RXVFetchTestBench, ICacheStall)
             EXPECT_EQ(this->dut.decode_pc, last_decode_addr + 1);
             last_decode_addr = this->dut.decode_pc;
         }
-        last_fetch_addr = this->dut.icache_address;
         cycle();
     }
 }
@@ -159,8 +157,9 @@ TEST_P(RXVFetchLineFill, ResteerDuringLineFill)
     cycle(5);
 
     for (int i = 0; i < 8; ++i) {
-        if (this->dut.decode_valid)
+        if (this->dut.decode_valid) {
             EXPECT_LT(this->dut.decode_pc, 0x80000100 >> 2);
+        }
         cycle();
     }
     EXPECT_FALSE(this->dut.decode_valid);

@@ -162,7 +162,7 @@ class RTLMtime : public IOPeripheral
 {
 public:
     RTLMtime(uint64_t *mtime, uint64_t *mtimecmp, uint32_t base, size_t len)
-        : mtime(mtime), mtimecmp(mtimecmp), IOPeripheral(base, len)
+        : IOPeripheral(base, len), mtime(mtime), mtimecmp(mtimecmp)
     {
     }
 
@@ -243,6 +243,8 @@ public:
 
     void write_pc(uint32_t v)
     {
+        (void)v;
+
         assert(v == mem_base);
     }
 
@@ -279,6 +281,8 @@ public:
 
     void do_read_phys_mem(uint32_t addr, char *dst, size_t len, bool reserved)
     {
+        (void)reserved;
+
         shadow_bus.read(addr, dst, len);
     }
 
@@ -288,6 +292,9 @@ public:
                            bool conditional,
                            bool *reservation_held)
     {
+        (void)conditional;
+        (void)reservation_held;
+
         shadow_bus.write(addr, val, len);
         bus->write(addr, val, len);
     }

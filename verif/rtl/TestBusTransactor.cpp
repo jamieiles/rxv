@@ -23,7 +23,7 @@ public:
 
     void write(uint32_t addr, const std::vector<uint32_t> &val)
     {
-        int sent = 0;
+        size_t sent = 0;
 
         after_n_cycles(0, [&, addr, val] {
             this->dut.waddr = addr;
@@ -65,7 +65,7 @@ public:
     std::vector<uint32_t> read(uint32_t addr, size_t len)
     {
         std::vector<uint32_t> vals;
-        int received = 0;
+        size_t received = 0;
 
         after_n_cycles(0, [&, addr] {
             this->dut.raddr = addr;

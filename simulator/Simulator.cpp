@@ -16,6 +16,8 @@ double sc_time_stamp()
 
 static void sigint_handler(int signum)
 {
+    (void)signum;
+
     sigint_received = true;
 }
 

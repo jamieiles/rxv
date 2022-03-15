@@ -158,41 +158,56 @@ private:
     MemoryBus *shadow_bus;
 };
 
-class RTLMtime : public IOPeripheral
+class RTLCLINT : public IOPeripheral
 {
 public:
-    RTLMtime(uint64_t *mtime, uint64_t *mtimecmp, uint32_t base, size_t len)
+    RTLCLINT(uint64_t *mtime, uint64_t *mtimecmp, uint32_t base, size_t len)
         : IOPeripheral(base, len), mtime(mtime), mtimecmp(mtimecmp)
     {
     }
 
     void write(uint32_t offset, const char *v, size_t len)
     {
-        if (offset + len > 2 * sizeof(uint64_t))
-            return;
+        assert(len == 4);
 
-        if (offset < sizeof(uint64_t)) {
-            memcpy(reinterpret_cast<char *>(mtimecmp) + offset, v, len);
-        } else {
-            memcpy(reinterpret_cast<char *>(mtime) + offset - sizeof(uint64_t),
-                   v, len);
+        uint32_t v32;
+        memcpy(&v32, v, sizeof(v32));
+
+        switch (offset) {
+        case 0x4000:
+            *mtimecmp &= 0xffffffff00000000LU;
+            *mtimecmp |= v32;
+            break;
+        case 0x4004:
+            *mtimecmp &= 0x00000000ffffffffLU;
+            *mtimecmp |= static_cast<uint64_t>(v32) << 32;
+            break;
+        case 0xbff8:
+            *mtime &= 0xffffffff00000000LU;
+            *mtime |= v32;
+            break;
+        case 0xbffc:
+            *mtime &= 0x00000000ffffffffLU;
+            *mtime |= static_cast<uint64_t>(v32) << 32;
+            break;
+        default: break;
         }
     }
 
     void read(uint32_t offset, char *v, size_t len)
     {
-        if (offset + len > 2 * sizeof(uint64_t)) {
-            memset(v, 0, len);
-            return;
+        assert(len == 4);
+        uint32_t v32 = 0;
+
+        switch (offset) {
+        case 0x4000: v32 = *mtimecmp; break;
+        case 0x4004: v32 = *mtimecmp >> 32; break;
+        case 0xbff8: v32 = *mtime; break;
+        case 0xbffc: v32 = *mtime >> 32; break;
+        default: break;
         }
 
-        if (offset < sizeof(uint64_t)) {
-            memcpy(v, reinterpret_cast<char *>(mtimecmp) + offset, len);
-        } else {
-            memcpy(v,
-                   reinterpret_cast<char *>(mtime) + offset - sizeof(uint64_t),
-                   len);
-        }
+        memcpy(v, &v32, sizeof(v32));
     }
 
 private:
@@ -219,10 +234,10 @@ public:
         this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         bus = std::make_shared<MemoryBus>(mem_base, mem_size);
         bus->add_peripheral(std::make_unique<UART>(uart_base, 4096));
-        bus->add_peripheral(std::make_unique<RTLMtime>(
+        bus->add_peripheral(std::make_unique<RTLCLINT>(
             &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtime_reg,
             &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtimecmp_reg,
-            mtime_base, 4096));
+            mtime_base, 64 * 1024));
         this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
         this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
     }

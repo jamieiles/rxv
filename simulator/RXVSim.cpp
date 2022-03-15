@@ -130,34 +130,61 @@ constexpr uint32_t mip_ssip = (1 << 1);
 constexpr uint32_t mie_s_mask = mie_seie | mie_stie | mie_ssie;
 constexpr uint32_t mip_s_mask = mip_seip | mip_stip | mip_ssip;
 
-class Mtime : public IOPeripheral
+class CLINT : public IOPeripheral
 {
 public:
-    Mtime(RXVSim *sim, uint32_t base, size_t len)
+    CLINT(RXVSim *sim, uint32_t base, size_t len)
         : IOPeripheral(base, len), sim(sim)
     {
     }
 
     void write(uint32_t offset, const char *v, size_t len)
     {
-        if (offset + len > sizeof(mtime))
-            return;
+        assert(len == 4);
 
-        auto mtime = reinterpret_cast<char *>(sim->get_mtime());
-        memcpy(mtime + offset, v, len);
-        if (offset == offsetof(struct mtime, cmp))
+        auto mtime = sim->get_mtime();
+        uint32_t v32;
+        memcpy(&v32, v, sizeof(v32));
+
+        switch (offset) {
+        case 0x4000:
+            mtime->cmp &= 0xffffffff00000000LU;
+            mtime->cmp |= v32;
             sim->clear_timer_irq();
+            break;
+        case 0x4004:
+            mtime->cmp &= 0x00000000ffffffffLU;
+            mtime->cmp |= static_cast<uint64_t>(v32) << 32;
+            sim->clear_timer_irq();
+            break;
+        case 0xbff8:
+            mtime->time &= 0xffffffff00000000LU;
+            mtime->time |= v32;
+            break;
+        case 0xbffc:
+            mtime->time &= 0x00000000ffffffffLU;
+            mtime->time |= static_cast<uint64_t>(v32) << 32;
+            break;
+        default: break;
+        }
     }
 
     void read(uint32_t offset, char *v, size_t len)
     {
-        if (offset + len > sizeof(mtime)) {
-            memset(v, 0, len);
-            return;
+        auto mtime = sim->get_mtime();
+
+        assert(len == 4);
+        uint32_t v32 = 0;
+
+        switch (offset) {
+        case 0x4000: v32 = mtime->cmp; break;
+        case 0x4004: v32 = mtime->cmp >> 32; break;
+        case 0xbff8: v32 = mtime->time; break;
+        case 0xbffc: v32 = mtime->time >> 32; break;
+        default: break;
         }
 
-        auto mtime = reinterpret_cast<char *>(sim->get_mtime());
-        memcpy(v, mtime + offset, len);
+        memcpy(v, &v32, sizeof(v32));
     }
 
 private:
@@ -196,8 +223,8 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
 
     mtime.time = mtime.cmp = 0;
 
-    bus.add_peripheral(std::make_unique<Mtime>(this, mtime_base, 4096));
-    dcache.set_noncacheable(mtime_base, mtime_base + 4096 - 1);
+    bus.add_peripheral(std::make_unique<CLINT>(this, mtime_base, 64 * 1024));
+    dcache.set_noncacheable(mtime_base, mtime_base + 65536 - 1);
     bus.add_peripheral(std::make_unique<UART>(uart_base, 4096));
     dcache.set_noncacheable(uart_base, uart_base + 4096 - 1);
 }

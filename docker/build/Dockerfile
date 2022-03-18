@@ -1,7 +1,7 @@
 FROM rxv-build-quartus:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
-ARG VERILATOR_VERSION=5b9806ae6d8a0311f941ac453267b3c79033c864
+ARG VERILATOR_VERSION=4.220
 RUN apt-get update && apt-get install --no-install-recommends -y \
 	autoconf \
         bison \
@@ -59,8 +59,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	xdot \
 	zip
 RUN cd /tmp && \
-	wget https://github.com/verilator/verilator/archive/$VERILATOR_VERSION.zip && \
-        unzip $VERILATOR_VERSION.zip && \
+	wget https://github.com/verilator/verilator/archive/refs/tags/v$VERILATOR_VERSION.tar.gz && \
+        tar xf v$VERILATOR_VERSION.tar.gz && \
         cd verilator-$VERILATOR_VERSION && \
 	autoconf && \
         ./configure --prefix=/usr && \

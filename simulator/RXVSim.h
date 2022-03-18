@@ -272,7 +272,7 @@ private:
     size_t index_bits;
     size_t tag_shift;
     size_t tag_bits;
-    int victim;
+    size_t victim;
 
     uint32_t reservation_addr;
     bool reserved;

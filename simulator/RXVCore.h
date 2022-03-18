@@ -169,6 +169,7 @@ public:
     void write(uint32_t offset, const char *v, size_t len)
     {
         assert(len == 4);
+        (void)len;
 
         uint32_t v32;
         memcpy(&v32, v, sizeof(v32));
@@ -197,6 +198,8 @@ public:
     void read(uint32_t offset, char *v, size_t len)
     {
         assert(len == 4);
+        (void)len;
+
         uint32_t v32 = 0;
 
         switch (offset) {

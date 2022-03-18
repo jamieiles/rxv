@@ -141,6 +141,7 @@ public:
     void write(uint32_t offset, const char *v, size_t len)
     {
         assert(len == 4);
+        (void)len;
 
         auto mtime = sim->get_mtime();
         uint32_t v32;
@@ -174,6 +175,8 @@ public:
         auto mtime = sim->get_mtime();
 
         assert(len == 4);
+        (void)len;
+
         uint32_t v32 = 0;
 
         switch (offset) {

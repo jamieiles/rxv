@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM ubuntu:22.04
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         libzmq3-dev \
         libssl-dev \
         libcrypto++-dev \
-        libcrypto++6
+        libcrypto++8
 
 RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && locale-gen
 ENV LANG en_US.UTF-8

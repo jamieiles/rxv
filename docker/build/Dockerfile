@@ -8,7 +8,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	build-essential \
         ccache \
         clang \
-	clang-12 \
         clang-c++ \
         cmake \
         cpp \
@@ -20,10 +19,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	gperf \
 	graphviz \
 	libboost-program-options-dev \
-        libboost-python1.71.0 \
+        libboost-python1.74.0 \
         libboost-python-dev \
         libboost-serialization-dev \
-	libclang-12-dev \
+	libclang-dev \
 	libffi-dev \
 	libflatbuffers1 \
 	libflatbuffers-dev \
@@ -41,16 +40,15 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	mercurial \
         ninja-build \
 	pkg-config \
-	python \
 	python3 \
+        python3-dev \
         python3-distorm3 \
+        python3-lxml \
         python3-pip \
         python3-pystache \
         python3-pystache \
         python3-yaml \
-        python-dev \
-        python-lxml \
-        python-yaml \
+        python3-yaml \
         ruby \
         ruby-dev \
 	tcl-dev \

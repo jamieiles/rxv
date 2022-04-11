@@ -9,6 +9,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../simulator)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../tools)
 
 set(CMAKE_CXX_FLAGS "-Wno-bool-operation ${CMAKE_CXX_FLAGS}")
+set(VERILATOR_FLAGS -Wall -Wpedantic --report-unoptflat --assert)
 
 ys_formal(TOP RAMBE
           DEPTH 5
@@ -64,26 +65,26 @@ target_link_libraries(rtl-unittest
 add_test(rtl-unittest rtl-unittest)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          fixtures/BusTransactorWrapper.sv
          fixtures/BusTransactor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          TOP_MODULE BusTransactorWrapper
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE BitPLRU
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
@@ -94,10 +95,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRegisterFile
          PREFIX VRXVRegisterFile
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          fixtures/RXVICacheWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
@@ -109,10 +110,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVICacheWrapper
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          fixtures/RXVDCacheWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
@@ -130,10 +131,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVDCacheWrapper
          PREFIX VRXVDCacheWrapper
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          fixtures/RXVPTWalkerWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
@@ -152,10 +153,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVPTWalkerWrapper
          PREFIX VRXVPTWalkerWrapper
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
@@ -166,10 +167,10 @@ verilate(rtl-unittest
          TOP_MODULE RXVRegisterAllocator
          PREFIX VRXVRegisterAllocator
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          PREFIX VRXVRenameFileWrapper
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
@@ -182,10 +183,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVRenameFileWrapper
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVBranchPredictorWrapper.sv
@@ -195,10 +196,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVBranchPredictorWrapper
          PREFIX VRXVBranchPredictorWrapper
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
@@ -211,10 +212,10 @@ verilate(rtl-unittest
          TOP_MODULE RXVFetchWrapper
          PREFIX VRXVFetchWrapper
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
@@ -222,10 +223,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE Fifo
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
@@ -238,10 +239,10 @@ verilate(rtl-unittest
          TOP_MODULE RXVCommitBuffer
          PREFIX VRXVCommitBuffer
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScoreboard.sv
@@ -251,10 +252,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVScoreboard
          PREFIX VRXVScoreboard
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
@@ -262,10 +263,10 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVALU
          PREFIX VRXVALU
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
@@ -275,10 +276,10 @@ verilate(rtl-unittest
          TOP_MODULE RXVScheduler
          PREFIX VRXVScheduler
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
@@ -293,20 +294,20 @@ verilate(rtl-unittest
          TOP_MODULE RXVLSUWrapper
          PREFIX VRXVLSUWrapper
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVMul
          PREFIX VRXVMul
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
@@ -316,13 +317,13 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVDiv
          PREFIX VRXVDiv
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 add_library(RXVCoreEmul SHARED)
 add_dependencies(rtl-unittest gen_trace_h)
 
 verilate(RXVCoreEmul
-         VERILATOR_ARGS -Wall -Wpedantic --report-unoptflat --assert -DRXV_TRACE
+         VERILATOR_ARGS ${VERILATOR_FLAGS} -DRXV_TRACE
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/MtimeTransactor.sv
@@ -370,7 +371,7 @@ verilate(RXVCoreEmul
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVCoreEmulWrapper
          DEPENDS gen_trace_h
-         TRACE_FST)
+         TRACE_FST TRACE_STRUCTS)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../simulator/include)

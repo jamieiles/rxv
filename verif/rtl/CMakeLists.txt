@@ -58,6 +58,7 @@ add_executable(rtl-unittest
                TestRXVFetch.cpp
                TestRXVDCache.cpp
                TestRXVPTWalker.cpp
+               TestRXVTLB.cpp
                TestRXVICache.cpp
                TestRXVCoreEmulWrapper.cpp)
 target_link_libraries(rtl-unittest
@@ -136,10 +137,10 @@ verilate(rtl-unittest
 verilate(rtl-unittest
          VERILATOR_ARGS ${VERILATOR_FLAGS}
          SOURCES
-         fixtures/RXVPTWalkerWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         fixtures/RXVPTWalkerWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
@@ -153,6 +154,30 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVPTWalkerWrapper
          PREFIX VRXVPTWalkerWrapper
+         TRACE_FST TRACE_STRUCTS)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         fixtures/RXVTLBWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVTLB.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVTLBWrapper
+         PREFIX VRXVTLBWrapper
          TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
@@ -330,6 +355,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
@@ -353,6 +379,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScheduler.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScoreboard.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVTLB.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFFPipe.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
@@ -366,6 +393,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib

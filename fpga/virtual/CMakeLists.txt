@@ -11,6 +11,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
@@ -29,6 +30,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMulExec.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileBanked.sv
@@ -36,6 +38,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScheduler.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScoreboard.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVTLB.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFFPipe.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
@@ -47,7 +50,8 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/PosedgeDetect.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv)
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv)
 set(FPGA_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/SysPLL.v
     ${CMAKE_CURRENT_SOURCE_DIR}/RAMBE.sv

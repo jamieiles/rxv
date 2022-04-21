@@ -1,22 +1,21 @@
 `default_nettype none
 
-import RXVMMU::sv32_pte_union_t;
 import RXVMMU::sv32_pte_t;
 
 module RXVPTWalker (
-    input  logic         clk,
-    input  logic         reset,
-    input  logic [31:12] va,
-    input  logic         valid,
-    input  logic [31:12] translation_base,
-    output logic         busy,
-    output logic [ 31:0] pte_out,
-    output logic         is_megapage,
-    output logic         translation_error,
-    output logic [ 31:2] dcache_address,
-    output logic         dcache_valid,
-    input  logic         dcache_busy,
-    input  logic [ 31:0] dcache_rdata
+    input  logic              clk,
+    input  logic              reset,
+    input  logic      [31:12] va,
+    input  logic              valid,
+    input  logic      [31:12] translation_base,
+    output logic              busy,
+    output sv32_pte_t         pte_out,
+    output logic              is_megapage,
+    output logic              translation_error,
+    output logic      [ 31:2] dcache_address,
+    output logic              dcache_valid,
+    input  logic              dcache_busy,
+    input  logic      [ 31:0] dcache_rdata
 );
 
     localparam int dcache_latency = 2;
@@ -27,19 +26,19 @@ module RXVPTWalker (
         STATE_LEVEL0 = 2'b11
     } ptwalk_state;
 
-    logic            [ 9:0] vpn1;
-    logic            [ 9:0] vpn0;
-    sv32_pte_union_t        pte_in;
-    logic                   dcache_latency_reload;
-    logic                   dcache_latency_expired;
-    ptwalk_state            state;
-    ptwalk_state            next_state;
-    logic                   dcache_valid_next;
-    logic            [31:2] dcache_address_next;
-    logic                   busy_next;
-    logic                   is_megapage_next;
-    logic                   translation_error_next;
-    logic                   result_update;
+    logic        [ 9:0] vpn1;
+    logic        [ 9:0] vpn0;
+    sv32_pte_t          pte_in;
+    logic               dcache_latency_reload;
+    logic               dcache_latency_expired;
+    ptwalk_state        state;
+    ptwalk_state        next_state;
+    logic               dcache_valid_next;
+    logic        [31:2] dcache_address_next;
+    logic               busy_next;
+    logic               is_megapage_next;
+    logic               translation_error_next;
+    logic               result_update;
 
     RXVCountdown #(
         .width     ($bits(dcache_latency)),
@@ -51,8 +50,10 @@ module RXVPTWalker (
         .expired(dcache_latency_expired)
     );
 
+    initial assert ($bits(sv32_pte_t) == 32);
+
     always_comb begin
-        pte_in.raw = dcache_rdata;
+        pte_in = sv32_pte_t'(dcache_rdata);
     end
 
     always_comb begin
@@ -64,8 +65,8 @@ module RXVPTWalker (
             STATE_IDLE: next_state = valid ? STATE_LEVEL1 : STATE_IDLE;
             STATE_LEVEL1:
             next_state = ~dcache_latency_expired || dcache_busy ? STATE_LEVEL1 :
-                !pte_in.pte.valid ? STATE_IDLE :
-                pte_in.pte.read || pte_in.pte.exec ? STATE_IDLE :
+                !pte_in.valid ? STATE_IDLE :
+                pte_in.read || pte_in.exec ? STATE_IDLE :
                 STATE_LEVEL0;
             STATE_LEVEL0:
             next_state = ~dcache_latency_expired || dcache_busy ? STATE_LEVEL0 : STATE_IDLE;
@@ -80,11 +81,12 @@ module RXVPTWalker (
                 dcache_valid_next   = valid;
             end
             STATE_LEVEL1: begin
-                dcache_address_next = ~dcache_latency_expired || dcache_busy ? {translation_base, vpn1} : {pte_in.pte.ppn1[9:0], pte_in.pte.ppn0, vpn0};
+                dcache_address_next = ~dcache_latency_expired || dcache_busy ?
+                    {translation_base, vpn1} : {pte_in.ppn1[9:0], pte_in.ppn0, vpn0};
                 dcache_valid_next = next_state == STATE_LEVEL0;
             end
             STATE_LEVEL0: begin
-                dcache_address_next = {pte_in.pte.ppn1[9:0], pte_in.pte.ppn0, vpn0};
+                dcache_address_next = {pte_in.ppn1[9:0], pte_in.ppn0, vpn0};
                 dcache_valid_next   = 1'b0;
             end
             default: begin
@@ -102,8 +104,8 @@ module RXVPTWalker (
 
     always_comb begin
         unique case (state)
-            STATE_LEVEL1: translation_error_next = !pte_in.pte.valid || |pte_in.pte.ppn0;
-            STATE_LEVEL0: translation_error_next = !pte_in.pte.valid;
+            STATE_LEVEL1: translation_error_next = !pte_in.valid || |pte_in.ppn0;
+            STATE_LEVEL0: translation_error_next = !pte_in.valid;
             default: translation_error_next = 1'b0;
         endcase
         is_megapage_next = state == STATE_LEVEL1 && next_state == STATE_IDLE;

@@ -1,5 +1,7 @@
 `default_nettype none
 
+import RXVMMU::sv32_pte_t;
+
 module RXVPTWalkerWrapper (
     input  logic         clk,
     input  logic         reset,
@@ -7,7 +9,7 @@ module RXVPTWalkerWrapper (
     input  logic         valid,
     input  logic [31:12] translation_base,
     output logic         busy,
-    output logic [ 31:0] pte_out,
+    output sv32_pte_t         pte_out,
     output logic         is_megapage,
     output logic         translation_error
 );

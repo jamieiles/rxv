@@ -195,7 +195,7 @@ module RXVIntExec (
     end
 
     always_comb begin
-        branch_misalign = branch_taken & |branch_target[1:0];
+        branch_misalign = is_branch && branch_taken && |branch_target[1:0];
     end
 
     always_comb begin
@@ -218,7 +218,7 @@ module RXVIntExec (
         exec_update_predict_taken_next = branch_taken;
         exec_update_predict_address_next = exec_pc;
         exec_update_predict_target_next = branch_target[31:2];
-        exec_resteer_next = valid && (branch_mispredict || is_mret || is_sret) && !branch_misalign;
+        exec_resteer_next = valid && (branch_mispredict || is_mret || is_sret || exec_csr_wr_en_next) && !branch_misalign;
         exec_resteer_tgt_next = branch_taken || is_mret || is_sret ? branch_target[31:2] : exec_next_pc;
     end
 

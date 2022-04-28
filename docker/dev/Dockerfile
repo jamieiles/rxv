@@ -15,7 +15,12 @@ RUN apt-get update && apt-get install -y runit \
         sudo \
         code \
         fzf \
-        less
+        less \
+	build-essential \
+	libgtk-3-dev \
+	autoconf \
+	automake \
+	libbz2-dev
 ADD docker/dev/rxv-dev /usr/bin/rxv-dev
 ENV CTEST_OUTPUT_ON_FAILURE=1
 ENV GTEST_COLOR=1
@@ -31,4 +36,13 @@ RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhisto
         && touch /commandhistory/.bash_history \
         && chown -R $USERNAME /commandhistory \
         && echo $SNIPPET >> "/home/$USERNAME/.bashrc"
+RUN cd /tmp && \
+	git clone https://github.com/gtkwave/gtkwave.git && \
+	cd gtkwave/gtkwave3-gtk3/ && \
+	./autogen.sh && \
+	./configure --prefix=/usr --enable-gtk3 --disable-tcl && \
+	make && \
+	sudo make install && \
+	cd /tmp && \
+	rm -rf gtkwave
 ENTRYPOINT ["/usr/bin/rxv-dev"]

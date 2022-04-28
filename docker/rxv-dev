@@ -12,6 +12,8 @@ docker run -w /workspaces/rxv \
     -v /etc/machine-id:/etc/machine-id \
     -v /home:/home \
     -v $HERE/..:/workspaces/rxv \
+    -v /usr/share/themes:/usr/share/themes:ro \
+    -v /usr/share/icons:/usr/share/icons:ro \
     -e RXV_DEV_USER=devuser \
     -e RXV_DEV_HOME=$HOME \
     -e RXV_DEV_UID=$(id -u) \

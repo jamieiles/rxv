@@ -79,6 +79,20 @@ module RXVTLB #(
         end
     endfunction
 
+    function translation_t add_offset;
+        // verilator lint_off UNUSED
+        input tlb_entry_t entry;
+        // verilator lint_on UNUSED
+
+        begin
+            translation_t r;
+
+            r = entry.translation;
+            if (entry.is_megapage) r.pa = {r.pa[31:22], va[21:12]};
+            add_offset = r;
+        end
+    endfunction
+
     genvar way;
     generate
         for (way = 0; way < num_entries; ++way) begin : entries
@@ -160,7 +174,7 @@ module RXVTLB #(
         translation_next = 'b0;
         for (i = 0; i < num_entries; ++i) begin
             hit_index |= {way_bits{hits[i]}} & way_bits'(i);
-            translation_next |= {$bits(translation_next) {hits[i]}} & all_entries[i].translation;
+            translation_next |= {$bits(translation_next) {hits[i]}} & add_offset(all_entries[i]);
         end
 
         translation_next |= {$bits(translation_next) {~enabled & valid}} & bypass_translation;

@@ -159,6 +159,17 @@ TEST_F(TLBTestbench, Page)
     EXPECT_EQ(t1, t2);
 }
 
+TEST_F(TLBTestbench, MegaPage)
+{
+    enable();
+
+    set_megapage_at(0xc0000000, 0x80000000, pte_read | pte_write | pte_user);
+
+    auto t1 = translate(0xc0024000);
+
+    EXPECT_EQ(t1.pa, 0x80024000);
+}
+
 TEST_F(TLBTestbench, CachedTranslation)
 {
     enable();

@@ -107,13 +107,17 @@ public:
         after_n_cycles(0, [&] {
             this->dut.va = va >> 12;
             this->dut.valid = 1;
-            after_n_cycles(1, [&] { this->dut.valid = 0; });
+            after_n_cycles(1, [&] {
+                this->dut.valid = 0;
+                this->dut.grant = 1;
+            });
         });
         cycle(2);
 
         int i = 1024;
         while (this->dut.busy && i-- > 0)
             cycle();
+        after_n_cycles(0, [&] { this->dut.grant = 0; });
 
         Translation t;
         t.pa = this->dut.RXVMMU->translation_pa(this->dut.translation) << 12;
@@ -257,4 +261,29 @@ TEST_F(TLBTestbench, Bypass)
     auto t = translate(0xc0004000);
     EXPECT_TRUE(t.valid);
     EXPECT_EQ(0xc0004000, t.pa);
+}
+
+TEST_F(TLBTestbench, NoGrantStalls)
+{
+    set_page_at(0xc0004000, 0x80012000, pte_read | pte_write | pte_user);
+    enable();
+
+    after_n_cycles(0, [&] {
+        this->dut.va = 0xc0004000 >> 12;
+        this->dut.valid = 1;
+        after_n_cycles(1, [&] { this->dut.valid = 0; });
+    });
+    cycle(2);
+
+    for (int i = 0; i < 10; ++i) {
+        EXPECT_TRUE(this->dut.walk_valid_req);
+        EXPECT_TRUE(this->dut.busy);
+        cycle();
+    }
+    after_n_cycles(0, [&] { this->dut.grant = 1; });
+
+    int i = 1024;
+    while (this->dut.busy && i-- > 0)
+        cycle();
+    EXPECT_FALSE(this->dut.busy);
 }

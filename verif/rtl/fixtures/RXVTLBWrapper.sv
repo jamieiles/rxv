@@ -12,12 +12,14 @@ module RXVTLBWrapper (
     input  logic         [        31:12] va,
     input  logic         [asid_bits-1:0] active_asid,
     input  logic                         valid,
+    input  logic                         grant,
     output translation_t                 translation,
     output logic                         busy,
     input  tlb_inv_op                    tlb_op,
     input  logic         [asid_bits-1:0] inv_asid,
     input  logic         [        31:12] inv_addr,
     input  logic         [        31:12] walk_translation_base,
+    output logic                         walk_valid_req,             // For test inspection
     input  logic                         enabled,
     input  logic                         dcache_invalidate,
     output logic                         dcache_busy
@@ -28,11 +30,11 @@ module RXVTLBWrapper (
     logic      [ 31:2] dcache_address;
 
     logic      [31:12] walk_va;
-    logic              walk_valid;
     logic              walk_busy;
     sv32_pte_t         walk_pte;
     logic              walk_is_megapage;
     logic              walk_translation_error;
+    logic              walk_valid;
 
     MemInterface mem_bus ();
 
@@ -76,6 +78,13 @@ module RXVTLBWrapper (
         .dcache_rdata     (dcache_dout)
     );
 
-    RXVTLB RXVTLB (.*);
+    RXVTLB RXVTLB (
+        .walk_valid(walk_valid_req),
+        .*
+    );
+
+    always_comb begin
+        walk_valid = walk_valid_req & grant;
+    end
 
 endmodule

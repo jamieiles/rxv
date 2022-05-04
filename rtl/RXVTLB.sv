@@ -14,6 +14,7 @@ module RXVTLB #(
     input  logic         [        31:12] va,
     input  logic         [asid_bits-1:0] active_asid,
     input  logic                         valid,
+    input  logic                         grant,
     output translation_t                 translation,
     output logic                         busy,
     input  tlb_inv_op                    tlb_op,
@@ -202,7 +203,7 @@ module RXVTLB #(
 
     always_comb begin
         walk_va_update  = state == STATE_READY && next_state == STATE_WALK;
-        walk_valid_next = next_state == STATE_WALK && state != STATE_WALK;
+        walk_valid_next = next_state == STATE_WALK && (state != STATE_WALK || !grant);
     end
 
     RXVDFF #(

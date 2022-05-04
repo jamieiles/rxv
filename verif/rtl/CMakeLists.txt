@@ -60,7 +60,8 @@ add_executable(rtl-unittest
                TestRXVPTWalker.cpp
                TestRXVTLB.cpp
                TestRXVICache.cpp
-               TestRXVCoreEmulWrapper.cpp)
+               TestRXVCoreEmulWrapper.cpp
+               TestStaticArbiter.cpp)
 target_link_libraries(rtl-unittest
                       PRIVATE gtest gmock RXVCoreEmul)
 add_test(rtl-unittest rtl-unittest)
@@ -344,6 +345,19 @@ verilate(rtl-unittest
          PREFIX VRXVDiv
          TRACE_FST TRACE_STRUCTS)
 
+verilate(rtl-unittest
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/StaticArbiter.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE StaticArbiter
+         PREFIX VStaticArbiter
+         TRACE_FST TRACE_STRUCTS)
+
 add_library(RXVCoreEmul SHARED)
 add_dependencies(rtl-unittest gen_trace_h)
 
@@ -356,6 +370,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/StaticArbiter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv

@@ -12,6 +12,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/StaticArbiter.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv

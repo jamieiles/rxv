@@ -369,9 +369,12 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDiv.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDivExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVLSU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMulExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileBanked.sv

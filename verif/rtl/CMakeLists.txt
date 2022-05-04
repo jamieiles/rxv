@@ -59,6 +59,7 @@ add_executable(rtl-unittest
                TestRXVDCache.cpp
                TestRXVPTWalker.cpp
                TestRXVTLB.cpp
+               TestRXVMMUTop.cpp
                TestRXVICache.cpp
                TestRXVCoreEmulWrapper.cpp
                TestStaticArbiter.cpp)
@@ -179,6 +180,32 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVTLBWrapper
          PREFIX VRXVTLBWrapper
+         TRACE_FST TRACE_STRUCTS)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         fixtures/RXVMMUTopWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVTLB.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMMUTop.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/StaticArbiter.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVMMUTopWrapper
+         PREFIX VRXVMMUTopWrapper
          TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest
@@ -386,6 +413,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVLSU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMMUTop.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMulExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv

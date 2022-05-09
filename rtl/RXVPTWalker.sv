@@ -15,7 +15,9 @@ module RXVPTWalker (
     output logic      [ 31:2] dcache_address,
     output logic              dcache_valid,
     input  logic              dcache_busy,
-    input  logic      [ 31:0] dcache_rdata
+    input  logic      [ 31:0] dcache_rdata,
+    output logic [31:2] dcache_phys_in,
+    output logic dcache_phys_valid
 );
 
     localparam int dcache_latency = 2;
@@ -39,6 +41,7 @@ module RXVPTWalker (
     logic               is_megapage_next;
     logic               translation_error_next;
     logic               result_update;
+    logic               dcache_phys_valid_next;
 
     RXVCountdown #(
         .width     ($bits(dcache_latency)),
@@ -120,6 +123,10 @@ module RXVPTWalker (
         vpn0 = va[21:12];
     end
 
+    always_comb begin
+        dcache_phys_valid_next = dcache_valid | dcache_busy;
+    end
+
     RXVDFF #(
         .width($bits(state))
     ) state_dff (
@@ -180,6 +187,24 @@ module RXVPTWalker (
         .en   (result_update),
         .d    (translation_error_next),
         .q    (translation_error)
+    );
+
+    RXVDFF #(
+        .width(30)
+    ) dcache_phys_in_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (dcache_valid),
+        .d    (dcache_address),
+        .q    (dcache_phys_in)
+    );
+
+    RXVDFF dcache_phys_valid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (dcache_phys_valid_next),
+        .q    (dcache_phys_valid)
     );
 
 endmodule

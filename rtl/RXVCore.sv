@@ -188,7 +188,9 @@ module RXVCore #(
     logic          [             31:0] dcache_dout;
     logic                              dcache_invalidate;
     logic                              dcache_clean;
-    logic          [             31:0] dcache_phys_out;
+    logic          [             31:2] dcache_phys_in;
+    logic                              dcache_phys_valid;
+    logic          [             31:2] dcache_phys_out;
     logic                              dcache_device_memory;
 
     logic                              commit_full;
@@ -478,6 +480,8 @@ module RXVCore #(
         .dcache_wdata        (dcache_din),
         .dcache_invalidate   (dcache_invalidate),
         .dcache_clean        (dcache_clean),
+        .dcache_phys         (dcache_phys_in),
+        .dcache_phys_valid   (dcache_phys_valid),
         .dcache_device_memory(dcache_device_memory),
         .lsu_exception       (lsu_exception),
         .lsu_except_id       (lsu_except_id),
@@ -585,6 +589,8 @@ module RXVCore #(
         .wren         (dcache_wren),
         .bytesel      (dcache_bytesel),
         .clean        (dcache_clean),
+        .phys_in      (dcache_phys_in),
+        .phys_valid   (dcache_phys_valid),
         .phys_out     (dcache_phys_out),
         .device_memory(dcache_device_memory),
         .dout         (dcache_dout),
@@ -736,7 +742,7 @@ module RXVCore #(
     );
 
     always_comb begin
-        dcache_device_memory = dcache_phys_out >= device_base && dcache_phys_out < device_end;
+        dcache_device_memory = {dcache_phys_out, 2'b0} >= device_base && {dcache_phys_out, 2'b0} < device_end;
     end
 
     always_comb begin

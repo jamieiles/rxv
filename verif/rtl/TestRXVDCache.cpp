@@ -33,6 +33,8 @@ public:
             after_n_cycles(1, [&] {
                 this->dut.valid = 0;
                 this->dut.wren = 0;
+                this->dut.phys_in = addr >> 2;
+                this->dut.phys_valid = 1;
             });
         });
         cycle();
@@ -62,6 +64,8 @@ public:
                 this->dut.bytesel = bytesel;
                 this->dut.wren = 1;
                 this->dut.din = data;
+                this->dut.phys_in = addr >> 2;
+                this->dut.phys_valid = 1;
             });
         });
         cycle();
@@ -116,16 +120,24 @@ public:
 
         size_t i = 0, word = 0, idle_cycles = 0;
         do {
+            uint32_t addr = addresses[word];
             if (word < addresses.size()) {
-                after_n_cycles(0, [&] {
-                    this->dut.address = addresses[word++] >> 2;
+                after_n_cycles(0, [&, addr] {
+                    this->dut.address = addr >> 2;
                     this->dut.valid = 1;
                     this->dut.wren = 0;
+                    after_n_cycles(1, [&, addr] {
+                        this->dut.phys_in = addr >> 2;
+                        this->dut.phys_valid = 1;
+                    });
                 });
+                ++word;
             } else {
                 after_n_cycles(0, [&] {
                     this->dut.valid = 0;
                     this->dut.wren = 0;
+                    this->dut.phys_valid = 1;
+                    after_n_cycles(1, [&] { this->dut.phys_valid = 0; });
                 });
             }
             cycle();

@@ -3,21 +3,23 @@
 import RXVMMU::sv32_pte_t;
 
 module RXVPTWalkerWrapper (
-    input  logic         clk,
-    input  logic         reset,
-    input  logic [31:12] va,
-    input  logic         valid,
-    input  logic [31:12] translation_base,
-    output logic         busy,
+    input  logic              clk,
+    input  logic              reset,
+    input  logic      [31:12] va,
+    input  logic              valid,
+    input  logic      [31:12] translation_base,
+    output logic              busy,
     output sv32_pte_t         pte_out,
-    output logic         is_megapage,
-    output logic         translation_error
+    output logic              is_megapage,
+    output logic              translation_error
 );
 
     logic        dcache_valid;
     logic [31:0] dcache_dout;
     logic        dcache_busy;
     logic [31:2] dcache_address;
+    logic [31:2] dcache_phys_in;
+    logic        dcache_phys_valid;
 
     MemInterface mem_bus ();
 
@@ -39,6 +41,8 @@ module RXVPTWalkerWrapper (
         .invalidate   (1'b0),
         .clean        (1'b0),
         .bus          (mem_bus.Manager),
+        .phys_in      (dcache_phys_in),
+        .phys_valid   (dcache_phys_valid),
         // verilator lint_off PINCONNECTEMPTY
         .phys_out     (),
         // verilator lint_on PINCONNECTEMPTY
@@ -58,7 +62,9 @@ module RXVPTWalkerWrapper (
         .dcache_address   (dcache_address),
         .dcache_valid     (dcache_valid),
         .dcache_busy      (dcache_busy),
-        .dcache_rdata     (dcache_dout)
+        .dcache_rdata     (dcache_dout),
+        .dcache_phys_in   (dcache_phys_in),
+        .dcache_phys_valid(dcache_phys_valid)
     );
 
 endmodule

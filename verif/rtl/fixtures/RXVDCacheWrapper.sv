@@ -14,11 +14,13 @@ module RXVDCacheWrapper #(
     input  logic [ 3:0] bytesel,
     output logic [31:0] dout,
     input  logic        invalidate,
-    input  logic        clean
+    input  logic        clean,
+    input  logic [31:2] phys_in,
+    input  logic        phys_valid
 );
 
     // verilator lint_off UNUSED
-    logic [31:0] phys_out;
+    logic [31:2] phys_out;
     // verilator lint_on UNUSED
     logic        device_memory;
 
@@ -46,6 +48,8 @@ module RXVDCacheWrapper #(
         .invalidate   (invalidate),
         .clean        (clean),
         .bus          (mem_bus.Manager),
+        .phys_in      (phys_in),
+        .phys_valid   (phys_valid),
         .phys_out     (phys_out),
         .device_memory(device_memory)
     );

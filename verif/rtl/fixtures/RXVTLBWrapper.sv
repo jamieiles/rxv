@@ -19,7 +19,7 @@ module RXVTLBWrapper (
     input  logic         [asid_bits-1:0] inv_asid,
     input  logic         [        31:12] inv_addr,
     input  logic         [        31:12] walk_translation_base,
-    output logic                         walk_valid_req,             // For test inspection
+    output logic                         walk_valid_req,         // For test inspection
     input  logic                         enabled,
     input  logic                         dcache_invalidate,
     output logic                         dcache_busy
@@ -28,6 +28,8 @@ module RXVTLBWrapper (
     logic              dcache_valid;
     logic      [ 31:0] dcache_dout;
     logic      [ 31:2] dcache_address;
+    logic      [ 31:2] dcache_phys_in;
+    logic              dcache_phys_valid;
 
     logic      [31:12] walk_va;
     logic              walk_busy;
@@ -56,6 +58,8 @@ module RXVTLBWrapper (
         .invalidate   (dcache_invalidate),
         .clean        (1'b0),
         .bus          (mem_bus.Manager),
+        .phys_in      (dcache_phys_in),
+        .phys_valid   (dcache_phys_valid),
         // verilator lint_off PINCONNECTEMPTY
         .phys_out     (),
         // verilator lint_on PINCONNECTEMPTY
@@ -75,7 +79,9 @@ module RXVTLBWrapper (
         .dcache_address   (dcache_address),
         .dcache_valid     (dcache_valid),
         .dcache_busy      (dcache_busy),
-        .dcache_rdata     (dcache_dout)
+        .dcache_rdata     (dcache_dout),
+        .dcache_phys_in   (dcache_phys_in),
+        .dcache_phys_valid(dcache_phys_valid)
     );
 
     RXVTLB RXVTLB (

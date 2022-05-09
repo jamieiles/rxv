@@ -55,8 +55,10 @@ module RXVLSUWrapper #(
     logic [31:0] dcache_wdata;
     logic        dcache_invalidate;
     logic        dcache_clean;
+    logic        dcache_phys_valid;
     // verilator lint_off UNUSED
-    logic [31:0] dcache_phys;
+    logic [31:2] dcache_phys_in;
+    logic [31:2] dcache_phys_out;
     // verilator lint_on UNUSED
     logic        dcache_device_memory;
 
@@ -84,18 +86,21 @@ module RXVLSUWrapper #(
         .invalidate   (dcache_invalidate),
         .clean        (dcache_clean),
         .bus          (mem_bus.Manager),
-        .phys_out     (dcache_phys),
+        .phys_in      (dcache_phys_in),
+        .phys_valid   (dcache_phys_valid),
+        .phys_out     (dcache_phys_out),
         .device_memory(dcache_device_memory)
     );
 
     RXVLSU RXVLSU (
-        .clk  (clk),
-        .reset(reset),
+        .clk        (clk),
+        .reset      (reset),
+        .dcache_phys(dcache_phys_in),
         .*
     );
 
     always_comb begin
-        dcache_device_memory = &dcache_phys[31:28];
+        dcache_device_memory = &dcache_phys_out[31:28];
     end
 
 endmodule

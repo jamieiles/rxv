@@ -33,6 +33,8 @@ module RXVMMUTopWrapper (
     logic        dcache_valid;
     logic [31:0] dcache_dout;
     logic [31:2] dcache_address;
+    logic [31:2] dcache_phys_in;
+    logic        dcache_phys_valid;
 
     MemInterface mem_bus ();
 
@@ -54,6 +56,8 @@ module RXVMMUTopWrapper (
         .invalidate   (dcache_invalidate),
         .clean        (1'b0),
         .bus          (mem_bus.Manager),
+        .phys_in      (dcache_phys_in),
+        .phys_valid   (dcache_phys_valid),
         // verilator lint_off PINCONNECTEMPTY
         .phys_out     (),
         // verilator lint_on PINCONNECTEMPTY

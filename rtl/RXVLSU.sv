@@ -46,6 +46,8 @@ module RXVLSU #(
     output logic        [            31:0] dcache_wdata,
     output logic                           dcache_invalidate,
     output logic                           dcache_clean,
+    output logic        [            31:2] dcache_phys,
+    output logic                           dcache_phys_valid,
     input  logic                           dcache_device_memory,
     // Exception handling
     output RXVException                    lsu_exception,
@@ -84,10 +86,9 @@ module RXVLSU #(
         logic valid;
         logic is_sc;
         logic is_store;
+        logic is_amo;
         logic reservation_held;
-`ifdef RXV_TRACE
         logic [31:0] address;
-`endif
     } lsu_op;
 
     // Stage 1:
@@ -127,6 +128,7 @@ module RXVLSU #(
     logic                               is_unaligned;
     lsu_width                           width;
     RXVException                        lsu_exception_next;
+    logic        [    commit_width-1:0] lsu_except_id_next;
     logic                               lsu_busy_kill_next;
     logic                               lsu_busy_next;
     logic                               valid;
@@ -190,7 +192,7 @@ module RXVLSU #(
 
     always_comb begin
         lsu_busy_kill_next = ((exec_valid & lsu_stall) | fencei_pending) & ~kill_valid;
-        valid              = exec_valid & ~lsu_busy_kill_next & ~kill_valid;
+        valid              = exec_valid & ~lsu_busy_kill_next & ~kill_valid & ~is_invalid_amo;
     end
 
     always_comb begin
@@ -265,9 +267,7 @@ module RXVLSU #(
             end
         endcase
 
-        is_invalid_amo = ((exec_uop == RXVTypes::UOP_LW_ATOMIC ||
-                           exec_uop == RXVTypes::UOP_LR ||
-                           exec_uop == RXVTypes::UOP_SC) && dcache_device_memory);
+        is_invalid_amo = op_stage1.valid && op_stage1.is_amo && dcache_device_memory;
 
         unique case (exec_uop)
             RXVTypes::UOP_LB, RXVTypes::UOP_LBU, RXVTypes::UOP_SB: width = WIDTH_8;
@@ -280,15 +280,14 @@ module RXVLSU #(
         op_stage1_next.id = exec_id;
         op_stage1_next.read_mask = next_read_mask;
         op_stage1_next.addr_offset = address[1:0];
-        op_stage1_next.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid & ~is_invalid_amo;
+        op_stage1_next.valid = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
         op_stage1_next.width = width;
         op_stage1_next.is_signed = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
         op_stage1_next.is_sc = exec_uop == RXVTypes::UOP_SC;
         op_stage1_next.is_store = is_store;
         op_stage1_next.reservation_held = reservation_matches;
-`ifdef RXV_TRACE
         op_stage1_next.address = address;
-`endif
+        op_stage1_next.is_amo = (exec_uop == RXVTypes::UOP_LW_ATOMIC || exec_uop == RXVTypes::UOP_LR || exec_uop == RXVTypes::UOP_SC);
     end
 
     always_comb begin
@@ -333,11 +332,13 @@ module RXVLSU #(
 
     always_comb begin
         lsu_exception_next.pc = exec_pc;
-        lsu_exception_next.val = address;
+        lsu_exception_next.val = is_invalid_amo ? op_stage1.address : address;
         lsu_exception_next.cause = is_invalid_amo ? RXVCSR::CAUSE_LOAD_ACCESS_FAULT :
         is_load ? RXVCSR::CAUSE_LOAD_MISALIGN : RXVCSR::CAUSE_STORE_MISALIGN;
-        lsu_exception_next.valid = (is_load | is_store) & valid & (is_unaligned | is_invalid_amo);
+        lsu_exception_next.valid = ((is_load | is_store) & valid & is_unaligned) | is_invalid_amo;
         lsu_exception_next.irq = 1'b0;
+
+        lsu_except_id_next = is_invalid_amo ? op_stage1.id : exec_id;
     end
 
     always_comb begin
@@ -349,11 +350,13 @@ module RXVLSU #(
     end
 
     always_comb begin
-        dcache_wren = op_stage1.valid & op_stage1.is_store;
+        dcache_wren       = op_stage1.valid & op_stage1.is_store;
+        dcache_phys       = op_stage1.address[31:2];
+        dcache_phys_valid = op_stage1.valid & !is_invalid_amo;
     end
 
     always_comb begin
-        dcache_valid = (is_load | is_store) & valid & ~is_unaligned & ~is_invalid_amo;
+        dcache_valid = (is_load | is_store) & valid & ~is_unaligned;
         if (exec_uop == RXVTypes::UOP_SC && !reservation_matches) dcache_valid = 1'b0;
     end
 
@@ -498,7 +501,7 @@ module RXVLSU #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_id),
+        .d    (lsu_except_id_next),
         .q    (lsu_except_id)
     );
 

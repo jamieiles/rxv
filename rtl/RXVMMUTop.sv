@@ -33,7 +33,9 @@ module RXVMMUTop #(
     output logic         [         31:2] dcache_address,
     output logic                         dcache_valid,
     input  logic                         dcache_busy,
-    input  logic         [         31:0] dcache_rdata
+    input  logic         [         31:0] dcache_rdata,
+    output logic         [         31:2] dcache_phys_in,
+    output logic                         dcache_phys_valid
 );
 
     logic      [31:12] d_walk_va;
@@ -111,7 +113,9 @@ module RXVMMUTop #(
         .dcache_address   (dcache_address),
         .dcache_valid     (dcache_valid),
         .dcache_busy      (dcache_busy),
-        .dcache_rdata     (dcache_rdata)
+        .dcache_rdata     (dcache_rdata),
+        .dcache_phys_in   (dcache_phys_in),
+        .dcache_phys_valid(dcache_phys_valid)
     );
 
     StaticArbiter #(

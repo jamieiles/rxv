@@ -28,7 +28,11 @@ module RXVDCache #(
     output logic                [31:0] dout,
     input  logic                       invalidate,
     input  logic                       clean,
-    output logic                [31:0] phys_out,
+    input  logic                [31:2] phys_in,
+    //verilator lint_off UNUSED
+    input  logic                       phys_valid,
+    //verilator lint_on UNUSED
+    output logic                [31:2] phys_out,
     input  logic                       device_memory
 );
 
@@ -75,7 +79,6 @@ module RXVDCache #(
     logic   [       nr_ways-1:0] way_valid;
     logic                        miss;
     logic                        tag_compare_valid;
-    logic   [              31:2] lookup_address;
     logic   [       nr_ways-1:0] way_hit;
     logic   [      way_bits-1:0] hit_way;
     logic   [      way_bits-1:0] lru;
@@ -87,7 +90,6 @@ module RXVDCache #(
     logic   [    index_bits-1:0] cmo_index_next;
     logic   [        tag_bits:0] tag_write_val;
     logic   [       nr_ways-1:0] tag_write_en;
-    logic                        start_access;
     logic                        data_write_en;
     logic   [      way_bits-1:0] data_way_sel;
     logic   [               3:0] data_write_bytesel;
@@ -118,7 +120,6 @@ module RXVDCache #(
     logic   [data_addr_bits-1:0] data_ram_addr;
     logic   [              31:0] bus_wdata;
     logic                        cmo_active;
-    logic                        lookup_device_memory;
     state_t                      state;
     state_t                      next_state;
 
@@ -190,7 +191,7 @@ module RXVDCache #(
         .depth(nr_lines)
     ) BitPLRU (
         .clk       (clk),
-        .read_index(addr_index(lookup_address)),
+        .read_index(addr_index(phys_in)),
         .access_way(lru_way_sel),
         .valid     (lru_update),
         .lru_out   (lru)
@@ -200,14 +201,14 @@ module RXVDCache #(
     always_comb begin
         integer i;
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            way_hit[i] = way_valid[i] && way_tag[i] == addr_tag(lookup_address);
+            way_hit[i] = way_valid[i] && phys_valid && way_tag[i] == addr_tag(phys_in);
         end
 
-        miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && lookup_device_memory);
-        phys_out = {address, 2'b0};
+        miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && device_memory);
+        phys_out = phys_in;
 
         unique case (state)
-            STATE_RUN: busy = miss;
+            STATE_RUN: busy = miss && phys_valid;
             STATE_UNCACHED: busy = ~bus_complete;
             default: busy = 1'b1;
         endcase
@@ -239,7 +240,7 @@ module RXVDCache #(
                     dirty_next    = 1'b0;
                 end
             endcase
-            if (lookup_device_memory) dirty_wren[i] = 1'b0;
+            if (device_memory) dirty_wren[i] = 1'b0;
         end
     end
 
@@ -251,9 +252,8 @@ module RXVDCache #(
     always_comb begin
         integer i;
 
-        tag_write_val = {state != STATE_INVAL, addr_tag(lookup_address)};
-        tag_ram_index = cmo_active ? cmo_index :
-            busy ? addr_index(lookup_address) : addr_index(address);
+        tag_write_val = {state != STATE_INVAL, addr_tag(phys_in)};
+        tag_ram_index = cmo_active ? cmo_index : busy ? addr_index(phys_in) : addr_index(address);
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             unique case (state)
                 STATE_INVAL: tag_write_en[i] = 1'b1;
@@ -265,12 +265,12 @@ module RXVDCache #(
 
     // Dirty RAM control
     always_comb begin
-        dirty_ram_index = cmo_active ? cmo_index_next : addr_index(lookup_address);
+        dirty_ram_index = cmo_active ? cmo_index_next : addr_index(phys_in);
     end
 
     // LRU update
     always_comb begin
-        lru_update  = |tag_write_en | (tag_compare_valid & !miss);
+        lru_update  = |tag_write_en | (tag_compare_valid & phys_valid & !miss);
         lru_way_sel = |tag_write_en ? fill_way : hit_way;
     end
 
@@ -278,20 +278,18 @@ module RXVDCache #(
     always_comb begin
         unique case (state)
             STATE_FILL: begin
-                bus_valid = 1'b1 & ~bus_complete;
-                bus_wren = 1'b0;
-                bus_len = fill_beats;
-                bus_address = {
-                    addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)
-                };
-                bus_wdata = din;  // Unused
+                bus_valid   = 1'b1 & ~bus_complete;
+                bus_wren    = 1'b0;
+                bus_len     = fill_beats;
+                bus_address = {addr_tag(phys_in), addr_index(phys_in), offset_bits'('b0)};
+                bus_wdata   = din;  // Unused
                 bus_bytesel = 4'b1111;
             end
             STATE_FLUSH: begin
                 bus_valid   = 1'b1 & ~bus_complete;
                 bus_wren    = 1'b1;
                 bus_len     = fill_beats;
-                bus_address = {way_tag[fill_way], addr_index(lookup_address), offset_bits'('b0)};
+                bus_address = {way_tag[fill_way], addr_index(phys_in), offset_bits'('b0)};
                 bus_wdata   = dout_cached;
                 bus_bytesel = 4'b1111;
             end
@@ -307,7 +305,7 @@ module RXVDCache #(
                 bus_valid   = 1'b1 & ~bus_complete;
                 bus_wren    = wren;
                 bus_len     = 4'b0;
-                bus_address = lookup_address;
+                bus_address = phys_in;
                 bus_wdata   = din;
                 bus_bytesel = bytesel;
             end
@@ -349,26 +347,25 @@ module RXVDCache #(
                     offset_bits'(bus_beat_num);
             end
             STATE_RUN: begin
-                data_write_en      = tag_compare_valid & ~miss & wren & ~lookup_device_memory;
+                data_write_en      = tag_compare_valid & phys_valid & ~miss & wren & ~device_memory;
                 data_write_bytesel = bytesel;
                 data_way_sel       = hit_way;
                 data_din           = din;
-                data_offset        = addr_offset(lookup_address);
+                data_offset        = addr_offset(phys_in);
             end
             default: begin
                 data_write_en      = 1'b0;
                 data_write_bytesel = bytesel;
                 data_way_sel       = hit_way;
                 data_din           = din;
-                data_offset        = addr_offset(lookup_address);
+                data_offset        = addr_offset(phys_in);
             end
         endcase
     end
 
     // Cycle + fill/writeback control
     always_comb begin
-        index        = state == STATE_CLEAN ? cmo_index : addr_index(lookup_address);
-        start_access = valid & ~busy;
+        index = state == STATE_CLEAN ? cmo_index : addr_index(phys_in);
     end
 
     // Data output
@@ -418,7 +415,7 @@ module RXVDCache #(
 
     RXVAssert device_not_cached (
         .clk      (clk),
-        .en       (state == STATE_RUN && tag_compare_valid && lookup_device_memory),
+        .en       (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory),
         .condition(miss)
     );
 
@@ -428,8 +425,8 @@ module RXVDCache #(
                 next_state = STATE_RUN;
                 if (invalidate) next_state = STATE_INVAL;
                 if (clean) next_state = STATE_CLEAN;
-                if (miss) next_state = STATE_MISS;
-                if (tag_compare_valid && lookup_device_memory) next_state = STATE_UNCACHED;
+                if (miss && phys_valid) next_state = STATE_MISS;
+                if (tag_compare_valid && phys_valid && device_memory) next_state = STATE_UNCACHED;
             end
             STATE_MISS: begin
                 next_state = dirty[fill_way_next] ? STATE_FLUSH : STATE_FILL;
@@ -495,16 +492,6 @@ module RXVDCache #(
     );
 
     RXVDFF #(
-        .width(30)
-    ) lookup_address_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (start_access),
-        .d    (address),
-        .q    (lookup_address)
-    );
-
-    RXVDFF #(
         .width(2)
     ) dout_use_uncached_dff (
         .clk  (clk),
@@ -532,14 +519,6 @@ module RXVDCache #(
         .en   (1'b1),
         .d    (next_state),
         .q    (state)
-    );
-
-    RXVDFF lookup_device_memory_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (start_access),
-        .d    (device_memory),
-        .q    (lookup_device_memory)
     );
 
 endmodule

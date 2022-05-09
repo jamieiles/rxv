@@ -56,13 +56,12 @@ public:
             this->dut.address = addr >> 2;
             this->dut.valid = 1;
             this->dut.invalidate = 0;
-            this->dut.din = data;
-            this->dut.bytesel = bytesel;
-            this->dut.wren = 1;
 
             after_n_cycles(1, [&] {
                 this->dut.valid = 0;
-                this->dut.wren = 0;
+                this->dut.bytesel = bytesel;
+                this->dut.wren = 1;
+                this->dut.din = data;
             });
         });
         cycle();
@@ -71,6 +70,7 @@ public:
         do {
             cycle();
         } while (this->dut.busy && ++i < 256);
+        after_n_cycles(0, [&] { this->dut.wren = 0; });
 
         // One additional cycle of latency before the data is written
         cycle();

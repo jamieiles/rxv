@@ -83,6 +83,7 @@ module RXVLSU #(
         logic is_signed;
         logic valid;
         logic is_sc;
+        logic is_store;
         logic reservation_held;
 `ifdef RXV_TRACE
         logic [31:0] address;
@@ -110,10 +111,13 @@ module RXVLSU #(
     logic                               is_invalid_amo;
     logic                               is_store;
     logic                               is_fencei;
+    logic        [                 3:0] next_read_mask;
     lsu_op                              op_stage1_next;
     lsu_op                              op_stage1;
     lsu_op                              op_stage2_next;
+    // verilator lint_off UNUSED
     lsu_op                              op_stage2;
+    // verilator lint_on UNUSED
     logic        [                31:0] lsu_reg_wr_data_next;
     phys_reg_tag                        lsu_reg_addr_next;
     logic                               lsu_reg_wr_en_next;
@@ -217,19 +221,25 @@ module RXVLSU #(
 
     always_comb begin
         unique case (exec_uop)
-            RXVTypes::UOP_LB, RXVTypes::UOP_LBU, RXVTypes::UOP_SB: begin
-                dcache_bytesel = 4'b1 << address[1:0];
-                is_unaligned   = 1'b0;
-            end
-            RXVTypes::UOP_LH, RXVTypes::UOP_LHU, RXVTypes::UOP_SH: begin
-                dcache_bytesel = 4'b11 << address[1] * 2;
-                is_unaligned   = address[0];
-            end
-            default: begin
-                dcache_bytesel = 4'b1111;
-                is_unaligned   = |address[1:0];
-            end
+            RXVTypes::UOP_LB, RXVTypes::UOP_LBU: next_read_mask = 4'b1 << address[1:0];
+            RXVTypes::UOP_LH, RXVTypes::UOP_LHU: next_read_mask = 4'b11 << address[1] * 2;
+            default: next_read_mask = 4'b1111;
         endcase
+    end
+
+    always_comb begin
+        unique case (exec_uop)
+            RXVTypes::UOP_LB, RXVTypes::UOP_LBU, RXVTypes::UOP_SB: is_unaligned = 1'b0;
+            RXVTypes::UOP_LH, RXVTypes::UOP_LHU, RXVTypes::UOP_SH: is_unaligned = address[0];
+            default: is_unaligned = |address[1:0];
+        endcase
+
+        unique case (op_stage1.width)
+            WIDTH_8:  dcache_bytesel = 4'b1 << op_stage1.addr_offset;
+            WIDTH_16: dcache_bytesel = 4'b11 << op_stage1.addr_offset[1] * 2;
+            default:  dcache_bytesel = 4'b1111;
+        endcase
+
 
         unique case (exec_uop)
             RXVTypes::UOP_LB, RXVTypes::UOP_LH, RXVTypes::UOP_LW, RXVTypes::UOP_LW_ATOMIC,
@@ -268,12 +278,13 @@ module RXVLSU #(
         op_stage1_next.rd = exec_rd;
         op_stage1_next.reg_wr_en = exec_have_writeback;
         op_stage1_next.id = exec_id;
-        op_stage1_next.read_mask = dcache_bytesel;
+        op_stage1_next.read_mask = next_read_mask;
         op_stage1_next.addr_offset = address[1:0];
         op_stage1_next.valid       = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid & ~is_invalid_amo;
         op_stage1_next.width = width;
         op_stage1_next.is_signed = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
         op_stage1_next.is_sc = exec_uop == RXVTypes::UOP_SC;
+        op_stage1_next.is_store = is_store;
         op_stage1_next.reservation_held = reservation_matches;
 `ifdef RXV_TRACE
         op_stage1_next.address = address;
@@ -338,7 +349,7 @@ module RXVLSU #(
     end
 
     always_comb begin
-        dcache_wren = dcache_valid & is_store;
+        dcache_wren = op_stage1.valid & op_stage1.is_store;
     end
 
     always_comb begin

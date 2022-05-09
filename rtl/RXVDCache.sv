@@ -90,9 +90,6 @@ module RXVDCache #(
     logic                        start_access;
     logic                        data_write_en;
     logic   [      way_bits-1:0] data_way_sel;
-    logic   [               3:0] write_bytesel;
-    logic                        write_wren;
-    logic                        write_wren_update;
     logic   [               3:0] data_write_bytesel;
     logic   [              31:0] data_din;
     logic   [       nr_ways-1:0] dirty_wren;
@@ -222,8 +219,8 @@ module RXVDCache #(
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             unique case (state)
                 STATE_RUN: begin
-                    dirty_wren[i] = tag_compare_valid && write_wren && way_hit[i];
-                    dirty_next    = tag_compare_valid && write_wren;
+                    dirty_wren[i] = tag_compare_valid && wren && way_hit[i];
+                    dirty_next    = tag_compare_valid && wren;
                 end
                 STATE_CLEAN: begin
                     dirty_wren[i] = bus_complete && way_bits'(i) == cmo_way;
@@ -308,11 +305,11 @@ module RXVDCache #(
             end
             STATE_UNCACHED: begin
                 bus_valid   = 1'b1 & ~bus_complete;
-                bus_wren    = write_wren;
+                bus_wren    = wren;
                 bus_len     = 4'b0;
                 bus_address = lookup_address;
                 bus_wdata   = din;
-                bus_bytesel = write_bytesel;
+                bus_bytesel = bytesel;
             end
             default: begin
                 bus_valid   = 1'b0;
@@ -337,7 +334,7 @@ module RXVDCache #(
             end
             STATE_CLEAN: begin
                 data_write_en = 1'b0;
-                data_write_bytesel = write_bytesel;
+                data_write_bytesel = bytesel;
                 data_way_sel = cmo_way;
                 data_din = bus_rdata;
                 data_offset = bus_beat_ack ? offset_bits'(bus_beat_num_next) :
@@ -345,22 +342,22 @@ module RXVDCache #(
             end
             STATE_FLUSH: begin
                 data_write_en = 1'b0;
-                data_write_bytesel = write_bytesel;
+                data_write_bytesel = bytesel;
                 data_way_sel = fill_way;
                 data_din = bus_rdata;
                 data_offset = bus_beat_ack ? offset_bits'(bus_beat_num_next) :
                     offset_bits'(bus_beat_num);
             end
             STATE_RUN: begin
-                data_write_en      = ~miss & write_wren & ~lookup_device_memory;
-                data_write_bytesel = write_bytesel;
+                data_write_en      = tag_compare_valid & ~miss & wren & ~lookup_device_memory;
+                data_write_bytesel = bytesel;
                 data_way_sel       = hit_way;
                 data_din           = din;
                 data_offset        = addr_offset(lookup_address);
             end
             default: begin
                 data_write_en      = 1'b0;
-                data_write_bytesel = write_bytesel;
+                data_write_bytesel = bytesel;
                 data_way_sel       = hit_way;
                 data_din           = din;
                 data_offset        = addr_offset(lookup_address);
@@ -370,9 +367,8 @@ module RXVDCache #(
 
     // Cycle + fill/writeback control
     always_comb begin
-        index             = state == STATE_CLEAN ? cmo_index : addr_index(lookup_address);
-        start_access      = valid & ~busy;
-        write_wren_update = start_access | ~busy;
+        index        = state == STATE_CLEAN ? cmo_index : addr_index(lookup_address);
+        start_access = valid & ~busy;
     end
 
     // Data output
@@ -506,24 +502,6 @@ module RXVDCache #(
         .en   (start_access),
         .d    (address),
         .q    (lookup_address)
-    );
-
-    RXVDFF #(
-        .width(4)
-    ) write_bytesel_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (start_access),
-        .d    (bytesel),
-        .q    (write_bytesel)
-    );
-
-    RXVDFF write_wren_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (write_wren_update),
-        .d    (wren),
-        .q    (write_wren)
     );
 
     RXVDFF #(

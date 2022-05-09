@@ -154,6 +154,17 @@ module RXVCore #(
     logic                              lsu_busy_kill;
     logic                              lsu_global_stall_start;
     logic                              lsu_global_stall_end;
+    logic          [             31:2] lsu_dcache_address;
+    logic                              lsu_dcache_valid;
+    logic                              lsu_dcache_busy;
+    logic          [             31:0] lsu_dcache_din;
+    logic                              lsu_dcache_wren;
+    logic          [              3:0] lsu_dcache_bytesel;
+    logic          [             31:0] lsu_dcache_dout;
+    logic          [             31:2] lsu_dcache_phys_in;
+    logic                              lsu_dcache_phys_valid;
+    logic                              lsu_dcache_invalidate;
+    logic                              lsu_dcache_clean;
 
     phys_reg_tag                       rd_addr_a;
     phys_reg_tag                       rd_addr_b;
@@ -471,17 +482,17 @@ module RXVCore #(
         .lsu_reg_wr_data     (lsu_reg_wr_data),
         .lsu_complete        (lsu_complete_valid),
         .lsu_complete_id     (lsu_complete_id),
-        .dcache_address      (dcache_address),
-        .dcache_valid        (dcache_valid),
-        .dcache_busy         (dcache_busy),
-        .dcache_rdata        (dcache_dout),
-        .dcache_wren         (dcache_wren),
-        .dcache_bytesel      (dcache_bytesel),
-        .dcache_wdata        (dcache_din),
-        .dcache_invalidate   (dcache_invalidate),
-        .dcache_clean        (dcache_clean),
-        .dcache_phys         (dcache_phys_in),
-        .dcache_phys_valid   (dcache_phys_valid),
+        .dcache_address      (lsu_dcache_address),
+        .dcache_valid        (lsu_dcache_valid),
+        .dcache_busy         (lsu_dcache_busy),
+        .dcache_rdata        (lsu_dcache_dout),
+        .dcache_wren         (lsu_dcache_wren),
+        .dcache_bytesel      (lsu_dcache_bytesel),
+        .dcache_wdata        (lsu_dcache_din),
+        .dcache_invalidate   (lsu_dcache_invalidate),
+        .dcache_clean        (lsu_dcache_clean),
+        .dcache_phys         (lsu_dcache_phys_in),
+        .dcache_phys_valid   (lsu_dcache_phys_valid),
         .dcache_device_memory(dcache_device_memory),
         .lsu_exception       (lsu_exception),
         .lsu_except_id       (lsu_except_id),
@@ -595,6 +606,41 @@ module RXVCore #(
         .device_memory(dcache_device_memory),
         .dout         (dcache_dout),
         .invalidate   (dcache_invalidate)
+    );
+
+    RXVDCacheArb RXVDCacheArb (
+        .clk                  (clk),
+        .reset                (reset),
+        .lsu_dcache_address   (lsu_dcache_address),
+        .lsu_dcache_valid     (lsu_dcache_valid),
+        .lsu_dcache_busy      (lsu_dcache_busy),
+        .lsu_dcache_rdata     (lsu_dcache_dout),
+        .lsu_dcache_wren      (lsu_dcache_wren),
+        .lsu_dcache_bytesel   (lsu_dcache_bytesel),
+        .lsu_dcache_wdata     (lsu_dcache_din),
+        .lsu_dcache_phys_in   (lsu_dcache_phys_in),
+        .lsu_dcache_phys_valid(lsu_dcache_phys_valid),
+        .lsu_dcache_invalidate(lsu_dcache_invalidate),
+        .lsu_dcache_clean     (lsu_dcache_clean),
+        .mmu_dcache_address   (30'b0),
+        .mmu_dcache_valid     (1'b0),
+        // verilator lint_off PINCONNECTEMPTY
+        .mmu_dcache_busy      (),
+        .mmu_dcache_rdata     (),
+        // verilator lint_on PINCONNECTEMPTY
+        .mmu_dcache_phys_in   (30'b0),
+        .mmu_dcache_phys_valid(1'b0),
+        .dcache_address       (dcache_address),
+        .dcache_valid         (dcache_valid),
+        .dcache_busy          (dcache_busy),
+        .dcache_rdata         (dcache_dout),
+        .dcache_wren          (dcache_wren),
+        .dcache_bytesel       (dcache_bytesel),
+        .dcache_wdata         (dcache_din),
+        .dcache_phys_in       (dcache_phys_in),
+        .dcache_phys_valid    (dcache_phys_valid),
+        .dcache_invalidate    (dcache_invalidate),
+        .dcache_clean         (dcache_clean)
     );
 
     RXVCommitBuffer RXVCommitBuffer (

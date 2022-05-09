@@ -408,6 +408,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRFile.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCacheArb.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDiv.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDivExec.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv

@@ -1,5 +1,6 @@
 `default_nettype none
 import RXVTypes::rxv_prediction;
+import RXVMMU::translation_t;
 
 module RXVFetch #(
     parameter logic [31:0] reset_address = 32'h80000000
@@ -17,6 +18,10 @@ module RXVFetch #(
     output logic                 icache_valid,
     input  logic                 icache_busy,
     input  logic          [31:0] icache_instr,
+    // From instruction TLB
+    //verilator lint_off UNUSED
+    input  translation_t         fetch_translation,
+    input  logic                 fetch_tlb_busy,
     // To branch predictor
     output logic          [31:2] branch_predict_address,
     input  rxv_prediction        prediction,

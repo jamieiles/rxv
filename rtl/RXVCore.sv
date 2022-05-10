@@ -56,6 +56,8 @@ module RXVCore #(
     logic          [             31:2] fetch_predict_address;
     rxv_prediction                     fetch_prediction;
     logic                              fetch_idle;
+    translation_t                      fetch_translation;
+    logic                              fetch_tlb_busy;
     logic          [             31:2] irq_epc;
     privilege_t                        current_privilege;
 
@@ -168,6 +170,8 @@ module RXVCore #(
     logic                              lsu_dcache_phys_valid;
     logic                              lsu_dcache_invalidate;
     logic                              lsu_dcache_clean;
+    translation_t                      lsu_translation;
+    logic                              lsu_tlb_busy;
 
     phys_reg_tag                       rd_addr_a;
     phys_reg_tag                       rd_addr_b;
@@ -243,6 +247,13 @@ module RXVCore #(
     logic                              irq_resteer;
     logic          [             31:2] irq_resteer_tgt;
 
+    logic          [             31:2] mmu_dcache_address;
+    logic                              mmu_dcache_valid;
+    logic                              mmu_dcache_busy;
+    logic          [             31:0] mmu_dcache_rdata;
+    logic          [             31:2] mmu_dcache_phys_in;
+    logic                              mmu_dcache_phys_valid;
+
     RXVICache #(
         .nr_lines       (icache_nr_lines),
         .nr_ways        (icache_nr_ways),
@@ -290,6 +301,8 @@ module RXVCore #(
         .icache_valid          (icache_valid),
         .icache_busy           (icache_busy),
         .icache_instr          (icache_dout),
+        .fetch_translation     (fetch_translation),
+        .fetch_tlb_busy        (fetch_tlb_busy),
         .branch_predict_address(fetch_predict_address),
         .prediction            (fetch_prediction),
         .decode_resteer        (decode_resteer),
@@ -612,20 +625,6 @@ module RXVCore #(
         .dout         (dcache_dout),
         .invalidate   (dcache_invalidate)
     );
-
-    translation_t        lsu_translation;
-    logic                lsu_tlb_busy;
-    // verilator lint_off UNUSED
-    translation_t        fetch_translation;
-    logic                fetch_tlb_busy;
-    // verilator lint_on UNUSED
-
-    logic         [31:2] mmu_dcache_address;
-    logic                mmu_dcache_valid;
-    logic                mmu_dcache_busy;
-    logic         [31:0] mmu_dcache_rdata;
-    logic         [31:2] mmu_dcache_phys_in;
-    logic                mmu_dcache_phys_valid;
 
     RXVDCacheArb RXVDCacheArb (
         .clk                  (clk),

@@ -48,7 +48,7 @@ set_tests_properties(software-compliance PROPERTIES RESOURCE_LOCK "compliance")
 
 add_test(rtl-compliance
          python3 ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-compliance-tests.py rtl ${CMAKE_CURRENT_SOURCE_DIR}/../vendor/riscv-arch-test ${CMAKE_CURRENT_BINARY_DIR}/rtl-compliance ${CMAKE_CURRENT_SOURCE_DIR}/../verif/rxv-arch-test-target)
-set_tests_properties(rtl-compliance PROPERTIES TIMEOUT 60)
+set_tests_properties(rtl-compliance PROPERTIES TIMEOUT 120)
 set_property(TEST rtl-compliance PROPERTY ENVIRONMENT
              "PATH=${CMAKE_CURRENT_BINARY_DIR}:$ENV{PATH}")
 set_tests_properties(rtl-compliance PROPERTIES RESOURCE_LOCK "compliance")
@@ -59,4 +59,4 @@ set_tests_properties(software-isa PROPERTIES TIMEOUT 60)
 
 add_test(rtl-isa
          ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/run-isa-tests ${CMAKE_CURRENT_BINARY_DIR}/rxv-simulator rtl ${CMAKE_CURRENT_BINARY_DIR}/riscv-tests-prefix/src/riscv-tests-build/isa)
-set_tests_properties(rtl-isa PROPERTIES TIMEOUT 60)
+set_tests_properties(rtl-isa PROPERTIES TIMEOUT 120)

@@ -13,7 +13,10 @@ module RXVICache #(
     input  logic                       valid,
     output logic                       busy,
     output logic                [31:0] dout,
-    input  logic                       invalidate
+    input  logic                       invalidate,
+    // From TLB
+    input  logic                [31:2] phys_in,
+    input  logic                       phys_valid
 );
 
     localparam offset_bits = $clog2(line_size_bytes / 4);
@@ -47,7 +50,6 @@ module RXVICache #(
     logic [    nr_ways-1:0] way_valid;
     logic                   miss;
     logic                   tag_compare_valid;
-    logic [           31:2] lookup_address;
     logic                   filling;
     logic                   fill_complete;
     logic [    nr_ways-1:0] way_hit;
@@ -61,7 +63,6 @@ module RXVICache #(
     logic [    nr_ways-1:0] tag_write_en;
     logic                   invalidating;
     logic [    nr_ways-1:0] way_write_en;
-    logic                   start_access;
     logic                   need_fill;
     logic                   invalidating_update;
     logic [ index_bits-1:0] invalidate_index_next;
@@ -143,14 +144,14 @@ module RXVICache #(
     always_comb begin
         integer i;
 
-        tag_write_val = {~invalidating, addr_tag(lookup_address)};
+        tag_write_val = {~invalidating, addr_tag(phys_in)};
         tag_ram_index = invalidating ? invalidate_index :
-            busy ? addr_index(lookup_address) : addr_index(address);
+            busy ? addr_index(phys_in) : addr_index(address);
 
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             tag_write_en[i] = invalidating || (filling && bus_complete && way_bits'(i) == lru);
             way_write_en[i] = way_bits'(i) == lru && (bus_beat_ack);
-            way_hit[i]      = way_valid[i] && way_tag[i] == addr_tag(lookup_address);
+            way_hit[i]      = way_valid[i] && way_tag[i] == addr_tag(phys_in);
         end
 
         lru_update  = tag_compare_valid && !miss;
@@ -162,8 +163,8 @@ module RXVICache #(
     end
 
     always_comb begin
-        index       = filling ? addr_index(lookup_address) : addr_index(address);
-        miss        = tag_compare_valid && ~|way_hit;
+        index       = filling ? addr_index(phys_in) : addr_index(address);
+        miss        = tag_compare_valid && phys_valid && ~|way_hit;
         busy        = miss || filling || invalidating;
         dout        = !miss ? way_dout[hit_way] : 32'b0;
         data_offset = filling ? offset_bits'(bus_beat_num) : addr_offset(address);
@@ -172,7 +173,6 @@ module RXVICache #(
     always_comb begin
         filling_next = filling;
 
-        start_access = valid && !miss && !filling && !(invalidate || invalidating);
         need_fill    = miss && !filling && !(invalidate || invalidating);
 
         if (need_fill || fill_complete) begin
@@ -181,7 +181,7 @@ module RXVICache #(
 
         invalidating_update   = invalidate || &invalidate_index;
         invalidate_index_next = invalidate_index + 1'b1;
-        bus_address           = {addr_tag(lookup_address), addr_index(lookup_address), offset_bits'('b0)};
+        bus_address           = {addr_tag(phys_in), addr_index(phys_in), offset_bits'('b0)};
         bus_valid             = need_fill;
     end
 
@@ -225,16 +225,6 @@ module RXVICache #(
         .en   (1'b1),
         .d    (valid),
         .q    (tag_compare_valid)
-    );
-
-    RXVDFF #(
-        .width(30)
-    ) lookup_address_dff (
-        .clk  (clk),
-        .reset(reset),
-        .en   (start_access),
-        .d    (address),
-        .q    (lookup_address)
     );
 
 endmodule

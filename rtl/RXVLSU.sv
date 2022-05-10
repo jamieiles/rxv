@@ -356,9 +356,9 @@ module RXVLSU #(
     end
 
     always_comb begin
-        dcache_wren       = op_stage1.valid & op_stage1.is_store;
-        dcache_phys       = {lsu_translation.pa, op_stage1.address[11:2]};
-        dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & ~is_invalid_amo;
+        dcache_wren = op_stage1.valid & op_stage1.is_store;
+        dcache_phys = {lsu_translation.pa, op_stage1.address[11:2]};
+        dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & lsu_translation.valid & ~is_invalid_amo;
     end
 
     always_comb begin

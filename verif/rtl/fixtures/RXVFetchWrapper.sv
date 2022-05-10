@@ -19,7 +19,10 @@ module RXVFetchWrapper #(
     output logic                 icache_valid,
     input  logic                 icache_busy,
     input  logic [         31:0] icache_instr,
+    output logic [         31:2] icache_phys,
+    output logic                 icache_phys_valid,
     // TLB
+    output logic                 fetch_tlb_valid,
     input  logic [        31:12] tlb_pa,
     input  logic                 tlb_dirty,
     input  logic                 tlb_accessed,

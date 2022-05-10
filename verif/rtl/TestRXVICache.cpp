@@ -20,6 +20,17 @@ public:
         reset();
         bus = std::make_shared<::testing::StrictMock<MockMemoryBus>>();
         this->dut.RXVICacheWrapper->BusTransactor->set_bus(bus);
+
+        periodic(ClockCapture, [&] {
+            if (this->dut.valid) {
+                uint32_t addr = this->dut.address;
+                after_n_cycles(1, [&, addr] {
+                    this->dut.phys_valid = 1;
+                    this->dut.phys_in = addr;
+                    after_n_cycles(1, [&, addr] { this->dut.phys_valid = 0; });
+                });
+            }
+        });
     }
 
     uint32_t read(uint32_t addr)

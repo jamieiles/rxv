@@ -19,8 +19,12 @@ module RXVFetch #(
     input  logic                 icache_busy,
     input  logic          [31:0] icache_instr,
     // From instruction TLB
-    //verilator lint_off UNUSED
+    output logic                 fetch_tlb_valid,
+    output logic          [31:2] icache_phys,
+    output logic                 icache_phys_valid,
+    // verilator lint_off UNUSED
     input  translation_t         fetch_translation,
+    // verilator lint_on UNUSED
     input  logic                 fetch_tlb_busy,
     // To branch predictor
     output logic          [31:2] branch_predict_address,
@@ -178,6 +182,11 @@ module RXVFetch #(
     end
 
     always_comb begin
+        icache_phys       = {fetch_translation.pa, fetched_pc[11:2]};
+        icache_phys_valid = fetch_translation.valid & ~fetch_tlb_busy;
+    end
+
+    always_comb begin
         next_seq_pc = pc + 1'b1;
         next_pc     = !icache_busy && icache_valid ? next_seq_pc : pc;
 
@@ -216,6 +225,10 @@ module RXVFetch #(
     always_comb begin
         fetch_idle_next = prefetch_empty & ~icache_valid & ~fetched & ~icache_busy &
             ~resteer_pending & ~exec_resteer;
+    end
+
+    always_comb begin
+        fetch_tlb_valid = icache_valid & ~icache_busy;
     end
 
     RXVDFF #(

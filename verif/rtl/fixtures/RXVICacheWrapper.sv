@@ -10,7 +10,9 @@ module RXVICacheWrapper #(
     input  logic        valid,
     output logic        busy,
     output logic [31:0] dout,
-    input  logic        invalidate
+    input  logic        invalidate,
+    input logic [31:2] phys_in,
+    input logic phys_valid
 );
 
     MemInterface mem_bus ();
@@ -32,7 +34,9 @@ module RXVICacheWrapper #(
         .busy      (busy),
         .dout      (dout),
         .invalidate(invalidate),
-        .bus       (mem_bus.Manager)
+        .bus       (mem_bus.Manager),
+        .phys_in   (phys_in),
+        .phys_valid(phys_valid)
     );
 
 endmodule

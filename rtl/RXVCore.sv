@@ -52,12 +52,15 @@ module RXVCore #(
     logic                              icache_busy;
     logic          [             31:0] icache_dout;
     logic                              icache_invalidate;
+    logic          [             31:2] icache_phys;
+    logic                              icache_phys_valid;
 
     logic          [             31:2] fetch_predict_address;
     rxv_prediction                     fetch_prediction;
     logic                              fetch_idle;
     translation_t                      fetch_translation;
     logic                              fetch_tlb_busy;
+    logic                              fetch_tlb_valid;
     logic          [             31:2] irq_epc;
     privilege_t                        current_privilege;
 
@@ -266,7 +269,9 @@ module RXVCore #(
         .valid     (icache_valid),
         .busy      (icache_busy),
         .dout      (icache_dout),
-        .invalidate(icache_invalidate)
+        .invalidate(icache_invalidate),
+        .phys_in   (icache_phys),
+        .phys_valid(icache_phys_valid)
     );
 
     RXVBranchPredictor #(
@@ -301,6 +306,9 @@ module RXVCore #(
         .icache_valid          (icache_valid),
         .icache_busy           (icache_busy),
         .icache_instr          (icache_dout),
+        .icache_phys           (icache_phys),
+        .icache_phys_valid     (icache_phys_valid),
+        .fetch_tlb_valid       (fetch_tlb_valid),
         .fetch_translation     (fetch_translation),
         .fetch_tlb_busy        (fetch_tlb_busy),
         .branch_predict_address(fetch_predict_address),
@@ -676,7 +684,7 @@ module RXVCore #(
         .inv_asid         ('b0),
         .inv_addr         ('b0),
         .i_va             (icache_address[31:12]),
-        .i_valid          (icache_valid),
+        .i_valid          (fetch_tlb_valid),
         .i_enabled        (1'b0),
         .i_busy           (fetch_tlb_busy),
         .i_translation    (fetch_translation),

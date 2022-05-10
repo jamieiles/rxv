@@ -170,9 +170,9 @@ module RXVTLB #(
     always_comb begin
         integer i;
 
-        hit = ((state == STATE_RESTART || (state == STATE_READY && valid)) && |hits) || !enabled;
+        hit = ((state == STATE_RESTART || (state == STATE_READY && valid)) && |hits) || (!enabled && valid);
         hit_index = 'b0;
-        translation_next = 'b0;
+        translation_next = valid ? 'b0 : translation;
         for (i = 0; i < num_entries; ++i) begin
             hit_index |= {way_bits{hits[i]}} & way_bits'(i);
             translation_next |= {$bits(translation_next) {hits[i]}} & add_offset(all_entries[i]);

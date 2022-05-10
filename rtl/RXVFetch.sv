@@ -68,6 +68,7 @@ module RXVFetch #(
     logic          [31:2] pc;
     logic          [31:2] next_pc;
     logic          [31:2] fetched_pc;
+    logic          [31:2] fetched_pc_next;
     logic          [31:2] next_seq_pc;
     logic          [31:2] next_seq_pc_reg;
     logic                 stalling;
@@ -191,6 +192,11 @@ module RXVFetch #(
     end
 
     always_comb begin
+        fetched_pc_next = icache_address;
+        if (icache_busy) fetched_pc_next = fetched_pc;
+    end
+
+    always_comb begin
         irq_epc = pc;
     end
 
@@ -246,8 +252,8 @@ module RXVFetch #(
     ) fetched_pc_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (icache_valid),
-        .d    (icache_address),
+        .en   (1'b1),
+        .d    (fetched_pc_next),
         .q    (fetched_pc)
     );
 

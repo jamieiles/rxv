@@ -22,6 +22,17 @@ public:
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024 * 1024);
         this->dut.RXVLSUWrapper->BusTransactor->set_bus(bus);
+
+        periodic(ClockCapture, [&] {
+            if (this->dut.dcache_valid) {
+                uint32_t addr = this->dut.dcache_address;
+                after_n_cycles(1, [&, addr] {
+                    this->dut.tlb_valid = 1;
+                    this->dut.tlb_pa = addr >> 10;
+                    after_n_cycles(1, [&, addr] { this->dut.tlb_valid = 0; });
+                });
+            }
+        });
     }
 
     void dispatch_read(uint32_t addr, size_t size, bool is_signed = false)

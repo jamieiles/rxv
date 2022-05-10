@@ -4,6 +4,8 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_uop;
 import RXVTypes::commit_width;
 import RXVCSR::RXVException;
+import RXVMMU::translation_t;
+import RXVMMU::asid_bits;
 
 module RXVLSUWrapper #(
     parameter nr_lines        = 4,
@@ -43,24 +45,38 @@ module RXVLSUWrapper #(
     output logic                           lsu_resteer,
     output logic        [            31:2] lsu_resteer_tgt,
     output logic                           global_stall_start,
-    output logic                           global_stall_end
+    output logic                           global_stall_end,
+    // TLB
+    input  logic        [           31:12] tlb_pa,
+    input  logic                           tlb_dirty,
+    input  logic                           tlb_accessed,
+    input  logic                           tlb_page_global,
+    input  logic                           tlb_user,
+    input  logic                           tlb_exec,
+    input  logic                           tlb_write,
+    input  logic                           tlb_read,
+    input  logic                           tlb_valid,
+    input  logic        [   asid_bits-1:0] tlb_asid,
+    input  logic                           tlb_busy,
+    // Cache snoop signals
+    output logic        [            31:2] dcache_address,
+    output logic                           dcache_valid
 );
 
-    logic [31:2] dcache_address;
-    logic        dcache_valid;
-    logic        dcache_busy;
-    logic [31:0] dcache_rdata;
-    logic        dcache_wren;
-    logic [ 3:0] dcache_bytesel;
-    logic [31:0] dcache_wdata;
-    logic        dcache_invalidate;
-    logic        dcache_clean;
-    logic        dcache_phys_valid;
+    logic                dcache_busy;
+    logic         [31:0] dcache_rdata;
+    logic                dcache_wren;
+    logic         [ 3:0] dcache_bytesel;
+    logic         [31:0] dcache_wdata;
+    logic                dcache_invalidate;
+    logic                dcache_clean;
+    logic                dcache_phys_valid;
     // verilator lint_off UNUSED
-    logic [31:2] dcache_phys_in;
-    logic [31:2] dcache_phys_out;
+    logic         [31:2] dcache_phys_in;
+    logic         [31:2] dcache_phys_out;
     // verilator lint_on UNUSED
-    logic        dcache_device_memory;
+    logic                dcache_device_memory;
+    translation_t        lsu_translation;
 
     MemInterface mem_bus ();
 
@@ -93,14 +109,28 @@ module RXVLSUWrapper #(
     );
 
     RXVLSU RXVLSU (
-        .clk        (clk),
-        .reset      (reset),
-        .dcache_phys(dcache_phys_in),
+        .clk         (clk),
+        .reset       (reset),
+        .dcache_phys (dcache_phys_in),
+        .lsu_tlb_busy(tlb_busy),
         .*
     );
 
     always_comb begin
         dcache_device_memory = &dcache_phys_out[31:28];
+    end
+
+    always_comb begin
+        lsu_translation.pa          = tlb_pa;
+        lsu_translation.dirty       = tlb_dirty;
+        lsu_translation.accessed    = tlb_accessed;
+        lsu_translation.page_global = tlb_page_global;
+        lsu_translation.user        = tlb_user;
+        lsu_translation.exec        = tlb_exec;
+        lsu_translation.write       = tlb_write;
+        lsu_translation.read        = tlb_read;
+        lsu_translation.valid       = tlb_valid;
+        lsu_translation.asid        = tlb_asid;
     end
 
 endmodule

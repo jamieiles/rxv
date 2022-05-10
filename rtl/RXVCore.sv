@@ -18,6 +18,7 @@ import RXVCSR::mtvec_t;
 import RXVCSR::mcause_t;
 import RXVCSR::mstatus_t;
 import RXVCSR::privilege_t;
+import RXVMMU::translation_t;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -29,6 +30,8 @@ module RXVCore #(
     parameter int          btb_num_entries        = 256,
     parameter int          btb_tag_bits           = 10,
     parameter int          banked_register_file   = 0,
+    parameter int          num_itlb_entries       = 8,
+    parameter int          num_dtlb_entries       = 8,
     parameter logic [31:0] reset_address          = 32'h80000000,
     parameter logic [31:0] vendorid               = 0,
     parameter logic [31:0] archid                 = 0,
@@ -494,6 +497,8 @@ module RXVCore #(
         .dcache_phys         (lsu_dcache_phys_in),
         .dcache_phys_valid   (lsu_dcache_phys_valid),
         .dcache_device_memory(dcache_device_memory),
+        .lsu_translation     (lsu_translation),
+        .lsu_tlb_busy        (lsu_tlb_busy),
         .lsu_exception       (lsu_exception),
         .lsu_except_id       (lsu_except_id),
         .lsu_busy_kill       (lsu_busy_kill),
@@ -608,6 +613,20 @@ module RXVCore #(
         .invalidate   (dcache_invalidate)
     );
 
+    translation_t        lsu_translation;
+    logic                lsu_tlb_busy;
+    // verilator lint_off UNUSED
+    translation_t        fetch_translation;
+    logic                fetch_tlb_busy;
+    // verilator lint_on UNUSED
+
+    logic         [31:2] mmu_dcache_address;
+    logic                mmu_dcache_valid;
+    logic                mmu_dcache_busy;
+    logic         [31:0] mmu_dcache_rdata;
+    logic         [31:2] mmu_dcache_phys_in;
+    logic                mmu_dcache_phys_valid;
+
     RXVDCacheArb RXVDCacheArb (
         .clk                  (clk),
         .reset                (reset),
@@ -622,14 +641,12 @@ module RXVCore #(
         .lsu_dcache_phys_valid(lsu_dcache_phys_valid),
         .lsu_dcache_invalidate(lsu_dcache_invalidate),
         .lsu_dcache_clean     (lsu_dcache_clean),
-        .mmu_dcache_address   (30'b0),
-        .mmu_dcache_valid     (1'b0),
-        // verilator lint_off PINCONNECTEMPTY
-        .mmu_dcache_busy      (),
-        .mmu_dcache_rdata     (),
-        // verilator lint_on PINCONNECTEMPTY
-        .mmu_dcache_phys_in   (30'b0),
-        .mmu_dcache_phys_valid(1'b0),
+        .mmu_dcache_address   (mmu_dcache_address),
+        .mmu_dcache_valid     (mmu_dcache_valid),
+        .mmu_dcache_busy      (mmu_dcache_busy),
+        .mmu_dcache_rdata     (mmu_dcache_rdata),
+        .mmu_dcache_phys_in   (mmu_dcache_phys_in),
+        .mmu_dcache_phys_valid(mmu_dcache_phys_valid),
         .dcache_address       (dcache_address),
         .dcache_valid         (dcache_valid),
         .dcache_busy          (dcache_busy),
@@ -641,6 +658,35 @@ module RXVCore #(
         .dcache_phys_valid    (dcache_phys_valid),
         .dcache_invalidate    (dcache_invalidate),
         .dcache_clean         (dcache_clean)
+    );
+
+    RXVMMUTop #(
+        .num_d_entries(num_dtlb_entries),
+        .num_i_entries(num_itlb_entries)
+    ) RXVMMUTop (
+        .clk              (clk),
+        .reset            (reset),
+        .translation_base ('b0),
+        .d_va             (lsu_dcache_address[31:12]),
+        .d_valid          (lsu_dcache_valid),
+        .d_enabled        (1'b0),
+        .d_busy           (lsu_tlb_busy),
+        .d_translation    (lsu_translation),
+        .active_asid      ('b0),
+        .tlb_op           (RXVMMU::TLB_INV_NONE),
+        .inv_asid         ('b0),
+        .inv_addr         ('b0),
+        .i_va             (icache_address[31:12]),
+        .i_valid          (icache_valid),
+        .i_enabled        (1'b0),
+        .i_busy           (fetch_tlb_busy),
+        .i_translation    (fetch_translation),
+        .dcache_address   (mmu_dcache_address),
+        .dcache_valid     (mmu_dcache_valid),
+        .dcache_busy      (mmu_dcache_busy),
+        .dcache_rdata     (mmu_dcache_rdata),
+        .dcache_phys_in   (mmu_dcache_phys_in),
+        .dcache_phys_valid(mmu_dcache_phys_valid)
     );
 
     RXVCommitBuffer RXVCommitBuffer (

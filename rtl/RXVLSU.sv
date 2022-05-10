@@ -6,57 +6,63 @@ import RXVTypes::commit_width;
 import RXVCSR::RXVException;
 import RXVTrace::trace_write_mem;
 import RXVTrace::trace_read_mem;
+import RXVMMU::translation_t;
 
 module RXVLSU #(
     parameter line_size_bytes = 16
 ) (
-    input  logic                           clk,
-    input  logic                           reset,
-    input  logic                           icache_busy,
-    output logic                           icache_invalidate,
+    input  logic                            clk,
+    input  logic                            reset,
+    input  logic                            icache_busy,
+    output logic                            icache_invalidate,
     // From decode
-    input  logic                           kill_valid,
-    input  logic                           exec_valid,
-    input  logic                           exec_have_writeback,
-    input  phys_reg_tag                    exec_rd,
-    input  logic        [commit_width-1:0] exec_id,
-    input  logic        [            31:0] op1,
-    input  logic        [            31:0] op2,
-    input  logic        [            31:0] exec_immed,
-    input  logic        [            31:2] exec_pc,
-    input  logic        [            31:2] exec_next_pc,
-    input  rxv_uop                         exec_uop,
+    input  logic                            kill_valid,
+    input  logic                            exec_valid,
+    input  logic                            exec_have_writeback,
+    input  phys_reg_tag                     exec_rd,
+    input  logic         [commit_width-1:0] exec_id,
+    input  logic         [            31:0] op1,
+    input  logic         [            31:0] op2,
+    input  logic         [            31:0] exec_immed,
+    input  logic         [            31:2] exec_pc,
+    input  logic         [            31:2] exec_next_pc,
+    input  rxv_uop                          exec_uop,
     // Decode stall feedback, only set on cache-miss or uncached access where
     // it becomes a variable latency access
-    output logic                           lsu_busy,
+    output logic                            lsu_busy,
     // Result
-    input  logic                           lsu_reg_busy,
-    output phys_reg_tag                    lsu_reg_addr,
-    output logic                           lsu_reg_wr_en,
-    output logic        [            31:0] lsu_reg_wr_data,
-    output logic                           lsu_complete,
-    output logic        [commit_width-1:0] lsu_complete_id,
+    input  logic                            lsu_reg_busy,
+    output phys_reg_tag                     lsu_reg_addr,
+    output logic                            lsu_reg_wr_en,
+    output logic         [            31:0] lsu_reg_wr_data,
+    output logic                            lsu_complete,
+    output logic         [commit_width-1:0] lsu_complete_id,
     // To data cache
-    output logic        [            31:2] dcache_address,
-    output logic                           dcache_valid,
-    input  logic                           dcache_busy,
-    input  logic        [            31:0] dcache_rdata,
-    output logic                           dcache_wren,
-    output logic        [             3:0] dcache_bytesel,
-    output logic        [            31:0] dcache_wdata,
-    output logic                           dcache_invalidate,
-    output logic                           dcache_clean,
-    output logic        [            31:2] dcache_phys,
-    output logic                           dcache_phys_valid,
-    input  logic                           dcache_device_memory,
+    output logic         [            31:2] dcache_address,
+    output logic                            dcache_valid,
+    input  logic                            dcache_busy,
+    input  logic         [            31:0] dcache_rdata,
+    output logic                            dcache_wren,
+    output logic         [             3:0] dcache_bytesel,
+    output logic         [            31:0] dcache_wdata,
+    output logic                            dcache_invalidate,
+    output logic                            dcache_clean,
+    output logic         [            31:2] dcache_phys,
+    output logic                            dcache_phys_valid,
+    input  logic                            dcache_device_memory,
+    // From TLB
+    // verilator lint_off UNUSED
+    input  translation_t                    lsu_translation,
+    // verilator lint_on UNUSED
+    input  logic                            lsu_tlb_busy,
     // Exception handling
-    output RXVException                    lsu_exception,
-    output logic        [commit_width-1:0] lsu_except_id,
-    output logic                           lsu_busy_kill,
-    output logic                           lsu_resteer,
-    output logic        [            31:2] lsu_resteer_tgt,
-    output logic                           global_stall_start,
-    output logic                           global_stall_end
+    output RXVException                     lsu_exception,
+    output logic         [commit_width-1:0] lsu_except_id,
+    output logic                            lsu_busy_kill,
+    output logic                            lsu_resteer,
+    output logic         [            31:2] lsu_resteer_tgt,
+    output logic                            global_stall_start,
+    output logic                            global_stall_end
 );
 
     localparam offset_bits = $clog2(line_size_bytes / 4);
@@ -159,7 +165,7 @@ module RXVLSU #(
     end
 
     always_comb begin
-        lsu_stall = dcache_busy | fencei_pending | dcache_clean | icache_invalidate;
+        lsu_stall = dcache_busy | lsu_tlb_busy | fencei_pending | dcache_clean | icache_invalidate;
     end
 
     always_comb begin
@@ -351,8 +357,8 @@ module RXVLSU #(
 
     always_comb begin
         dcache_wren       = op_stage1.valid & op_stage1.is_store;
-        dcache_phys       = op_stage1.address[31:2];
-        dcache_phys_valid = op_stage1.valid & !is_invalid_amo;
+        dcache_phys       = {lsu_translation.pa, op_stage1.address[11:2]};
+        dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & ~is_invalid_amo;
     end
 
     always_comb begin

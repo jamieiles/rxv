@@ -124,6 +124,7 @@ package RXVCSR;
         logic sie;
         logic tsr;
         logic tw;
+        logic tvm;
     } mstatus_t;
 
     function mstatus_t pack_mstatus;
@@ -134,6 +135,7 @@ package RXVCSR;
         begin
             pack_mstatus.tsr = v[22];
             pack_mstatus.tw  = v[21];
+            pack_mstatus.tvm = v[20];
             pack_mstatus.mpp = v[12:11];
             if (v[12:11] == 2'b10) pack_mstatus.mpp = orig.mpp;
             pack_mstatus.spp  = v[8];
@@ -164,7 +166,8 @@ package RXVCSR;
                 9'b0,
                 v.tsr,
                 v.tw,
-                8'b0,
+                v.tvm,
+                7'b0,
                 v.mpp,
                 2'b0,
                 v.spp,

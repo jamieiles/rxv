@@ -201,6 +201,7 @@ module RXVDecode (
     logic                                system_illegal_instr;
     rxv_uop                              system_uop;
     logic                                system_have_writeback;
+    logic        [                  3:0] system_exec_pipe_en;
 
     logic                                opc_misc_mem;
     logic                                misc_mem_illegal_instr;
@@ -312,11 +313,17 @@ module RXVDecode (
                 exec_immed_next             = u_immed(decode_instr);
             end
             RXVTypes::OPC_SYSTEM: begin
-                exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
-                opc_system = 1'b1;
+                exec_pipe_en    = system_exec_pipe_en;
+                opc_system      = 1'b1;
                 exec_immed_next = u_immed(decode_instr);
                 // Only CSRRW/CSRRS/CSRRC have a source register
-                have_rs1 = (funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011);
+                have_rs1        = (funct3 == 3'b001 || funct3 == 3'b010 || funct3 == 3'b011);
+
+                // SFENCE.VMA has two source operands
+                if (funct7 == 7'b0001001 && funct3 == 3'b000 && rd == 5'b00000) begin
+                    have_rs1 = 1'b1;
+                    have_rs2 = 1'b1;
+                end
             end
             RXVTypes::OPC_MISC_MEM: begin
                 exec_pipe_en[EXEC_PIPE_INT] = funct3 == 3'b000;  // FENCE
@@ -352,8 +359,8 @@ module RXVDecode (
     always_comb begin
         decode_predict_kill         = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
         decode_predict_kill_address = decode_pc;
-        decode_resteer              = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
-        decode_resteer_tgt          = decode_next_pc;
+        decode_resteer = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
+        decode_resteer_tgt = decode_next_pc;
     end
 
     always_comb begin
@@ -636,67 +643,86 @@ module RXVDecode (
         system_uop            = RXVTypes::UOP_ALU;
         system_have_writeback = 1'b0;
         csr_write             = 1'b0;
+        system_exec_pipe_en   = 'b0;
 
         unique case (funct3)
             3'b000: begin
                 unique casez (decode_instr[31:7])
                     25'b0000_0000_0000_0000_0000_0000_0: begin  // ECALL
-                        system_uop           = RXVTypes::UOP_ECALL;
-                        system_illegal_instr = 1'b0;
+                        system_uop                         = RXVTypes::UOP_ECALL;
+                        system_illegal_instr               = 1'b0;
+                        system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
                     end
                     25'b0000_0000_0001_0000_0000_0000_0: begin  // EBREAK
-                        system_uop           = RXVTypes::UOP_EBREAK;
-                        system_illegal_instr = 1'b0;
+                        system_uop                         = RXVTypes::UOP_EBREAK;
+                        system_illegal_instr               = 1'b0;
+                        system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
                     end
                     25'b0001_0000_0010_0000_0000_0000_0: begin  // SRET
-                        system_uop           = RXVTypes::UOP_SRET;
-                        system_illegal_instr = 1'b0;
+                        system_uop                         = RXVTypes::UOP_SRET;
+                        system_illegal_instr               = 1'b0;
+                        system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
 
                         if (mstatus_in.tsr && current_privilege != RXVCSR::PRIV_M)
                             system_illegal_instr = 1'b1;
                     end
                     25'b0011_0000_0010_0000_0000_0000_0: begin  // MRET
-                        system_uop           = RXVTypes::UOP_MRET;
-                        system_illegal_instr = 1'b0;
+                        system_uop                         = RXVTypes::UOP_MRET;
+                        system_illegal_instr               = 1'b0;
+                        system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
 
                         if (current_privilege != RXVCSR::PRIV_M) system_illegal_instr = 1'b1;
                     end
                     25'b0001_0000_0101_0000_0000_0000_0: begin  // WFI
-                        system_illegal_instr = 1'b0;
+                        system_illegal_instr               = 1'b0;
+                        system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                    end
+                    25'b0001_001z_zzzz_zzzz_z000_0000_0: begin  // SFENCE.VMA
+                        system_uop                         = RXVTypes::UOP_SFENCE_VMA;
+                        system_illegal_instr               = 1'b0;
+                        system_exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
+
+                        if (current_privilege == RXVCSR::PRIV_U || mstatus_in.tvm)
+                            system_illegal_instr = 1'b1;
                     end
                     default: system_illegal_instr = 1'b1;
                 endcase
             end
             3'b001: begin  // CSRRW
-                system_uop            = RXVTypes::UOP_CSR;
-                csr_op_next           = RXVTypes::CSR_SWAP;
-                csr_write             = 1'b1;
-                system_have_writeback = 1'b1;
-                system_illegal_instr  = ~valid_csr_in;
+                system_uop                         = RXVTypes::UOP_CSR;
+                system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                csr_op_next                        = RXVTypes::CSR_SWAP;
+                csr_write                          = 1'b1;
+                system_have_writeback              = 1'b1;
+                system_illegal_instr               = ~valid_csr_in;
             end
             3'b010: begin  // CSRRS
-                system_uop            = RXVTypes::UOP_CSR;
-                csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
-                csr_write             = |rs1;
-                system_have_writeback = 1'b1;
-                system_illegal_instr  = ~valid_csr_in;
+                system_uop                         = RXVTypes::UOP_CSR;
+                system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                csr_op_next                        = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
+                csr_write                          = |rs1;
+                system_have_writeback              = 1'b1;
+                system_illegal_instr               = ~valid_csr_in;
             end
             3'b011: begin  // CSRRC
-                system_uop            = RXVTypes::UOP_CSR;
-                csr_op_next           = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
-                csr_write             = |rs1;
+                system_uop = RXVTypes::UOP_CSR;
+                system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                csr_op_next = ~|rs1 ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
+                csr_write = |rs1;
                 system_have_writeback = 1'b1;
-                system_illegal_instr  = ~valid_csr_in;
+                system_illegal_instr = ~valid_csr_in;
             end
             3'b101: begin  // CSRRWI
-                system_uop            = RXVTypes::UOP_CSRI;
-                csr_op_next           = RXVTypes::CSR_SWAP;
-                csr_write             = |rs1;
-                system_have_writeback = 1'b1;
-                system_illegal_instr  = ~valid_csr_in;
+                system_uop                         = RXVTypes::UOP_CSRI;
+                system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
+                csr_op_next                        = RXVTypes::CSR_SWAP;
+                csr_write                          = |rs1;
+                system_have_writeback              = 1'b1;
+                system_illegal_instr               = ~valid_csr_in;
             end
             3'b110: begin  // CSRRSI
                 system_uop = RXVTypes::UOP_CSRI;
+                system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
                 csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_SET;
                 csr_write = |rs1;
                 system_have_writeback = 1'b1;
@@ -704,6 +730,7 @@ module RXVDecode (
             end
             3'b111: begin  // CSRRCI
                 system_uop = RXVTypes::UOP_CSRI;
+                system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
                 csr_op_next = ~|decode_instr[19:15] ? RXVTypes::CSR_READ : RXVTypes::CSR_CLEAR;
                 csr_write = |decode_instr[19:15];
                 system_have_writeback = 1'b1;

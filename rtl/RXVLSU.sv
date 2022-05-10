@@ -118,6 +118,7 @@ module RXVLSU #(
     logic                               is_invalid_amo;
     logic                               is_store;
     logic                               is_fencei;
+    logic                               is_sfence_vma;
     logic        [                 3:0] next_read_mask;
     lsu_op                              op_stage1_next;
     lsu_op                              op_stage1;
@@ -252,24 +253,34 @@ module RXVLSU #(
         unique case (exec_uop)
             RXVTypes::UOP_LB, RXVTypes::UOP_LH, RXVTypes::UOP_LW, RXVTypes::UOP_LW_ATOMIC,
             RXVTypes::UOP_LBU, RXVTypes::UOP_LHU, RXVTypes::UOP_LR: begin
-                is_load   = 1'b1;
-                is_store  = 1'b0;
-                is_fencei = 1'b0;
+                is_load       = 1'b1;
+                is_store      = 1'b0;
+                is_fencei     = 1'b0;
+                is_sfence_vma = 1'b0;
             end
             RXVTypes::UOP_SB, RXVTypes::UOP_SH, RXVTypes::UOP_SW, RXVTypes::UOP_SC: begin
-                is_store  = 1'b1;
-                is_load   = 1'b0;
-                is_fencei = 1'b0;
+                is_store      = 1'b1;
+                is_load       = 1'b0;
+                is_fencei     = 1'b0;
+                is_sfence_vma = 1'b0;
             end
             RXVTypes::UOP_FENCEI: begin
-                is_fencei = 1'b1;
-                is_load   = 1'b0;
-                is_store  = 1'b0;
+                is_fencei     = 1'b1;
+                is_load       = 1'b0;
+                is_store      = 1'b0;
+                is_sfence_vma = 1'b0;
+            end
+            RXVTypes::UOP_SFENCE_VMA: begin
+                is_fencei     = 1'b0;
+                is_load       = 1'b0;
+                is_store      = 1'b0;
+                is_sfence_vma = 1'b1;
             end
             default: begin
-                is_load   = 1'b0;
-                is_store  = 1'b0;
-                is_fencei = 1'b0;
+                is_load       = 1'b0;
+                is_store      = 1'b0;
+                is_fencei     = 1'b0;
+                is_sfence_vma = 1'b0;
             end
         endcase
 
@@ -286,7 +297,7 @@ module RXVLSU #(
         op_stage1_next.id = exec_id;
         op_stage1_next.read_mask = next_read_mask;
         op_stage1_next.addr_offset = address[1:0];
-        op_stage1_next.valid = (((is_load | is_store) & ~is_unaligned) | is_fencei) & valid;
+        op_stage1_next.valid = (((is_load | is_store) & ~is_unaligned) | is_fencei | is_sfence_vma) & valid;
         op_stage1_next.width = width;
         op_stage1_next.is_signed = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
         op_stage1_next.is_sc = exec_uop == RXVTypes::UOP_SC;
@@ -367,8 +378,8 @@ module RXVLSU #(
     end
 
     always_comb begin
-        lsu_resteer_next       = lsu_busy_kill_next | global_stall_end;
-        lsu_resteer_tgt_next   = exec_valid && is_fencei ? exec_next_pc : exec_pc;
+        lsu_resteer_next = lsu_busy_kill_next | global_stall_end | (is_sfence_vma & valid);
+        lsu_resteer_tgt_next = exec_valid && (is_fencei || is_sfence_vma) ? exec_next_pc : exec_pc;
         lsu_resteer_tgt_update = exec_valid && !kill_valid;
     end
 

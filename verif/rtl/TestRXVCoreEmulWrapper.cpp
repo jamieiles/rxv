@@ -1299,3 +1299,17 @@ TEST_F(RXVCoreEmulWrapperTest, SWIRQ)
 
     EXPECT_EQ(tracer->read_reg(2), 0x1880);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, SFENCE_VMA)
+{
+    load(R"objdump(
+        80000000:       12000073                sfence.vma
+        80000004:       00000013                nop
+    )objdump");
+
+    for (int i = 0; i < 4096 && tracer->get_num_instructions() != 2; ++i) {
+        cycle();
+        if (i == 4095)
+            FAIL() << "failed to complete test";
+    }
+}

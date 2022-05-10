@@ -132,7 +132,8 @@ package RXVTypes;
         UOP_DIV,
         UOP_DIVU,
         UOP_REM,
-        UOP_REMU
+        UOP_REMU,
+        UOP_SFENCE_VMA
     } rxv_uop  /* verilator public */;
 
     // verilator lint_off UNUSED

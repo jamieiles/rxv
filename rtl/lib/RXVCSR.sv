@@ -125,6 +125,8 @@ package RXVCSR;
         logic tsr;
         logic tw;
         logic tvm;
+        logic mxr;
+        logic m_sum;
     } mstatus_t;
 
     function mstatus_t pack_mstatus;
@@ -133,10 +135,12 @@ package RXVCSR;
         input mstatus_t orig;
         // verilator lint_on UNUSED
         begin
-            pack_mstatus.tsr = v[22];
-            pack_mstatus.tw  = v[21];
-            pack_mstatus.tvm = v[20];
-            pack_mstatus.mpp = v[12:11];
+            pack_mstatus.tsr   = v[22];
+            pack_mstatus.tw    = v[21];
+            pack_mstatus.tvm   = v[20];
+            pack_mstatus.mxr   = v[19];
+            pack_mstatus.m_sum = v[18];
+            pack_mstatus.mpp   = v[12:11];
             if (v[12:11] == 2'b10) pack_mstatus.mpp = orig.mpp;
             pack_mstatus.spp  = v[8];
             pack_mstatus.mpie = v[7];
@@ -152,10 +156,12 @@ package RXVCSR;
         input mstatus_t orig;
         // verilator lint_on UNUSED
         begin
-            pack_sstatus      = orig;
-            pack_sstatus.spp  = v[8];
-            pack_sstatus.spie = v[5];
-            pack_sstatus.sie  = v[1];
+            pack_sstatus       = orig;
+            pack_sstatus.mxr   = v[19];
+            pack_sstatus.m_sum = v[18];
+            pack_sstatus.spp   = v[8];
+            pack_sstatus.spie  = v[5];
+            pack_sstatus.sie   = v[1];
         end
     endfunction
 
@@ -167,7 +173,9 @@ package RXVCSR;
                 v.tsr,
                 v.tw,
                 v.tvm,
-                7'b0,
+                v.mxr,
+                v.m_sum,
+                5'b0,
                 v.mpp,
                 2'b0,
                 v.spp,
@@ -188,7 +196,7 @@ package RXVCSR;
         input mstatus_t v;
         // verilator lint_on UNUSED
         begin
-            unpack_sstatus = {23'b0, v.spp, 2'b0, v.spie, 3'b0, v.sie, 1'b0};
+            unpack_sstatus = {12'b0, v.mxr, v.m_sum, 9'b0, v.spp, 2'b0, v.spie, 3'b0, v.sie, 1'b0};
         end
     endfunction
 

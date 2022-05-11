@@ -58,6 +58,7 @@ module RXVTLB #(
     translation_t                   bypass_translation;
     state_t                         state;
     state_t                         next_state;
+    logic translation_update;
 
     TLBPLRU #(
         .width(num_entries)
@@ -179,6 +180,8 @@ module RXVTLB #(
         end
 
         translation_next |= {$bits(translation_next) {~enabled & valid}} & bypass_translation;
+
+        translation_update = hit | valid;
     end
 
     always_comb begin
@@ -239,7 +242,7 @@ module RXVTLB #(
     ) translation_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (hit),
+        .en   (translation_update),
         .d    (translation_next),
         .q    (translation)
     );

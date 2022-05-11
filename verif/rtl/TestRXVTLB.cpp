@@ -287,3 +287,21 @@ TEST_F(TLBTestbench, NoGrantStalls)
         cycle();
     EXPECT_FALSE(this->dut.busy);
 }
+
+TEST_F(TLBTestbench, ValidClearsLast)
+{
+    enable();
+
+    set_page_at(0xc0004000, 0x80012000, pte_read | pte_write | pte_user);
+
+    translate(0xc0004000);
+    after_n_cycles(0, [&] {
+        this->dut.va = 0;
+        this->dut.valid = 1;
+        after_n_cycles(1, [&] { this->dut.valid = 0; });
+    });
+    cycle(2);
+
+    EXPECT_EQ(this->dut.translation, 0);
+    EXPECT_TRUE(this->dut.busy);
+}

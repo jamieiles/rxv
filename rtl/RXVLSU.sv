@@ -114,6 +114,9 @@ module RXVLSU #(
         logic is_amo;
         logic reservation_held;
         logic [31:0] address;
+`ifdef RXV_TRACE
+        logic [31:0] store_data;
+`endif
     } lsu_op;
 
     // Stage 1:
@@ -325,6 +328,9 @@ module RXVLSU #(
         op_stage1_next.reservation_held = reservation_matches;
         op_stage1_next.address = address;
         op_stage1_next.is_amo = (exec_uop == RXVTypes::UOP_LW_ATOMIC || exec_uop == RXVTypes::UOP_LR || exec_uop == RXVTypes::UOP_SC);
+`ifdef RXV_TRACE
+        op_stage1_next.store_data = op2;
+`endif
     end
 
     always_comb begin
@@ -407,14 +413,15 @@ module RXVLSU #(
     always_ff @(posedge clk) begin
         int size;
 
-        if (valid && !is_unaligned && is_store) begin
-            unique case (exec_uop)
-                RXVTypes::UOP_SB: size = 1;
-                RXVTypes::UOP_SH: size = 2;
-                RXVTypes::UOP_SW: size = 4;
-                default: size = 4;
+        if (lsu_complete_next && op_stage2.is_store) begin
+            unique case (op_stage2.width)
+                WIDTH_8:  size = 1;
+                WIDTH_16: size = 2;
+                WIDTH_32: size = 4;
+                default:  size = 4;
             endcase
-            if (dcache_valid) trace_write_mem(32'(exec_id), address, address, op2, size);
+            trace_write_mem(32'(op_stage2.id), op_stage2.address, op_stage2.address,
+                            op_stage2.store_data, size);
         end
 
         if (lsu_complete_next && lsu_reg_wr_en_next && !op_stage2.is_sc) begin

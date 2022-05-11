@@ -486,6 +486,16 @@ module RXVCSRFile #(
     );
 
 `ifdef verilator
+    RXVAssert #(
+        .message("exception lowers privilege level")
+    ) no_exception_to_lower_level (
+        .clk      (clk),
+        .en       (exception_write),
+        .condition(!(current_privilege == RXVCSR::PRIV_M && next_privilege == RXVCSR::PRIV_S))
+    );
+`endif
+
+`ifdef verilator
     logic [commit_width-1:0] except_id;
     logic [commit_width-1:0] writer_id;
 

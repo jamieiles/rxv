@@ -570,6 +570,29 @@ package RXVCSR;
     endfunction
 
     typedef struct packed {
+        logic mode;
+        logic [8:0] asid;
+        logic [21:0] ppn;
+    } satp_t;
+
+    function satp_t pack_satp;
+        input logic [31:0] v;
+
+        begin
+            pack_satp.mode = v[31];
+            pack_satp.asid = v[30:22];
+            pack_satp.ppn  = v[21:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_satp;
+        input satp_t v;
+        begin
+            unpack_satp = {v.mode, v.asid, v.ppn};
+        end
+    endfunction
+
+    typedef struct packed {
         logic s_sw;
         logic s_timer;
         logic s_ext;

@@ -10,6 +10,7 @@ import RXVCSR::mcause_t;
 import RXVCSR::scause_t;
 import RXVCSR::mtval_t;
 import RXVCSR::stval_t;
+import RXVCSR::satp_t;
 import RXVCSR::mie_t;
 import RXVCSR::mip_t;
 import RXVCSR::medeleg_t;
@@ -46,6 +47,8 @@ import RXVCSR::pack_medeleg;
 import RXVCSR::unpack_medeleg;
 import RXVCSR::pack_mideleg;
 import RXVCSR::unpack_mideleg;
+import RXVCSR::pack_satp;
+import RXVCSR::unpack_satp;
 import RXVCSR::RXVException;
 import RXVCSR::MINT_id;
 import RXVCSR::mtvec_dest;
@@ -146,6 +149,8 @@ module RXVCSRFile #(
     logic               medeleg_wren;
     mideleg_t           mideleg_reg;
     logic               mideleg_wren;
+    satp_t              satp_reg;
+    logic               satp_wren;
 
     logic               exception_write;
     mepc_t              mepc_next;
@@ -161,6 +166,7 @@ module RXVCSRFile #(
     mip_t               mip_next;
     medeleg_t           medeleg_next;
     mideleg_t           mideleg_next;
+    satp_t              satp_next;
 
     RXVException        exception;
     RXVException        irq_exception;
@@ -263,6 +269,7 @@ module RXVCSRFile #(
             RXVCSR::CSR_MIP: rd_data_next = unpack_mip(mip_reg);
             RXVCSR::CSR_SIP: rd_data_next = unpack_sip(mip_reg);
             RXVCSR::CSR_SSCRATCH: rd_data_next = sscratch;
+            RXVCSR::CSR_SATP: rd_data_next = unpack_satp(satp_reg);
             RXVCSR::CSR_UCYCLE: rd_data_next = pmu_cycles[31:0];
             RXVCSR::CSR_UCYCLEH: rd_data_next = pmu_cycles[63:32];
             RXVCSR::CSR_MCYCLE: rd_data_next = pmu_cycles[31:0];
@@ -290,6 +297,7 @@ module RXVCSRFile #(
         mip_wren = wr_en && wr_addr == RXVCSR::CSR_MIP;
         sie_wren = wr_en && wr_addr == RXVCSR::CSR_SIE;
         sip_wren = wr_en && wr_addr == RXVCSR::CSR_SIP;
+        satp_wren = wr_en && wr_addr == RXVCSR::CSR_SATP;
         medeleg_wren = wr_en && wr_addr == RXVCSR::CSR_MEDELEG;
         mideleg_wren = wr_en && wr_addr == RXVCSR::CSR_MIDELEG;
         mstatus_wren  = (exception_write && exception_target_level == RXVCSR::PRIV_M) ||
@@ -354,6 +362,10 @@ module RXVCSRFile #(
         stval_next = pack_stval(wr_data);
         if (exception_write && exception_target_level == RXVCSR::PRIV_S)
             stval_next.val = exception.val;
+    end
+
+    always_comb begin
+        satp_next = pack_satp(wr_data);
     end
 
     always_comb begin
@@ -541,6 +553,7 @@ module RXVCSRFile #(
         if (sepc_wren) trace_write_csr(trace_id, RXVCSR::CSR_SEPC, unpack_sepc(sepc_next));
         if (sstatus_wren)
             trace_write_csr(trace_id, RXVCSR::CSR_SSTATUS, unpack_sstatus(mstatus_next));
+        if (satp_wren) trace_write_csr(trace_id, RXVCSR::CSR_SATP, unpack_satp(satp_next));
     end
 `endif  // verilator
 
@@ -702,6 +715,16 @@ module RXVCSRFile #(
         .en   (mideleg_wren),
         .d    (mideleg_next),
         .q    (mideleg_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(satp_reg))
+    ) satp_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (satp_wren),
+        .d    (satp_next),
+        .q    (satp_reg)
     );
 
     RXVDFF irq_pending_dff (

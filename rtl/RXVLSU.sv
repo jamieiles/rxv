@@ -116,6 +116,7 @@ module RXVLSU #(
         logic [31:0] address;
 `ifdef RXV_TRACE
         logic [31:0] store_data;
+        logic [31:12] phys;
 `endif
     } lsu_op;
 
@@ -330,11 +331,15 @@ module RXVLSU #(
         op_stage1_next.is_amo = (exec_uop == RXVTypes::UOP_LW_ATOMIC || exec_uop == RXVTypes::UOP_LR || exec_uop == RXVTypes::UOP_SC);
 `ifdef RXV_TRACE
         op_stage1_next.store_data = op2;
-`endif
+        op_stage1_next.phys       = 20'b0;
+`endif  // RXV_TRACE
     end
 
     always_comb begin
         op_stage2_next = op_stage1;
+`ifdef RXV_TRACE
+        op_stage2_next.phys = lsu_translation.pa[31:12];
+`endif  // RXV_TRACE
         if (lsu_stall) op_stage2_next = 'b0;
     end
 
@@ -420,8 +425,8 @@ module RXVLSU #(
                 WIDTH_32: size = 4;
                 default:  size = 4;
             endcase
-            trace_write_mem(32'(op_stage2.id), op_stage2.address, op_stage2.address,
-                            op_stage2.store_data, size);
+            trace_write_mem(32'(op_stage2.id), op_stage2.address, {
+                            op_stage2.phys, op_stage2.address[11:0]}, op_stage2.store_data, size);
         end
 
         if (lsu_complete_next && lsu_reg_wr_en_next && !op_stage2.is_sc) begin
@@ -431,7 +436,9 @@ module RXVLSU #(
                 WIDTH_32: size = 4;
                 default:  size = 4;
             endcase
-            trace_read_mem(32'(op_stage2.id), op_stage2.address, op_stage2.address,
+            trace_read_mem(32'(op_stage2.id), op_stage2.address, {
+                           op_stage2.phys, op_stage2.address[11:0]
+                           },
                            lsu_reg_wr_data_next, size);
         end
     end

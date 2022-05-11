@@ -70,6 +70,7 @@ module RXVDecode (
     output logic                              schedule_div,
     input  logic                              div_ready,
     input  logic                              lsu_busy,
+    input logic mmu_busy,
     input  logic                              div_exec_busy,
     // To renamer
     output renamed_reg                        rename_out,
@@ -833,7 +834,7 @@ module RXVDecode (
         logic mul_stall;
         logic div_stall;
 
-        lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy);
+        lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy || mmu_busy);
         int_stall = exec_pipe_en[EXEC_PIPE_INT] && !int_ready;
         mul_stall = exec_pipe_en[EXEC_PIPE_MUL] && !mul_ready;
         // Divider isn't pipelined so busy may not yet be raised, check if

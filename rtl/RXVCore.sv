@@ -261,6 +261,7 @@ module RXVCore #(
     logic          [             31:0] mmu_dcache_rdata;
     logic          [             31:2] mmu_dcache_phys_in;
     logic                              mmu_dcache_phys_valid;
+    logic                              mmu_busy;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -371,6 +372,7 @@ module RXVCore #(
         .schedule_mul               (schedule_mul),
         .schedule_div               (schedule_div),
         .lsu_busy                   (lsu_busy),
+        .mmu_busy                   (mmu_busy),
         .div_exec_busy              (div_exec_busy),
         .rename_out                 (rename_in),
         .rename_out_valid           (rename_valid),
@@ -840,6 +842,10 @@ module RXVCore #(
         end
 
         lsu_reg_busy = int_exec_reg_wr_en;
+    end
+
+    always_comb begin
+        mmu_busy = lsu_tlb_busy | fetch_tlb_busy;
     end
 
     RXVAssert no_simultaneous_writeback (

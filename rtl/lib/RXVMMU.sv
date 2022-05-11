@@ -1,7 +1,7 @@
 package RXVMMU;
 
     // verilator lint_off UNUSED
-    localparam integer asid_bits = 5;
+    localparam integer asid_bits = 9;
     // verilator lint_on UNUSED
 
     typedef struct packed {

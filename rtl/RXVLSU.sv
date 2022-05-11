@@ -7,6 +7,8 @@ import RXVCSR::RXVException;
 import RXVTrace::trace_write_mem;
 import RXVTrace::trace_read_mem;
 import RXVMMU::translation_t;
+import RXVMMU::tlb_inv_op;
+import RXVMMU::asid_bits;
 
 module RXVLSU #(
     parameter line_size_bytes = 16
@@ -55,6 +57,9 @@ module RXVLSU #(
     input  translation_t                    lsu_translation,
     // verilator lint_on UNUSED
     input  logic                            lsu_tlb_busy,
+    output tlb_inv_op                       lsu_tlb_inv_op,
+    output logic         [   asid_bits-1:0] lsu_tlb_inv_asid,
+    output logic         [           31:12] lsu_tlb_inv_addr,
     // Exception handling
     output RXVException                     lsu_exception,
     output logic         [commit_width-1:0] lsu_except_id,
@@ -67,6 +72,20 @@ module RXVLSU #(
 
     localparam offset_bits = $clog2(line_size_bytes / 4);
     localparam reservation_bits = 30 - offset_bits;
+
+    always_comb begin
+        unique case ({
+            valid, exec_uop
+        })
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ALL} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ALL;
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ONLY;
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ADDR_ONLY;
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ADDR;
+            default: lsu_tlb_inv_op = RXVMMU::TLB_INV_NONE;
+        endcase
+        lsu_tlb_inv_addr = op2[31:12];
+        lsu_tlb_inv_asid = op1[asid_bits-1:0];
+    end
 
     // verilator lint_off UNUSED
     function [reservation_bits-1:0] get_reservation_addr;
@@ -270,7 +289,8 @@ module RXVLSU #(
                 is_store      = 1'b0;
                 is_sfence_vma = 1'b0;
             end
-            RXVTypes::UOP_SFENCE_VMA: begin
+            RXVTypes::UOP_SFENCE_VMA_ALL, RXVTypes::UOP_SFENCE_VMA_ASID,
+            RXVTypes::UOP_SFENCE_VMA_ADDR, RXVTypes::UOP_SFENCE_VMA_ASID_ADDR: begin
                 is_fencei     = 1'b0;
                 is_load       = 1'b0;
                 is_store      = 1'b0;

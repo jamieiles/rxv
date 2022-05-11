@@ -133,7 +133,10 @@ package RXVTypes;
         UOP_DIVU,
         UOP_REM,
         UOP_REMU,
-        UOP_SFENCE_VMA
+        UOP_SFENCE_VMA_ALL,
+        UOP_SFENCE_VMA_ASID,
+        UOP_SFENCE_VMA_ADDR,
+        UOP_SFENCE_VMA_ASID_ADDR
     } rxv_uop  /* verilator public */;
 
     // verilator lint_off UNUSED

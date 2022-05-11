@@ -678,7 +678,15 @@ module RXVDecode (
                         system_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
                     end
                     25'b0001_001z_zzzz_zzzz_z000_0000_0: begin  // SFENCE.VMA
-                        system_uop                         = RXVTypes::UOP_SFENCE_VMA;
+                        priority casez ({
+                            rs1, rs2
+                        })
+                            10'b00000_00000: system_uop = RXVTypes::UOP_SFENCE_VMA_ALL;
+                            10'b00000_zzzzz: system_uop = RXVTypes::UOP_SFENCE_VMA_ASID;
+                            10'bzzzzz_00000: system_uop = RXVTypes::UOP_SFENCE_VMA_ADDR;
+                            10'bzzzzz_zzzzz: system_uop = RXVTypes::UOP_SFENCE_VMA_ASID_ADDR;
+                            default: system_uop = RXVTypes::UOP_SFENCE_VMA_ALL;
+                        endcase
                         system_illegal_instr               = 1'b0;
                         system_exec_pipe_en[EXEC_PIPE_LSU] = 1'b1;
 

@@ -6,6 +6,7 @@ import RXVTypes::commit_width;
 import RXVCSR::RXVException;
 import RXVMMU::translation_t;
 import RXVMMU::asid_bits;
+import RXVMMU::tlb_inv_op;
 
 module RXVLSUWrapper #(
     parameter nr_lines        = 4,
@@ -58,6 +59,9 @@ module RXVLSUWrapper #(
     input  logic                           tlb_valid,
     input  logic        [   asid_bits-1:0] tlb_asid,
     input  logic                           tlb_busy,
+    output tlb_inv_op                      lsu_tlb_inv_op,
+    output logic        [   asid_bits-1:0] lsu_tlb_inv_asid,
+    output logic        [           31:12] lsu_tlb_inv_addr,
     // Cache snoop signals
     output logic        [            31:2] dcache_address,
     output logic                           dcache_valid

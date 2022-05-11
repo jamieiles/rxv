@@ -19,6 +19,8 @@ import RXVCSR::mcause_t;
 import RXVCSR::mstatus_t;
 import RXVCSR::privilege_t;
 import RXVMMU::translation_t;
+import RXVMMU::tlb_inv_op;
+import RXVMMU::asid_bits;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -175,6 +177,9 @@ module RXVCore #(
     logic                              lsu_dcache_clean;
     translation_t                      lsu_translation;
     logic                              lsu_tlb_busy;
+    tlb_inv_op                         lsu_tlb_inv_op;
+    logic          [    asid_bits-1:0] lsu_tlb_inv_asid;
+    logic          [            31:12] lsu_tlb_inv_addr;
 
     phys_reg_tag                       rd_addr_a;
     phys_reg_tag                       rd_addr_b;
@@ -520,6 +525,9 @@ module RXVCore #(
         .dcache_device_memory(dcache_device_memory),
         .lsu_translation     (lsu_translation),
         .lsu_tlb_busy        (lsu_tlb_busy),
+        .lsu_tlb_inv_op      (lsu_tlb_inv_op),
+        .lsu_tlb_inv_asid    (lsu_tlb_inv_asid),
+        .lsu_tlb_inv_addr    (lsu_tlb_inv_addr),
         .lsu_exception       (lsu_exception),
         .lsu_except_id       (lsu_except_id),
         .lsu_busy_kill       (lsu_busy_kill),
@@ -680,9 +688,9 @@ module RXVCore #(
         .d_busy           (lsu_tlb_busy),
         .d_translation    (lsu_translation),
         .active_asid      ('b0),
-        .tlb_op           (RXVMMU::TLB_INV_NONE),
-        .inv_asid         ('b0),
-        .inv_addr         ('b0),
+        .tlb_op           (lsu_tlb_inv_op),
+        .inv_asid         (lsu_tlb_inv_asid),
+        .inv_addr         (lsu_tlb_inv_addr),
         .i_va             (icache_address[31:12]),
         .i_valid          (fetch_tlb_valid),
         .i_enabled        (1'b0),

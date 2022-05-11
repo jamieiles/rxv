@@ -5,47 +5,50 @@ import RXVMMU::translation_t;
 module RXVFetch #(
     parameter logic [31:0] reset_address = 32'h80000000
 ) (
-    input  logic                 clk,
-    input  logic                 reset,
-    input  logic                 except_valid,
-    input  logic                 exception_pending,
-    input  logic                 global_stall_active,
-    input  logic                 irq_pending,
-    output logic                 fetch_idle,
-    output logic          [31:2] irq_epc,
+    input  logic                  clk,
+    input  logic                  reset,
+    input  logic                  except_valid,
+    input  logic                  exception_pending,
+    input  logic                  global_stall_active,
+    input  logic                  irq_pending,
+    output logic                  fetch_idle,
+    output logic          [ 31:2] irq_epc,
     // To instruction cache
-    output logic          [31:2] icache_address,
-    output logic                 icache_valid,
-    input  logic                 icache_busy,
-    input  logic          [31:0] icache_instr,
+    output logic          [ 31:2] icache_address,
+    output logic                  icache_valid,
+    input  logic                  icache_busy,
+    input  logic          [ 31:0] icache_instr,
     // From instruction TLB
-    output logic                 fetch_tlb_valid,
-    output logic          [31:2] icache_phys,
-    output logic                 icache_phys_valid,
+    output logic                  fetch_tlb_valid,
+    output logic          [ 31:2] icache_phys,
+    output logic                  icache_phys_valid,
     // verilator lint_off UNUSED
-    input  translation_t         fetch_translation,
+    input  translation_t          fetch_translation,
     // verilator lint_on UNUSED
-    input  logic                 fetch_tlb_busy,
+    input  logic                  fetch_tlb_busy,
     // To branch predictor
-    output logic          [31:2] branch_predict_address,
-    input  rxv_prediction        prediction,
+    output logic          [ 31:2] branch_predict_address,
+    input  rxv_prediction         prediction,
     // Decode resteer
-    input  logic                 decode_resteer,
-    input  logic          [31:2] decode_resteer_tgt,
+    input  logic                  decode_resteer,
+    input  logic          [ 31:2] decode_resteer_tgt,
     // Decode front-end stall
-    input  logic                 decode_fe_stall,
+    input  logic                  decode_fe_stall,
     // To decode
-    output logic                 decode_valid,
-    output logic          [31:2] decode_pc,
-    output logic          [31:2] decode_next_pc,
-    output logic          [31:0] decode_instr,
-    output rxv_prediction        decode_prediction,
+    output logic                  decode_valid,
+    output logic          [ 31:2] decode_pc,
+`ifdef RXV_TRACE
+    output logic          [31:12] decode_phys,
+`endif  // RXV_TRACE
+    output logic          [ 31:2] decode_next_pc,
+    output logic          [ 31:0] decode_instr,
+    output rxv_prediction         decode_prediction,
     // Exec branch resolution
-    input  logic                 exec_resteer,
-    input  logic          [31:2] exec_resteer_tgt,
+    input  logic                  exec_resteer,
+    input  logic          [ 31:2] exec_resteer_tgt,
     // Exception
-    input  logic                 exception_resteer,
-    input  logic          [31:2] exception_resteer_tgt
+    input  logic                  exception_resteer,
+    input  logic          [ 31:2] exception_resteer_tgt
 );
 
     typedef struct packed {
@@ -53,6 +56,9 @@ module RXVFetch #(
         logic [31:2]   next_pc;
         logic [31:0]   instr;
         rxv_prediction prediction;
+`ifdef RXV_TRACE
+        logic [31:12]  phys;
+`endif  // RXV_TRACE
     } fetch_packet;
 
     /*
@@ -132,12 +138,21 @@ module RXVFetch #(
         .condition(!(prefetch_full && prefetch_wr_en))
     );
 
+    RXVAssert prefetch_phys_offset (
+        .clk      (clk),
+        .en       (prefetch_wr_en),
+        .condition(fetched_pc[11:2] == icache_phys[11:2])
+    );
+
     always_comb begin
         decode_valid      = ~prefetch_empty;
         decode_pc         = prefetch_packet_out.pc;
         decode_next_pc    = prefetch_packet_out.next_pc;
         decode_instr      = prefetch_packet_out.instr;
         decode_prediction = prefetch_packet_out.prediction;
+`ifdef RXV_TRACE
+        decode_phys = prefetch_packet_out.phys;
+`endif  // RXV_TRACE
     end
 
     always_comb begin
@@ -145,6 +160,9 @@ module RXVFetch #(
         prefetch_packet_in.next_pc    = next_seq_pc_reg;
         prefetch_packet_in.instr      = icache_instr;
         prefetch_packet_in.prediction = prediction_reg;
+`ifdef RXV_TRACE
+        prefetch_packet_in.phys = icache_phys[31:12];
+`endif  // RXV_TRACE
     end
 
     always_comb begin

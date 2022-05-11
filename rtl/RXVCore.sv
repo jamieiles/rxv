@@ -263,6 +263,10 @@ module RXVCore #(
     logic                              mmu_dcache_phys_valid;
     logic                              mmu_busy;
 
+`ifdef RXV_TRACE
+    logic [31:12] decode_phys;
+`endif  // RXV_TRACE
+
     RXVICache #(
         .nr_lines       (icache_nr_lines),
         .nr_ways        (icache_nr_ways),
@@ -324,6 +328,9 @@ module RXVCore #(
         .decode_fe_stall       (decode_fe_stall),
         .decode_valid          (decode_valid),
         .decode_pc             (decode_pc),
+`ifdef RXV_TRACE
+        .decode_phys           (decode_phys),
+`endif  // RXV_TRACE
         .decode_next_pc        (decode_next_pc),
         .decode_prediction     (decode_prediction),
         .decode_instr          (decode_instr),
@@ -339,6 +346,9 @@ module RXVCore #(
         .current_privilege          (current_privilege),
         .decode_valid               (decode_valid),
         .decode_pc                  (decode_pc),
+`ifdef RXV_TRACE
+        .decode_phys(decode_phys),
+`endif // RXV_TRACE
         .decode_next_pc             (decode_next_pc),
         .decode_prediction          (decode_prediction),
         .decode_instr               (decode_instr),

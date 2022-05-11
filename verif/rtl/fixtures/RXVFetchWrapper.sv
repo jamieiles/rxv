@@ -48,6 +48,9 @@ module RXVFetchWrapper #(
     // To decode
     output logic                 decode_valid,
     output logic [         31:2] decode_pc,
+`ifdef RXV_TRACE
+    output logic [         31:2] decode_phys,
+`endif // RXV_TRACE
     output logic [         31:2] decode_next_pc,
     output logic [         31:0] decode_instr,
     output logic                 decode_predicted,

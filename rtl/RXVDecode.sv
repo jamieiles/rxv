@@ -29,6 +29,9 @@ module RXVDecode (
     input  privilege_t                        current_privilege,
     input  logic                              decode_valid,
     input  logic          [             31:2] decode_pc,
+`ifdef RXV_TRACE
+    input  logic          [            31:12] decode_phys,
+`endif  // RXV_TRACE
     input  logic          [             31:2] decode_next_pc,
     input  rxv_prediction                     decode_prediction,
     input  logic          [             31:0] decode_instr,
@@ -70,7 +73,7 @@ module RXVDecode (
     output logic                              schedule_div,
     input  logic                              div_ready,
     input  logic                              lsu_busy,
-    input logic mmu_busy,
+    input  logic                              mmu_busy,
     input  logic                              div_exec_busy,
     // To renamer
     output renamed_reg                        rename_out,
@@ -1218,18 +1221,20 @@ module RXVDecode (
         .q    (amo_parent)
     );
 
+`ifdef RXV_TRACE
     always_ff @(posedge clk) begin
         if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx == 'b0) begin
-            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr,
-                                    current_privilege);
+            trace_start_instruction(32'(dispatch_id), decode_pc, {decode_phys, decode_pc[11:2]},
+                                    decode_instr, current_privilege);
         end else if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx != 'b0) begin
             trace_uop(32'(amo_parent), 32'(dispatch_id));
         end
 
         if (decode_valid && decode_exception_next.valid) begin
-            trace_start_instruction(32'(dispatch_id), decode_pc, decode_pc, decode_instr,
-                                    current_privilege);
+            trace_start_instruction(32'(dispatch_id), decode_pc, {decode_phys, decode_pc[11:2]},
+                                    decode_instr, current_privilege);
         end
     end
+`endif  // RXV_TRACE
 
 endmodule

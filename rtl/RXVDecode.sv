@@ -566,7 +566,7 @@ module RXVDecode (
                     2'b01: begin
                         amo_uop                         = RXVTypes::UOP_ALU;
                         amo_exec_pipe_en[EXEC_PIPE_INT] = 1'b1;
-                        amo_rs1_is_dst                  = amo_opc_valid;
+                        amo_rs1_is_dst                  = 1'b1;
                         amo_alloc_tmp_reg               = 1'b1;
                         amo_uop_wb                      = 1'b1;
                     end

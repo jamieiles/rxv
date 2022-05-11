@@ -417,6 +417,7 @@ module RXVCSRFile #(
     end
 
     always_comb begin
+        // verilog_format: off
         unique case (rd_addr)
             // Debug
             RXVCSR::CSR_TSELECT, RXVCSR::CSR_TDATA1, RXVCSR::CSR_TDATA2, RXVCSR::CSR_TDATA3,
@@ -431,12 +432,17 @@ module RXVCSRFile #(
             // Supervisor
             RXVCSR::CSR_SSTATUS, RXVCSR::CSR_SEDELEG, RXVCSR::CSR_SIDELEG, RXVCSR::CSR_SIE,
             RXVCSR::CSR_SIP, RXVCSR::CSR_STVEC, RXVCSR::CSR_SCOUNTEREN, RXVCSR::CSR_SSCRATCH,
-            RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL, RXVCSR::CSR_SATP,
+            RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL,
             // User
             RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH:
-            valid_csr_out = 1'b1;
+                valid_csr_out = 1'b1;
+            // SATP special case for TVM
+            RXVCSR::CSR_SATP:
+                valid_csr_out = current_privilege == RXVCSR::PRIV_M ||
+                    (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
             default: valid_csr_out = 1'b0;
         endcase
+        // verilog_format: on
 
         if (current_privilege == RXVCSR::PRIV_S && rd_addr[9:8] == 2'b11) valid_csr_out = 1'b0;
         if (current_privilege == RXVCSR::PRIV_U && rd_addr[9:8] != 2'b00) valid_csr_out = 1'b0;

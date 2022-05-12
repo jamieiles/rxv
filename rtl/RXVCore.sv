@@ -736,6 +736,7 @@ module RXVCore #(
         .except_id          (except_id),
         .except_valid       (except_valid),
         .exception_pending  (exception_pending),
+        .exception_resteer  (exception_resteer),
         .empty              (commit_empty),
         .commit_out         (commit_out),
         .commit_complete_out(commit_complete_out),
@@ -788,6 +789,7 @@ module RXVCore #(
         .commit_rename_rollback(rename_rollback),
         .commit_reg_push       (reg_free),
         .commit_reg_reg        (reg_free_phys),
+        .exception_pending  (exception_pending),
         .exception_resteer     (exception_resteer)
     );
 

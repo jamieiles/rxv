@@ -29,6 +29,7 @@ module RXVCommitBuffer (
     input  logic        [commit_width-1:0] except_id,
     input  logic                           except_valid,
     output logic                           exception_pending,
+    input  logic                           exception_resteer,
     // Retirement
     output logic                           empty,
     output commit_entry                    commit_out,
@@ -142,7 +143,7 @@ module RXVCommitBuffer (
 
     always_comb begin
         exception_pending_next = exception_pending;
-        if (commit_excepted_out && commit_valid) exception_pending_next = 1'b0;
+        if (exception_resteer) exception_pending_next = 1'b0;
         if (except_valid) exception_pending_next = 1'b1;
     end
 

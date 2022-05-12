@@ -73,20 +73,6 @@ module RXVLSU #(
     localparam offset_bits = $clog2(line_size_bytes / 4);
     localparam reservation_bits = 30 - offset_bits;
 
-    always_comb begin
-        unique case ({
-            valid, exec_uop
-        })
-            {1'b1, RXVTypes::UOP_SFENCE_VMA_ALL} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ALL;
-            {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ONLY;
-            {1'b1, RXVTypes::UOP_SFENCE_VMA_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ADDR_ONLY;
-            {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ADDR;
-            default: lsu_tlb_inv_op = RXVMMU::TLB_INV_NONE;
-        endcase
-        lsu_tlb_inv_addr = op2[31:12];
-        lsu_tlb_inv_asid = op1[asid_bits-1:0];
-    end
-
     // verilator lint_off UNUSED
     function [reservation_bits-1:0] get_reservation_addr;
         input [31:2] address_in;
@@ -179,6 +165,20 @@ module RXVLSU #(
     logic                               reservation_held;
     logic                               reservation_held_next;
     logic                               reservation_matches;
+
+    always_comb begin
+        unique case ({
+            valid, exec_uop
+        })
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ALL} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ALL;
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ONLY;
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ADDR_ONLY;
+            {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ADDR;
+            default: lsu_tlb_inv_op = RXVMMU::TLB_INV_NONE;
+        endcase
+        lsu_tlb_inv_addr = op2[31:12];
+        lsu_tlb_inv_asid = op1[asid_bits-1:0];
+    end
 
     always_comb begin
         dcache_invalidate = 1'b0;

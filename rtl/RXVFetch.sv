@@ -196,7 +196,9 @@ module RXVFetch #(
     end
 
     always_comb begin
-        icache_valid_next = ~prefetch_nearly_full & ~global_stall_active & ~exception_pending & ~except_valid & ~irq_pending;
+        icache_valid_next = ~prefetch_nearly_full & ~global_stall_active &
+            ~exception_pending & ~except_valid & ~irq_pending &
+            ~fetch_tlb_busy & ~icache_busy;
     end
 
     always_comb begin

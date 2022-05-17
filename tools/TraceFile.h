@@ -34,7 +34,7 @@ public:
         if (fstat(fd, &statbuf))
             err(1, "failed to stat %s", filename.c_str());
 
-        loff_t fileoff = lseek(fd, 0, SEEK_CUR);
+        off64_t fileoff = lseek64(fd, 0, SEEK_CUR);
 
         return fileoff == statbuf.st_size;
     }

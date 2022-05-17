@@ -177,6 +177,7 @@ module RXVCSRFile #(
 
     privilege_t         next_privilege;
     privilege_t         exception_target_level;
+    logic               exception_has_val;
 
     logic        [31:0] active_s_irqs;
     logic        [31:0] active_m_irqs;
@@ -293,6 +294,14 @@ module RXVCSRFile #(
     end
 
     always_comb begin
+        unique case (exception.cause)
+            RXVCSR::CAUSE_U_ECALL, RXVCSR::CAUSE_S_ECALL, RXVCSR::CAUSE_M_ECALL:
+            exception_has_val = 1'b0;
+            default: exception_has_val = 1'b1;
+        endcase
+    end
+
+    always_comb begin
         mscratch_wren = wr_en && wr_addr == RXVCSR::CSR_MSCRATCH;
         mtvec_wren = wr_en && wr_addr == RXVCSR::CSR_MTVEC;
         stvec_wren = wr_en && wr_addr == RXVCSR::CSR_STVEC;
@@ -319,9 +328,11 @@ module RXVCSRFile #(
                       (wr_en && wr_addr == RXVCSR::CSR_MCAUSE);
         scause_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S) ||
                       (wr_en && wr_addr == RXVCSR::CSR_SCAUSE);
-        mtval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_M && !take_irq) ||
+        mtval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_M &&
+                      !take_irq && exception_has_val) ||
                      (wr_en && wr_addr == RXVCSR::CSR_MTVAL);
-        stval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S && !take_irq) ||
+        stval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
+                      !take_irq && exception_has_val) ||
                      (wr_en && wr_addr == RXVCSR::CSR_STVAL);
 
         sscratch_wren = wr_en && wr_addr == RXVCSR::CSR_SSCRATCH;

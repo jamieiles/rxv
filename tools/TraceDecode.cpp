@@ -207,6 +207,9 @@ static bool is_interesting_symbol(const std::string &name, unsigned char type)
           type == ELFIO::STT_NOTYPE))
         return false;
 
+    if (name.starts_with("$"))
+        return false;
+
     return true;
 }
 

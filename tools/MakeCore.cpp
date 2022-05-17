@@ -288,8 +288,9 @@ private:
     void run_trace()
     {
         TraceFile tf(trace_file);
+        bool done = false;
 
-        while (!tf.end_of_trace()) {
+        while (!tf.end_of_trace() && !done) {
             auto trace_range = tf.next_range();
             auto num_events = trace_range.trace->events()->size();
             for (unsigned long idx = 0; idx < num_events; ++idx) {
@@ -301,8 +302,10 @@ private:
                     (*trace_range.trace->events())[idx]);
 
                 prstatus.pr_reg.pc = instr->pc();
-                if (until && instr->cycle_num() >= until)
+                if (until && instr->cycle_num() >= until) {
+                    done = true;
                     break;
+                }
                 mode = instr->privilege();
 
                 bus.write(instr->pc_phys(), instr->instruction(), 0xf);

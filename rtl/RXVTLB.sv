@@ -162,11 +162,13 @@ module RXVTLB #(
         end
     endgenerate
 
+`ifdef verilator
     RXVAssert no_inval_during_fill (
         .clk      (clk),
         .en       (state != STATE_READY),
         .condition(tlb_op == RXVMMU::TLB_INV_NONE)
     );
+`endif  // verilator
 
     always_comb begin
         bypass_translation.pa          = va;

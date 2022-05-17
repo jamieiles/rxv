@@ -104,14 +104,14 @@ module RXVRenameFile (
     end
 
     always_comb begin
-        rename_masked = rollback ? {num_arch_regs{1'b1}} :
-            (rename_encoded & {num_arch_regs{rename_valid}});
+        rename_masked = (rename_encoded & {num_arch_regs{rename_valid}});
         if (lsu_busy_kill | kill) begin
             rename_masked = 'b0;
             if (lsu_busy_kill && last_rename[0].valid) rename_masked |= last_rename_encoded[0];
             if ((kill || lsu_busy_kill) && last_rename[1].valid)
                 rename_masked |= last_rename_encoded[1];
         end
+        if (rollback) rename_masked = {num_arch_regs{1'b1}};
     end
 
     always_comb begin

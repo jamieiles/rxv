@@ -880,7 +880,7 @@ module RXVCore #(
     RXVAssert no_simultaneous_resteer (
         .clk(clk),
         .en(1'b1),
-        .condition((3'(int_exec_resteer) | 3'(lsu_resteer)) + 3'(irq_resteer) + 3'(exception_resteer) <= 3'b1)
+        .condition((3'(int_exec_resteer) + 3'(lsu_resteer)) + 3'(irq_resteer) + 3'(exception_resteer) <= 3'b1)
     );
 
     RXVAssert no_irq_when_busy (

@@ -363,7 +363,8 @@ module RXVDecode (
     always_comb begin
         decode_predict_kill         = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
         decode_predict_kill_address = decode_pc;
-        decode_resteer = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
+        decode_resteer = decode_valid & ~decode_page_fault &
+            decode_prediction.predicted & ~is_branch & ~decode_be_stall & ~decode_fe_stall;
         decode_resteer_tgt = decode_next_pc;
     end
 

@@ -214,7 +214,8 @@ module RXVCSRFile #(
         if (mip_reg.ssip & mie_reg.ssie) cause = RXVCSR::MINT_S_SW;
 
         take_irq             = irq_pending & fetch_idle & commit_empty & ~irq_resteer &
-                               ~lsu_exception.valid & ~exec_exception.valid;
+                               ~lsu_exception.valid & ~exec_exception.valid &
+                               ~exception_pending & ~do_mret & ~do_sret;
         if ((current_privilege == RXVCSR::PRIV_M && !mstatus_reg.mie) ||
             (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.sie && ~|active_m_irqs))
             take_irq = 1'b0;

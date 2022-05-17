@@ -180,6 +180,28 @@ public:
         }
     }
 
+    void run_until(uint32_t pc, int timeout = 4096)
+    {
+        for (int i = 0; i < timeout && tracer->get_last_pc() != pc; ++i) {
+            cycle();
+            if (i == timeout - 1)
+                FAIL() << "failed to complete test";
+        }
+    }
+
+    void execute_n_instructions(int n, int timeout = 512)
+    {
+        int i = 0;
+
+        while (tracer->get_num_instructions() != n) {
+            cycle();
+            ++i;
+
+            if (i == timeout)
+                FAIL() << "failed to complete test";
+        }
+    }
+
     std::shared_ptr<MemoryBus> bus;
     std::shared_ptr<TestbenchTracer> tracer;
 };
@@ -195,8 +217,7 @@ TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
         80000014:   000005ef                jal     x11,0x14
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i)
-        cycle();
+    run_until(0x80000014);
 
     EXPECT_EQ(tracer->read_reg(1), 10);
     EXPECT_EQ(tracer->read_reg(2), 10);
@@ -214,8 +235,7 @@ TEST_F(RXVCoreEmulWrapperTest, ALUBypass)
         80000010:   00108093                addi    x1,x1,1
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i)
-        cycle();
+    run_until(0x80000010);
 
     EXPECT_EQ(tracer->read_reg(1), 5);
 }
@@ -230,8 +250,7 @@ TEST_F(RXVCoreEmulWrapperTest, NoBypassX0)
         80000010:   000080b3                add     x1,x1,x0
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i)
-        cycle();
+    run_until(0x80000010);
 
     EXPECT_EQ(tracer->read_reg(1), 0);
 }
@@ -247,8 +266,7 @@ TEST_F(RXVCoreEmulWrapperTest, JALR)
         80000014:   00008067                ret
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000000c; ++i)
-        cycle();
+    run_until(0x8000000c);
 
     EXPECT_EQ(tracer->read_reg(1), 0x80000008);
     EXPECT_EQ(tracer->read_reg(3), 220);
@@ -265,8 +283,7 @@ TEST_F(RXVCoreEmulWrapperTest, BackToBackJumps)
         80000010:   ff1ff06f                j       0x0
     )objdump");
 
-    while (tracer->get_num_instructions() != 5)
-        cycle();
+    execute_n_instructions(5);
 
     EXPECT_EQ(tracer->read_reg(10), 1);
 }
@@ -278,8 +295,7 @@ TEST_F(RXVCoreEmulWrapperTest, LUI)
         80000004:   fffff137                lui     x2,0xfffff
     )objdump");
 
-    while (tracer->get_num_instructions() != 2)
-        cycle();
+    execute_n_instructions(2);
 
     EXPECT_EQ(tracer->read_reg(1), 0x80001 << 12);
     EXPECT_EQ(tracer->read_reg(2), 0xfffff << 12);
@@ -293,8 +309,7 @@ TEST_F(RXVCoreEmulWrapperTest, AUIPC)
          80000008:   00000013                nop
     )objdump");
 
-    while (tracer->get_num_instructions() != 3)
-        cycle();
+    execute_n_instructions(3);
 
     EXPECT_EQ(tracer->read_reg(1), 0x80000004 + (8 << 12));
 }
@@ -312,11 +327,7 @@ TEST_F(RXVCoreEmulWrapperTest, CSRRW)
         8000001c:   00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000001c);
 
     EXPECT_EQ(tracer->read_reg(2), 0xaa55a5a5);
     EXPECT_EQ(tracer->read_reg(3), 0xdeadbeef);
@@ -336,11 +347,7 @@ TEST_F(RXVCoreEmulWrapperTest, CSRRS)
         8000001c:   00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000001c);
 
     EXPECT_EQ(tracer->read_reg(1), 0x00000f01);
     EXPECT_EQ(tracer->read_reg(2), 0x11111111);
@@ -361,11 +368,7 @@ TEST_F(RXVCoreEmulWrapperTest, CSRZeroNoWrite)
         8000001c:   00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000001c; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000001c);
 
     EXPECT_EQ(tracer->read_reg(1), 0x11111111);
     EXPECT_EQ(tracer->read_reg(2), 0x11111111);
@@ -379,11 +382,7 @@ TEST_F(RXVCoreEmulWrapperTest, ReadVendorId)
         80000004:   00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000004; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000004);
 
     EXPECT_EQ(tracer->read_reg(1), 0x53454c49);
 }
@@ -404,11 +403,7 @@ TEST_F(RXVCoreEmulWrapperTest, MRET)
         80000028:   ffdff06f                j       0x24
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000024);
 
     EXPECT_EQ(tracer->read_reg(1), 1);
 }
@@ -423,11 +418,7 @@ TEST_F(RXVCoreEmulWrapperTest, IllegalInstruction)
         80000010:       0000006f                j       0x80000010
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_num_instructions() != 5; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(5);
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x8000000c);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x00200073);
@@ -444,11 +435,7 @@ TEST_F(RXVCoreEmulWrapperTest, MTVECAlignVectored)
         80000008:   30502173                csrr    x2,mtvec
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(3);
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0xffffffc1);
     EXPECT_EQ(tracer->read_reg(2), 0xffffffc1);
@@ -462,11 +449,7 @@ TEST_F(RXVCoreEmulWrapperTest, MTVECAlignDirect)
         80000008:   30502173                csrr    x2,mtvec
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(3);
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0xfffffffc);
     EXPECT_EQ(tracer->read_reg(2), 0xfffffffc);
@@ -490,11 +473,7 @@ TEST_F(RXVCoreEmulWrapperTest, ExceptionHandling)
         80000030:   30200073                mret
     )objdump");
 
-    for (int i = 0; i < 512; ++i) {
-        cycle();
-        if (i == 511 && tracer->get_last_pc() != 0x80000018)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000018);
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0x8000001c);
     EXPECT_EQ(tracer->read_reg(2), 2);
@@ -523,11 +502,7 @@ TEST_F(RXVCoreEmulWrapperTest, RepeatedExceptionHandling)
         80000034:   30200073                mret
     )objdump");
 
-    for (int i = 0; i < 512; ++i) {
-        cycle();
-        if (i == 511 && tracer->get_last_pc() != 0x8000001c)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000001c);
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0x80000020);
     EXPECT_EQ(tracer->read_reg(2), 2);
@@ -576,11 +551,7 @@ TEST_F(RXVCoreEmulWrapperTest, JALRMisalign)
         80000044:   30200073                mret
     )objdump");
 
-    for (int i = 0; i < 512; ++i) {
-        cycle();
-        if (i == 511 && tracer->get_last_pc() != 0x80000020)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000020);
 
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVEC), 0x80000030);
     EXPECT_EQ(tracer->read_reg(2), 1);
@@ -597,11 +568,7 @@ TEST_F(RXVCoreEmulWrapperTest, FENCE)
          80000008:   00100093                li      x1,1
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(3);
 
     EXPECT_EQ(tracer->read_reg(1), 1);
 }
@@ -614,11 +581,7 @@ TEST_F(RXVCoreEmulWrapperTest, WFI)
          80000008:   00100093                li      x1,1
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_num_instructions() != 3; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(3);
 
     EXPECT_EQ(tracer->read_reg(1), 1);
 }
@@ -634,11 +597,7 @@ TEST_F(RXVCoreEmulWrapperTest, ECALL)
          80000014:   00a00513                li      x10,10
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000014);
 
     EXPECT_EQ(tracer->read_reg(10), 10);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x0000000b);
@@ -655,11 +614,7 @@ TEST_F(RXVCoreEmulWrapperTest, EBREAK)
         80000014:   00a00513                li      x10,10
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000014);
 
     EXPECT_EQ(tracer->read_reg(10), 10);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), 0x00000003);
@@ -679,11 +634,7 @@ TEST_F(RXVCoreEmulWrapperTest, PMU)
         80000020:   b8202373                csrr    x6,minstreth
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000020; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000020);
 
     EXPECT_NE(tracer->read_reg(1), 0);
     EXPECT_EQ(tracer->read_reg(2), 0);
@@ -706,11 +657,7 @@ TEST_F(RXVCoreEmulWrapperTest, PMUWrite)
         80000010:   b80021f3                csrr    x3,mcycleh
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 
     EXPECT_EQ(tracer->read_reg(2), 0xffffffff);
     EXPECT_EQ(tracer->read_reg(3), 0xffffffff);
@@ -726,11 +673,7 @@ TEST_F(RXVCoreEmulWrapperTest, StoreWord)
         80000010:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, LoadWord)
@@ -763,11 +706,7 @@ TEST_F(RXVCoreEmulWrapperTest, LoadByteSigned)
         80000010:       00000013                nop
     )objdump");
     bus->write(0x80001000, 0x0000c000, 0xf);
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 
     EXPECT_EQ(tracer->read_reg(2), 0xffffffc0);
 }
@@ -782,11 +721,7 @@ TEST_F(RXVCoreEmulWrapperTest, LoadByteUnsigned)
         80000010:       00000013                nop
     )objdump");
     bus->write(0x80001000, 0x0000c000, 0xf);
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 
     EXPECT_EQ(tracer->read_reg(2), 0x000000c0);
 }
@@ -804,11 +739,7 @@ TEST_F(RXVCoreEmulWrapperTest, BackToBackReads)
     bus->write(0x80001000, 0xdeadbeef, 0xf);
     bus->write(0x80001004, 0xaa55a5a5, 0xf);
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000014);
 
     EXPECT_EQ(tracer->read_reg(2), 0xdeadbeef);
     EXPECT_EQ(tracer->read_reg(3), 0xaa55a5a5);
@@ -824,11 +755,7 @@ TEST_F(RXVCoreEmulWrapperTest, StoreByte)
         80000010:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, StoreWordUncached)
@@ -842,11 +769,7 @@ TEST_F(RXVCoreEmulWrapperTest, StoreWordUncached)
     )objdump");
     bus->add_peripheral(std::make_unique<NCPeripheral>(0xf0000000, 4096));
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 
     EXPECT_EQ(bus->read(0xf0000000), 0xaa55a5a5);
 }
@@ -866,11 +789,7 @@ TEST_F(RXVCoreEmulWrapperTest, LoadUnalignedExcepts)
         80000024:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000024);
 
     EXPECT_EQ(tracer->read_reg(10), 0);
     EXPECT_EQ(tracer->read_reg(11), 11);
@@ -896,11 +815,7 @@ TEST_F(RXVCoreEmulWrapperTest, OOOCompletion)
     )objdump");
     bus->write(0x80001000, 0xf00ff00f, 0xf);
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000024; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000024);
 
     EXPECT_EQ(tracer->read_reg(3), 3);
     EXPECT_EQ(tracer->read_reg(4), 0);
@@ -924,11 +839,7 @@ TEST_F(RXVCoreEmulWrapperTest, FenceI)
         8000002c:       fff00513                li      x10,-1
     )objdump");
 
-    for (int i = 0; i < 16384 && tracer->get_last_pc() != 0x80000028; ++i) {
-        cycle();
-        if (i == 16383)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000028);
 
     EXPECT_EQ(tracer->read_reg(10), 0xffffffff);
 }
@@ -951,11 +862,7 @@ TEST_F(RXVCoreEmulWrapperTest, IllegalCSR)
         80000030:       30200073                mret
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000002c; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000002c);
 
     EXPECT_EQ(tracer->read_reg(2), 2);
     EXPECT_EQ(tracer->read_reg(3), 0);
@@ -992,11 +899,7 @@ TEST_F(RXVCoreEmulWrapperTest, SimultaneousLSUIntCompletion)
         80000060:       fb9ff06f                j       0x80000018
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000060; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000060);
 
     EXPECT_EQ(tracer->read_reg(4), 16);
 }
@@ -1010,11 +913,7 @@ TEST_F(RXVCoreEmulWrapperTest, Mul)
         8000000c:       00118213                addi    x4,x3,1
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000000c; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000000c);
 
     EXPECT_EQ(tracer->read_reg(3), 18);
     EXPECT_EQ(tracer->read_reg(4), 19);
@@ -1029,11 +928,7 @@ TEST_F(RXVCoreEmulWrapperTest, Div)
         8000000c:       00118213                addi    x4,x3,1
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x8000000c; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000000c);
 
     EXPECT_EQ(tracer->read_reg(3), 2);
     EXPECT_EQ(tracer->read_reg(4), 3);
@@ -1046,13 +941,10 @@ TEST_F(RXVCoreEmulWrapperTest, misa)
         80000004:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000004; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000004);
 
-    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 18) | (1 << 12) | (1 << 8) | (1 << 0));
+    EXPECT_EQ(tracer->read_reg(1),
+              (1 << 30) | (1 << 18) | (1 << 12) | (1 << 8) | (1 << 0));
 }
 
 TEST_F(RXVCoreEmulWrapperTest, amoadd)
@@ -1067,11 +959,7 @@ TEST_F(RXVCoreEmulWrapperTest, amoadd)
         80000018:       00010002                XXX
     )objdump");
 
-    for (int i = 0; i < 512 && tracer->get_last_pc() != 0x80000014; ++i) {
-        cycle();
-        if (i == 511)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000014);
 
     EXPECT_EQ(tracer->read_reg(1), 0x80000018);
     EXPECT_EQ(tracer->read_reg(2), 1);
@@ -1092,11 +980,7 @@ TEST_F(RXVCoreEmulWrapperTest, AMORegFree)
         8000001c:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x8000001c; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000001c);
 
     EXPECT_EQ(tracer->read_reg(3), 255);
     EXPECT_EQ(tracer->read_reg(4), 256);
@@ -1115,11 +999,7 @@ TEST_F(RXVCoreEmulWrapperTest, AMOSwap)
         8000001c:       aa55a5a5                0xaa55a5a5
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000018; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000018);
 
     EXPECT_EQ(tracer->read_reg(3), 0xaa55a5a5);
     EXPECT_EQ(tracer->read_reg(4), 0x12345678);
@@ -1135,11 +1015,7 @@ TEST_F(RXVCoreEmulWrapperTest, AMOX0)
         80000010:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000010; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000010);
 }
 
 TEST_F(RXVCoreEmulWrapperTest, AMODeviceAborts)
@@ -1159,11 +1035,7 @@ TEST_F(RXVCoreEmulWrapperTest, AMODeviceAborts)
         8000002c:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x8000002c; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000002c);
 
     EXPECT_EQ(tracer->read_reg(10), 10);
     EXPECT_EQ(tracer->read_reg(11), 0x80000014);
@@ -1183,11 +1055,7 @@ TEST_F(RXVCoreEmulWrapperTest, LRSC)
         80000018:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000018; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000018);
 
     EXPECT_EQ(tracer->read_reg(2), 1);
     EXPECT_EQ(tracer->read_reg(3), 0);
@@ -1208,11 +1076,7 @@ TEST_F(RXVCoreEmulWrapperTest, ReservationLost)
         80000020:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000020; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000020);
 
     EXPECT_EQ(tracer->read_reg(2), 1);
     EXPECT_EQ(tracer->read_reg(3), 1);
@@ -1233,11 +1097,7 @@ TEST_F(RXVCoreEmulWrapperTest, SequentialSCLosesReservation)
         80000020:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x80000020; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x80000020);
 
     EXPECT_EQ(tracer->read_reg(2), 1);
     EXPECT_EQ(tracer->read_reg(12), 101);
@@ -1264,11 +1124,7 @@ TEST_F(RXVCoreEmulWrapperTest, MStatusIRQStack)
         80000030:       30200073                mret
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_last_pc() != 0x8000001c; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    run_until(0x8000001c);
 
     EXPECT_EQ(tracer->read_reg(1), 0x0008);
     EXPECT_EQ(tracer->read_reg(2), 0x1880);
@@ -1291,11 +1147,7 @@ TEST_F(RXVCoreEmulWrapperTest, SWIRQ)
         80000028:       30200073                mret
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_num_instructions() != 256; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(256);
 
     EXPECT_EQ(tracer->read_reg(2), 0x1880);
 }
@@ -1307,9 +1159,5 @@ TEST_F(RXVCoreEmulWrapperTest, SFENCE_VMA)
         80000004:       00000013                nop
     )objdump");
 
-    for (int i = 0; i < 4096 && tracer->get_num_instructions() != 2; ++i) {
-        cycle();
-        if (i == 4095)
-            FAIL() << "failed to complete test";
-    }
+    execute_n_instructions(2);
 }

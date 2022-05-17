@@ -274,9 +274,10 @@ static void dump_instruction(const LLVMDisasmContextRef &dcr,
     if (instr->exception_raised())
         notes += " /EXCEPTION";
 
-    fmt::print("@ {:<10d} {:s} {:08x} {:32s} # [instr: {:08x}] {:s}{:s}\n", id,
-               EnumNamePrivilege(instr->privilege()), instr->pc(), instr_string,
-               converter.instr, symbol, notes);
+    fmt::print(
+        "@ {:<10d} {:s} {:08x} {:32s} # [instr: {:08x}, pa: {:08x}] {:s}{:s}\n",
+        id, EnumNamePrivilege(instr->privilege()), instr->pc(), instr_string,
+        converter.instr, instr->pc_phys(), symbol, notes);
     for (auto reg : *instr->gpr_accesses()) {
         if (reg->id() == 0)
             continue;

@@ -5,6 +5,7 @@
 #include <chrono>
 
 #include "ComplianceTest.h"
+#include "boost/algorithm/string.hpp"
 
 double cur_time_stamp = 0;
 static bool sigint_received;
@@ -84,6 +85,7 @@ static boost::program_options::variables_map parse_options(int argc,
     // clang-format off
     options.add_options()
         ("elf", boost::program_options::value<std::string>(), "ELF file")
+        ("binary", boost::program_options::value<std::string>(), "Extra binary file")
         ("sim", boost::program_options::value<std::string>(), "Simulator")
         ("waves", boost::program_options::value<std::string>(), "Waves File")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
@@ -135,22 +137,33 @@ int main(int argc, char *argv[])
 
         std::unique_ptr<SimulatorBase> sim;
         if (vm["sim"].as<std::string>() == "software") {
-            sim = std::make_unique<RXVSim>(trace_name, 256 * 1024 * 1024,
+            sim = std::make_unique<RXVSim>(trace_name, 384 * 1024 * 1024,
                                            0x80000000);
         } else if (vm["sim"].as<std::string>() == "rtl") {
             bool waves = vm.count("waves");
 
             if (waves)
                 sim = std::make_unique<RXVCore<true>>(
-                    trace_name, 256 * 1024 * 1024, 0x80000000,
+                    trace_name, 384 * 1024 * 1024, 0x80000000,
                     vm["waves"].as<std::string>());
             else
                 sim = std::make_unique<RXVCore<false>>(
-                    trace_name, 256 * 1024 * 1024, 0x80000000);
+                    trace_name, 384 * 1024 * 1024, 0x80000000);
         } else {
             std::cerr << "error: invalid simulator "
                       << vm["sim"].as<std::string>() << std::endl;
             return 3;
+        }
+
+        if (vm.count("binary")) {
+            std::vector<std::string> strs;
+            boost::split(strs, vm["binary"].as<std::string>(),
+                         boost::is_any_of("@"));
+
+            if (strs.size() != 2)
+                throw std::runtime_error(
+                    "invalid --binary usage: \"--binary PATH@ADDRESS\"");
+            sim->load_binary(strs[0], strtoul(strs[1].c_str(), NULL, 0));
         }
 
         if (vm.count("compliance")) {

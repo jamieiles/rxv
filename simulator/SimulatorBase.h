@@ -33,6 +33,7 @@ public:
     }
 
     void load_elf(const RiscVELF &elf);
+    void load_binary(const std::string &path, uint32_t base);
 
     template <typename T>
     T read_phys_mem(uint32_t addr, bool reserved = false)

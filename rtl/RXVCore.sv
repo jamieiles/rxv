@@ -925,15 +925,6 @@ module RXVCore #(
             end
         end
     endgenerate
-
-    always_ff @(posedge clk) begin
-        integer i;
-
-        for (i = 0; i < 32; i = i + 1) begin
-            if (reg_free && !rename_rollback) assert (RXVRenameFile.latest_map[i] != reg_free_phys);
-            if (reg_alloc) assert (RXVRenameFile.latest_map[i] != reg_alloc_phys);
-        end
-    end
 `endif  // verilator
 
 endmodule

@@ -251,7 +251,7 @@ module RXVIntExec (
 
         if (valid && exec_uop == RXVTypes::UOP_ECALL) begin
             exec_exception_next.pc    = exec_pc;
-            exec_exception_next.val   = 32'b0;
+            exec_exception_next.val   = {exec_pc, 2'b0};
             exec_exception_next.cause = ecall_type();
             exec_exception_next.valid = 1'b1;
             exec_exception_next.irq   = 1'b0;
@@ -259,7 +259,7 @@ module RXVIntExec (
 
         if (valid && exec_uop == RXVTypes::UOP_EBREAK) begin
             exec_exception_next.pc    = exec_pc;
-            exec_exception_next.val   = 32'b0;
+            exec_exception_next.val   = {exec_pc, 2'b0};
             exec_exception_next.cause = RXVCSR::CAUSE_BREAKPOINT;
             exec_exception_next.valid = 1'b1;
             exec_exception_next.irq   = 1'b0;

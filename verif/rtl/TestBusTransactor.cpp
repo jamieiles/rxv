@@ -1,7 +1,7 @@
 #include "VerilogTestbench.h"
 #include "VBusTransactorWrapper.h"
 #include "VBusTransactorWrapper_BusTransactorWrapper.h"
-#include "VBusTransactorWrapper_BusTransactor.h"
+#include "VBusTransactorWrapper_BusTransactor__Iz1.h"
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
 
@@ -116,8 +116,10 @@ TEST_F(BusTransactorTest, WriteDouble)
 
 TEST_F(BusTransactorTest, ReadSingle)
 {
-    EXPECT_CALL(*this->bus, read(0x10)).WillOnce(::testing::Return(0xdeadbeef));
-    EXPECT_CALL(*this->bus, read(0x14)).WillOnce(::testing::Return(0x12345678));
+    EXPECT_CALL(*this->bus, read(0x10, false))
+        .WillOnce(::testing::Return(0xdeadbeef));
+    EXPECT_CALL(*this->bus, read(0x14, false))
+        .WillOnce(::testing::Return(0x12345678));
 
     auto v = read(0x10, 1);
     ASSERT_EQ(1, v.size());
@@ -132,8 +134,10 @@ TEST_F(BusTransactorTest, ReadSingle)
 
 TEST_F(BusTransactorTest, ReadDouble)
 {
-    EXPECT_CALL(*this->bus, read(0x10)).WillOnce(::testing::Return(0x12345678));
-    EXPECT_CALL(*this->bus, read(0x14)).WillOnce(::testing::Return(0xabcdabcd));
+    EXPECT_CALL(*this->bus, read(0x10, false))
+        .WillOnce(::testing::Return(0x12345678));
+    EXPECT_CALL(*this->bus, read(0x14, false))
+        .WillOnce(::testing::Return(0xabcdabcd));
 
     auto v = read(0x10, 2);
     ASSERT_EQ(2, v.size());
@@ -145,7 +149,8 @@ TEST_F(BusTransactorTest, ReadDouble)
 TEST_F(BusTransactorTest, WriteToRead)
 {
     EXPECT_CALL(*this->bus, write(0x10, 0x12345678, 0xf)).Times(1);
-    EXPECT_CALL(*this->bus, read(0x10)).WillOnce(::testing::Return(0x12345678));
+    EXPECT_CALL(*this->bus, read(0x10, false))
+        .WillOnce(::testing::Return(0x12345678));
 
     write(0x10, std::vector<uint32_t>{0x12345678});
     auto v = read(0x10, 1);
@@ -155,7 +160,8 @@ TEST_F(BusTransactorTest, WriteToRead)
 
 TEST_F(BusTransactorTest, ReadToWrite)
 {
-    EXPECT_CALL(*this->bus, read(0x10)).WillOnce(::testing::Return(0x12345678));
+    EXPECT_CALL(*this->bus, read(0x10, false))
+        .WillOnce(::testing::Return(0x12345678));
     EXPECT_CALL(*this->bus, write(0x10, 0x12345678, 0xf)).Times(1);
 
     auto v = read(0x10, 1);

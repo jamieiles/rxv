@@ -17,7 +17,9 @@ module RXVICacheWrapper #(
 
     MemInterface mem_bus ();
 
-    BusTransactor BusTransactor (
+    BusTransactor #(
+        .instruction(1'b1)
+    ) BusTransactor (
         .clk(clk),
         .bus(mem_bus.Subordinate)
     );

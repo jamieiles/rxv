@@ -8,7 +8,7 @@
 #include "VRXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
-#include "VRXVCoreEmulWrapper_BusTransactor.h"
+#include "VRXVCoreEmulWrapper_BusTransactor__Iz1.h"
 
 struct InstructionRecord {
     uint32_t pc;

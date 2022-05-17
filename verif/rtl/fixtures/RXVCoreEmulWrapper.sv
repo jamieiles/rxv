@@ -8,12 +8,16 @@ module RXVCoreEmulWrapper (
     logic [63:0] mtime;
     logic        mtime_irq;
 
-    BusTransactor IBusTransactor (
+    BusTransactor #(
+        .instruction(1'b1)
+    ) IBusTransactor (
         .clk(clk),
         .bus(imem_bus.Subordinate)
     );
 
-    BusTransactor DBusTransactor (
+    BusTransactor #(
+        .instruction(1'b0)
+    ) DBusTransactor (
         .clk(clk),
         .bus(dmem_bus.Subordinate)
     );

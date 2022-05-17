@@ -1,7 +1,7 @@
 #include "VerilogTestbench.h"
 #include "VRXVICacheWrapper.h"
 #include "VRXVICacheWrapper_RXVICacheWrapper.h"
-#include "VRXVICacheWrapper_BusTransactor.h"
+#include "VRXVICacheWrapper_BusTransactor__Iz1.h"
 #include "MockMemoryBus.h"
 
 static const int nr_lines = 2;
@@ -105,7 +105,7 @@ TEST_F(ICacheTestbench, CompulsoryMissFills)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     auto v = read(32);
@@ -117,7 +117,7 @@ TEST_F(ICacheTestbench, HitNoRefill)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     for (int i = 0; i < 128; ++i)
@@ -129,10 +129,10 @@ TEST_F(ICacheTestbench, ConflictMissRefill)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(64 + i * 4))
+        EXPECT_CALL(*this->bus, read(64 + i * 4, true))
             .WillOnce(::testing::Return(0xaa550000 + i));
 
     auto v = read(32);
@@ -146,7 +146,7 @@ TEST_F(ICacheTestbench, PipelinedReads)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     EXPECT_EQ(read(32), 0xa5a50000);
@@ -161,7 +161,7 @@ TEST_F(ICacheTestbench, ReadDuringBusyDropped)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     auto v = read_pipelined(std::vector<uint32_t>{32, 36 + 1024, 32});
@@ -175,10 +175,10 @@ TEST_F(ICacheTestbench, MultiWayHits)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + 4096 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + 4096 + i * 4, true))
             .WillOnce(::testing::Return(0xf00f0000 + i));
 
     auto v = read(32);
@@ -197,7 +197,7 @@ TEST_F(ICacheTestbench, InvalidateRefills)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     auto v = read(32);
@@ -205,7 +205,7 @@ TEST_F(ICacheTestbench, InvalidateRefills)
     invalidate();
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     v = read(32);
@@ -224,7 +224,7 @@ TEST_F(ICacheTestbench, NoFillWithoutValid)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     auto v = read(32);
@@ -240,10 +240,10 @@ TEST_F(ICacheTestbench, MultiIndex)
     ::testing::InSequence seq;
 
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(32 + i * 4))
+        EXPECT_CALL(*this->bus, read(32 + i * 4, true))
             .WillOnce(::testing::Return(0xdead0000 + i));
     for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
-        EXPECT_CALL(*this->bus, read(48 + i * 4))
+        EXPECT_CALL(*this->bus, read(48 + i * 4, true))
             .WillOnce(::testing::Return(0x0000beef + i));
 
     EXPECT_EQ(read(32), 0xdead0000);

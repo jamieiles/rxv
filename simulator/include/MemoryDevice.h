@@ -40,10 +40,13 @@ private:
 class AbstractMemoryBus
 {
 public:
-    virtual void read(uint32_t addr, char *dst, size_t len) = 0;
+    virtual void read(uint32_t addr,
+                      char *dst,
+                      size_t len,
+                      bool instruction_fetch) = 0;
     virtual void write(uint32_t addr, const char *val, size_t len) = 0;
     virtual void write(uint32_t addr, uint32_t val, uint8_t wstb) = 0;
-    virtual uint32_t read(uint32_t addr) = 0;
+    virtual uint32_t read(uint32_t addr, bool instruction_fetch) = 0;
     virtual void add_peripheral(std::unique_ptr<IOPeripheral> p) = 0;
 };
 
@@ -56,7 +59,10 @@ public:
         mem = std::make_unique<uint32_t[]>(ram_size / 4);
     }
 
-    virtual void read(uint32_t addr, char *dst, size_t len)
+    virtual void read(uint32_t addr,
+                      char *dst,
+                      size_t len,
+                      bool instruction_fetch = false)
     {
         if (addr >= ram_base && addr < ram_base + ram_size) {
             addr -= ram_base;
@@ -64,7 +70,7 @@ public:
                 throw MemFault("Out of bounds memory access");
 
             memcpy(dst, reinterpret_cast<uint8_t *>(mem.get()) + addr, len);
-        } else {
+        } else if (!instruction_fetch) {
             peripheral_read(addr, dst, len);
         }
     }
@@ -91,11 +97,11 @@ public:
         write(addr, byte_ptr, nbytes);
     }
 
-    virtual uint32_t read(uint32_t addr)
+    virtual uint32_t read(uint32_t addr, bool instruction_fetch = false)
     {
-        uint32_t v;
+        uint32_t v = 0;
 
-        read(addr, reinterpret_cast<char *>(&v), sizeof(v));
+        read(addr, reinterpret_cast<char *>(&v), sizeof(v), instruction_fetch);
 
         return v;
     }

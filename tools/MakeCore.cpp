@@ -64,10 +64,13 @@ public:
         accessed.reserve(num_pages);
     }
 
-    virtual void read(uint32_t addr, char *dst, size_t len) override
+    virtual void read(uint32_t addr,
+                      char *dst,
+                      size_t len,
+                      bool instruction_fetch) override
     {
         mark_accessed(addr);
-        MemoryBus::read(addr, dst, len);
+        MemoryBus::read(addr, dst, len, instruction_fetch);
     }
 
     virtual void write(uint32_t addr, const char *val, size_t len) override
@@ -82,10 +85,10 @@ public:
         MemoryBus::write(addr, val, wstb);
     }
 
-    virtual uint32_t read(uint32_t addr) override
+    virtual uint32_t read(uint32_t addr, bool instruction_fetch) override
     {
         mark_accessed(addr);
-        return MemoryBus::read(addr);
+        return MemoryBus::read(addr, instruction_fetch);
     }
 
     bool page_accessed(uint32_t addr)
@@ -139,7 +142,7 @@ public:
         assert(bus->page_accessed(base));
 
         for (int i = 0; i < entries_per_table; ++i) {
-            uint32_t pgd = bus->read(base + i * sizeof(uint32_t));
+            uint32_t pgd = bus->read(base + i * sizeof(uint32_t), false);
             if (!(pgd & pte_valid))
                 continue;
 
@@ -184,7 +187,7 @@ private:
             return;
 
         for (int i = 0; i < entries_per_table; ++i) {
-            uint32_t pte = bus->read(base + i * sizeof(uint32_t));
+            uint32_t pte = bus->read(base + i * sizeof(uint32_t), false);
             if (!(pte & pte_valid))
                 continue;
 
@@ -245,7 +248,7 @@ private:
 
         char page_buf[len];
         for (size_t m = 0; m < len; ++m)
-            bus->read(phys + m, &page_buf[m], 1);
+            bus->read(phys + m, &page_buf[m], 1, false);
         section->set_data(page_buf, sizeof(page_buf));
 
         auto *seg = writer->segments.add();

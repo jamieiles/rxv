@@ -50,13 +50,18 @@ class RXVSim;
 class Cache
 {
 public:
-    Cache(size_t size, size_t num_ways, size_t line_size, MemoryBus *bus)
+    Cache(size_t size,
+          size_t num_ways,
+          size_t line_size,
+          MemoryBus *bus,
+          bool instruction_cache)
         : num_ways(num_ways)
         , words_per_line(line_size / sizeof(uint32_t))
         , victim(0)
         , reservation_addr(0)
         , reserved(false)
         , bus(bus)
+        , instruction_cache(instruction_cache)
     {
         lines_per_way = (size / num_ways) / line_size;
 
@@ -90,7 +95,7 @@ public:
     void read(uint32_t addr, char *dst, size_t len, bool reserve = false)
     {
         if (is_noncacheable(addr)) {
-            bus->read(addr, dst, len);
+            bus->read(addr, dst, len, instruction_cache);
         } else {
             auto line = lookup(addr);
             auto addr_offset = offset(addr);
@@ -229,7 +234,7 @@ private:
 
         for (size_t i = 0; i < words_per_line; ++i, addr += sizeof(uint32_t))
             bus->read(addr, reinterpret_cast<char *>(&victim_line.words[i]),
-                      sizeof(uint32_t));
+                      sizeof(uint32_t), instruction_cache);
 
         victim_line.valid = true;
         victim_line.dirty = false;
@@ -278,6 +283,8 @@ private:
     bool reserved;
 
     MemoryBus *bus;
+
+    bool instruction_cache;
 };
 
 constexpr uint32_t mstatus_sie_shift = 1;

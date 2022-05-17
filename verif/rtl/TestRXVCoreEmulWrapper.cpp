@@ -7,7 +7,7 @@
 #include "VRXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
-#include "VRXVCoreEmulWrapper_BusTransactor.h"
+#include "VRXVCoreEmulWrapper_BusTransactor__Iz1.h"
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
 #include "SimTracer.h"

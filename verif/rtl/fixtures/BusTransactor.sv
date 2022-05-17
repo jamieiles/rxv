@@ -1,6 +1,7 @@
 module BusTransactor #(
     integer latency = 2,
-    integer words   = 512
+    integer words   = 512,
+    logic instruction = 0
 ) (
     input logic                    clk,
           MemInterface.Subordinate bus
@@ -74,8 +75,13 @@ module BusTransactor #(
             READ_STATE_DATA: begin
                 bus.rvalid <= 1'b1;
                 if (read_state == READ_STATE_LATENCY_WAIT || (bus.rready && bus.rvalid)) begin
-                    bus.rdata <=
-                        $c("this->bus->read(", bus.raddr + addr_bits'(read_beats) * 4, ");");
+                    bus.rdata <= $c(
+                        "this->bus->read(",
+                        bus.raddr + addr_bits'(read_beats) * 4,
+                        ", ",
+                        instruction,
+                        ");"
+                    );
                 end
                 if (bus.rlen == 'b0 || ((bus.rvalid & bus.rready) && read_beats == bus.rlen)) begin
                     bus.rlast <= 1'b1;

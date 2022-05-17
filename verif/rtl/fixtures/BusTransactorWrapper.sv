@@ -47,7 +47,9 @@ module BusTransactorWrapper (
     assign rlast = mem_bus.rlast;
     assign bvalid = mem_bus.bvalid;
 
-    BusTransactor BusTransactor (
+    BusTransactor #(
+        .instruction(1'b0)
+    ) BusTransactor (
         .clk(clk),
         .bus(mem_bus.Subordinate)
     );

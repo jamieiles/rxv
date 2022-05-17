@@ -853,7 +853,7 @@ module RXVCore #(
             reg_wr_data = div_exec_reg_wr_data;
         end
 
-        lsu_reg_busy = int_exec_reg_wr_en;
+        lsu_reg_busy = int_exec_reg_wr_en | mul_exec_reg_wr_en | div_exec_reg_wr_en;
     end
 
     always_comb begin

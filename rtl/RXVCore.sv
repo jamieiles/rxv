@@ -238,6 +238,7 @@ module RXVCore #(
     logic                              commit_rename_valid;
     logic          [ commit_width-1:0] commit_id;
     logic                              retired;
+    logic                              exception_priv_change;
     logic                              exception_resteer;
     logic          [             31:2] exception_resteer_tgt;
 
@@ -583,6 +584,7 @@ module RXVCore #(
         .exception_resteer_tgt(exception_resteer_tgt),
         .exec_exception       (exec_exception),
         .exec_except_id       (exec_except_id),
+        .exception_priv_change(exception_priv_change),
         .lsu_exception        (lsu_exception),
         .lsu_except_id        (lsu_except_id),
         .do_mret              (do_mret),
@@ -789,8 +791,9 @@ module RXVCore #(
         .commit_rename_rollback(rename_rollback),
         .commit_reg_push       (reg_free),
         .commit_reg_reg        (reg_free_phys),
-        .exception_pending  (exception_pending),
-        .exception_resteer     (exception_resteer)
+        .exception_pending     (exception_pending),
+        .exception_resteer     (exception_resteer),
+        .exception_priv_change (exception_priv_change)
     );
 
     RXVPMU RXVPMU (

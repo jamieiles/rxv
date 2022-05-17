@@ -31,7 +31,8 @@ module RXVCommitter (
     output phys_reg_tag commit_reg_reg,
     // Exception handling
     input  logic        exception_pending,
-    output logic        exception_resteer
+    output logic        exception_resteer,
+    output logic        exception_priv_change
 );
 
     logic commit_ready;
@@ -75,6 +76,10 @@ module RXVCommitter (
 
     always_comb begin
         exception_resteer_next = commit_empty && exception_pending;
+    end
+
+    always_comb begin
+        exception_priv_change = exception_resteer_next;
     end
 
     RXVDFF exception_resteer_dff (

@@ -82,6 +82,7 @@ module RXVCSRFile #(
     output logic        [            31:2] exception_resteer_tgt,
     input  RXVException                    exec_exception,
     input  logic        [commit_width-1:0] exec_except_id,
+    input  logic                           exception_priv_change,
     input  RXVException                    lsu_exception,
     input  logic        [commit_width-1:0] lsu_except_id,
     input  logic                           do_mret,
@@ -175,6 +176,7 @@ module RXVCSRFile #(
     logic        [31:2] exception_resteer_tgt_next;
     logic               take_irq;
 
+    privilege_t         exception_privilege;
     privilege_t         next_privilege;
     privilege_t         exception_target_level;
     logic               exception_has_val;
@@ -510,7 +512,7 @@ module RXVCSRFile #(
         next_privilege = current_privilege;
         if (do_mret) next_privilege = privilege_t'(mstatus_reg.mpp);
         if (do_sret) next_privilege = privilege_t'(mstatus_reg.spp);
-        if (exception_write) next_privilege = exception_target_level;
+        if (exception_priv_change || irq_resteer) next_privilege = exception_privilege;
     end
 
     RXVAssert #(
@@ -790,6 +792,16 @@ module RXVCSRFile #(
         .en   (1'b1),
         .d    (next_privilege),
         .q    (current_privilege)
+    );
+
+    RXVDFF #(
+        .width($bits(exception_privilege))
+    ) exception_privilege_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (exception_write),
+        .d    (exception_target_level),
+        .q    (exception_privilege)
     );
 
 endmodule

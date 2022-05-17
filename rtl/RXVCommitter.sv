@@ -79,7 +79,7 @@ module RXVCommitter (
     end
 
     always_comb begin
-        exception_resteer_next = commit_empty && exception_pending;
+        exception_resteer_next = commit_empty && exception_pending && !exception_resteer;
     end
 
     always_comb begin

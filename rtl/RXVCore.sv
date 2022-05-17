@@ -896,27 +896,31 @@ module RXVCore #(
         if (banked_register_file == 0) begin
             always_ff @(posedge clk) begin
                 if (commit_rename_valid) begin
-                    trace_write_reg(32'(commit_id), commit_out.dest_reg.arch,
+                    trace_write_reg(32'(commit_out.parent_id), commit_out.dest_reg.arch,
                                     RXVRegisterFile.DFF.RXVRegisterFileDFF.read_reg(
                                     commit_out.dest_reg.phys));
                 end
 
                 if (((commit_valid && !commit_killed_out) || (commit_valid && commit_excepted_out))) begin
-                    if (commit_excepted_out) trace_exception(32'(commit_id));
-                    if (commit_out.last) trace_end_instruction(32'(commit_id));
+                    if (commit_excepted_out && !exception_cleanup)
+                        trace_exception(32'(commit_out.parent_id));
+                    if (commit_out.last || (commit_excepted_out && !exception_cleanup))
+                        trace_end_instruction(32'(commit_out.parent_id));
                 end
             end
         end else begin
             always_ff @(posedge clk) begin
                 if (commit_rename_valid) begin
-                    trace_write_reg(32'(commit_id), commit_out.dest_reg.arch,
+                    trace_write_reg(32'(commit_out.parent_id), commit_out.dest_reg.arch,
                                     RXVRegisterFile.RAM.RXVRegisterFileBanked.read_reg(
                                     commit_out.dest_reg.phys));
                 end
 
                 if (((commit_valid && !commit_killed_out) || (commit_valid && commit_excepted_out))) begin
-                    if (commit_excepted_out) trace_exception(32'(commit_id));
-                    if (commit_out.last) trace_end_instruction(32'(commit_id));
+                    if (commit_excepted_out && !exception_cleanup)
+                        trace_exception(32'(commit_out.parent_id));
+                    if (commit_out.last || (commit_excepted_out && !exception_cleanup))
+                        trace_end_instruction(32'(commit_out.parent_id));
                 end
             end
         end

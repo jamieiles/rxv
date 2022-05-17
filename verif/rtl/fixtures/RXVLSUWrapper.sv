@@ -4,6 +4,8 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_uop;
 import RXVTypes::commit_width;
 import RXVCSR::RXVException;
+import RXVCSR::mstatus_t;
+import RXVCSR::privilege_t;
 import RXVMMU::translation_t;
 import RXVMMU::asid_bits;
 import RXVMMU::tlb_inv_op;
@@ -40,6 +42,8 @@ module RXVLSUWrapper #(
     output logic                           lsu_complete,
     output logic        [commit_width-1:0] lsu_complete_id,
     // Exception handling
+    input  privilege_t                     current_privilege,
+    input  mstatus_t                       mstatus,
     output RXVException                    lsu_exception,
     output logic        [commit_width-1:0] lsu_except_id,
     output logic                           lsu_busy_kill,
@@ -62,6 +66,7 @@ module RXVLSUWrapper #(
     output tlb_inv_op                      lsu_tlb_inv_op,
     output logic        [   asid_bits-1:0] lsu_tlb_inv_asid,
     output logic        [           31:12] lsu_tlb_inv_addr,
+    input  logic                           lsu_tlb_enabled,
     // Cache snoop signals
     output logic        [            31:2] dcache_address,
     output logic                           dcache_valid

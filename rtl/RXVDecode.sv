@@ -28,6 +28,7 @@ module RXVDecode (
     // From fetch
     input  privilege_t                        current_privilege,
     input  logic                              decode_valid,
+    input  logic                              decode_page_fault,
     input  logic          [             31:2] decode_pc,
 `ifdef RXV_TRACE
     input  logic          [            31:12] decode_phys,
@@ -361,7 +362,8 @@ module RXVDecode (
     end
 
     always_comb begin
-        decode_predict_kill         = decode_valid & decode_prediction.predicted & ~is_branch & ~decode_be_stall;
+        decode_predict_kill         = decode_valid & ~decode_page_fault &
+            decode_prediction.predicted & ~is_branch & ~decode_be_stall;
         decode_predict_kill_address = decode_pc;
         decode_resteer = decode_valid & ~decode_page_fault &
             decode_prediction.predicted & ~is_branch & ~decode_be_stall & ~decode_fe_stall;
@@ -792,7 +794,8 @@ module RXVDecode (
         exec_have_writeback_next |= opc_div & ~div_illegal_instr;
         exec_have_writeback_next |= opc_amo & amo_uop_wb & ~amo_illegal_instr;
 
-        if ((!amo_alloc_reg && ~|rd) || illegal_instruction) exec_have_writeback_next = 1'b0;
+        if ((!amo_alloc_reg && ~|rd) || illegal_instruction || decode_page_fault)
+            exec_have_writeback_next = 1'b0;
     end
 
     always_comb begin
@@ -825,6 +828,7 @@ module RXVDecode (
             (opc_div & div_illegal_instr) |
             (opc_amo & amo_illegal_instr) |
             illegal_opcode;
+        if (decode_page_fault) illegal_instruction = 1'b0;
     end
 
     always_comb begin
@@ -844,7 +848,7 @@ module RXVDecode (
         // Divider isn't pipelined so busy may not yet be raised, check if
         // another divide was just started
         div_stall = exec_pipe_en[EXEC_PIPE_DIV] && (!div_ready || div_exec_busy || div_exec_valid);
-        decode_be_stall      = decode_valid & (reg_alloc_empty | commit_buffer_full |
+        decode_be_stall      = decode_valid & ~decode_page_fault & (reg_alloc_empty | commit_buffer_full |
                                             ~src_regs_ready | system_stall | lsu_stall |
                                             int_stall | misc_mem_stall | mul_stall |
                                             div_stall);
@@ -855,29 +859,29 @@ module RXVDecode (
 
     always_comb begin
         dispatch_int = exec_pipe_en[EXEC_PIPE_INT] &&
-            !illegal_instruction && decode_valid && !decode_be_stall &&
-            !kill_valid && !exec_resteer;
+            !illegal_instruction && decode_valid && !decode_page_fault &&
+            !decode_be_stall && !kill_valid && !exec_resteer;
         schedule_int = dispatch_int & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_lsu = exec_pipe_en[EXEC_PIPE_LSU] &&
-            !illegal_instruction && decode_valid && !decode_be_stall &&
-            !kill_valid && !exec_resteer;
+            !illegal_instruction && decode_valid && !decode_page_fault &&
+            !decode_be_stall && !kill_valid && !exec_resteer;
         schedule_lsu = dispatch_lsu & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_mul = exec_pipe_en[EXEC_PIPE_MUL] &&
-            !illegal_instruction && decode_valid && !decode_be_stall &&
-            !kill_valid && !exec_resteer;
+            !illegal_instruction && decode_valid && !decode_page_fault &&
+            !decode_be_stall && !kill_valid && !exec_resteer;
         schedule_mul = dispatch_mul & exec_have_writeback_next;
     end
 
     always_comb begin
         dispatch_div = exec_pipe_en[EXEC_PIPE_DIV] &&
-            !illegal_instruction && decode_valid && !decode_be_stall &&
-            !kill_valid && !exec_resteer;
+            !illegal_instruction && decode_valid && !decode_page_fault &&
+            !decode_be_stall && !kill_valid && !exec_resteer;
         schedule_div = dispatch_div & exec_have_writeback_next;
     end
 
@@ -941,10 +945,11 @@ module RXVDecode (
         if (amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP) commit_dispatch.last = amo_complete;
         else commit_dispatch.last = 1'b1;
 
-        commit_dispatch.parent_id = amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP ? amo_parent : dispatch_id;
+        commit_dispatch.parent_id = amo_opc_valid && amo_op_type == AMO_TYPE_FETCH_OP ? amo_parent_next : dispatch_id;
 `endif  // RXV_TRACE
 
-        commit_dispatch_valid = ~kill_valid & ~commit_buffer_full & (dispatch_ready | (decode_valid & illegal_instruction));
+        commit_dispatch_valid = ~kill_valid & ~commit_buffer_full &
+            (dispatch_ready | (decode_valid & (illegal_instruction | decode_page_fault)));
     end
 
     always_comb begin
@@ -976,9 +981,11 @@ module RXVDecode (
 
     always_comb begin
         decode_exception_next.pc = decode_pc;
-        decode_exception_next.val = decode_instr;
-        decode_exception_next.cause = RXVCSR::CAUSE_ILLEGAL_INSTR;
-        decode_exception_next.valid = ~kill_valid & ~exec_resteer & ~commit_buffer_full & decode_valid & illegal_instruction;
+        decode_exception_next.val = illegal_instruction ? decode_instr : {decode_pc, 2'b0};
+        decode_exception_next.cause = illegal_instruction ? RXVCSR::CAUSE_ILLEGAL_INSTR :
+            RXVCSR::CAUSE_INSTR_PAGE_FAULT;
+        decode_exception_next.valid = ~kill_valid & ~exec_resteer & ~commit_buffer_full &
+            decode_valid & (illegal_instruction | decode_page_fault);
         decode_exception_next.irq = 1'b0;
     end
 
@@ -1224,11 +1231,13 @@ module RXVDecode (
 
 `ifdef RXV_TRACE
     always_ff @(posedge clk) begin
-        if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx == 'b0) begin
+        if (decode_valid && !decode_page_fault && !decode_be_stall && !kill_valid &&
+            !exec_resteer && amo_uop_idx == 'b0) begin
             trace_start_instruction(32'(dispatch_id), decode_pc, {decode_phys, decode_pc[11:2]},
                                     decode_instr, current_privilege);
-        end else if (decode_valid && !decode_be_stall && !kill_valid && !exec_resteer && amo_uop_idx != 'b0) begin
-            trace_uop(32'(amo_parent), 32'(dispatch_id));
+        end else if (decode_valid && !decode_page_fault && !decode_be_stall &&
+                     !kill_valid && !exec_resteer && amo_uop_idx != 'b0) begin
+            trace_uop(32'(amo_parent_next), 32'(dispatch_id));
         end
 
         if (decode_valid && decode_exception_next.valid) begin

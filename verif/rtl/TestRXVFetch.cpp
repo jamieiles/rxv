@@ -1,5 +1,6 @@
 #include "VerilogTestbench.h"
 #include "VRXVFetchWrapper.h"
+#include "VRXVFetchWrapper_RXVCSR.h"
 
 class RXVFetchTestBench
     : public VerilogTestbench<VRXVFetchWrapper>
@@ -15,6 +16,27 @@ public:
             after_n_cycles(1, [this, addr] {
                 this->dut.icache_instr = 0xffff0000 | addr;
             });
+        });
+
+        this->dut.current_privilege =
+            VRXVFetchWrapper_RXVCSR::privilege_t::PRIV_M;
+
+        periodic(ClockCapture, [&] {
+            if (this->dut.icache_valid) {
+                uint32_t addr = this->dut.icache_address;
+                after_n_cycles(1, [&, addr] {
+                    this->dut.tlb_valid = 1;
+                    this->dut.tlb_accessed = 1;
+                    this->dut.tlb_dirty = 1;
+                    this->dut.tlb_exec = 1;
+                    this->dut.tlb_read = 1;
+                    this->dut.tlb_write = 1;
+                    this->dut.tlb_exec = 1;
+                    this->dut.tlb_user = 1;
+                    this->dut.tlb_valid = 1;
+                    this->dut.tlb_pa = addr >> 10;
+                });
+            }
         });
 
         this->dut.icache_busy = 0;

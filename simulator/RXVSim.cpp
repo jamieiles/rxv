@@ -799,7 +799,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = *v + rs2_val;
@@ -815,7 +815,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 if (!write_mem<uint32_t>(rs1_val, rs2_val)) {
@@ -828,7 +828,7 @@ void RXVSim::step()
             case 0x2: { // LR.W
                 auto v = read_mem<uint32_t>(read_reg(rs1), true);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, read_reg(rs1));
+                    do_exception(STORE_PAGE_FAULT, read_reg(rs1));
                     break;
                 }
                 do_write_reg(rd, v.value());
@@ -853,7 +853,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = *v ^ rs2_val;
@@ -869,7 +869,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = *v & rs2_val;
@@ -885,7 +885,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = *v | rs2_val;
@@ -901,7 +901,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = std::min(static_cast<int32_t>(*v),
@@ -918,7 +918,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = std::max(static_cast<int32_t>(*v),
@@ -935,7 +935,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = std::min(*v, rs2_val);
@@ -951,7 +951,7 @@ void RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(LOAD_PAGE_FAULT, rs1_val);
+                    do_exception(STORE_PAGE_FAULT, rs1_val);
                     break;
                 }
                 auto new_val = std::max(*v, rs2_val);

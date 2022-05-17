@@ -1,12 +1,19 @@
 `default_nettype none
 import RXVTypes::rxv_prediction;
 import RXVMMU::translation_t;
+import RXVCSR::privilege_t;
+import RXVCSR::mstatus_t;
+import RXVCSR::effective_privilege;
 
 module RXVFetch #(
     parameter logic [31:0] reset_address = 32'h80000000
 ) (
     input  logic                  clk,
     input  logic                  reset,
+    input  privilege_t            current_privilege,
+    // verilator lint_off UNUSED
+    input  mstatus_t              mstatus,
+    // verilator lint_on UNUSED
     input  logic                  except_valid,
     input  logic                  exception_pending,
     input  logic                  global_stall_active,
@@ -36,6 +43,7 @@ module RXVFetch #(
     input  logic                  decode_fe_stall,
     // To decode
     output logic                  decode_valid,
+    output logic                  decode_page_fault,
     output logic          [ 31:2] decode_pc,
 `ifdef RXV_TRACE
     output logic          [31:12] decode_phys,
@@ -52,12 +60,13 @@ module RXVFetch #(
 );
 
     typedef struct packed {
-        logic [31:2]   pc;
-        logic [31:2]   next_pc;
-        logic [31:0]   instr;
+        logic [31:2] pc;
+        logic [31:2] next_pc;
+        logic [31:0] instr;
+        logic page_fault;
         rxv_prediction prediction;
 `ifdef RXV_TRACE
-        logic [31:12]  phys;
+        logic [31:12] phys;
 `endif  // RXV_TRACE
     } fetch_packet;
 
@@ -101,11 +110,33 @@ module RXVFetch #(
     rxv_prediction        prediction_reg;
     logic                 prefetch_flush;
     logic                 fetch_idle_next;
+    logic                 tlb_stalling;
+    logic                 tlb_stalling_next;
+    logic                 page_fault;
+    logic                 icache_busy_start_next;
+
+    function logic tlb_access_okay;
+        begin
+            tlb_access_okay = 1'b1;
+
+            // Invalid PTE
+            if (!fetch_translation.valid) tlb_access_okay = 1'b0;
+            // PTE not accessed
+            if (!fetch_translation.accessed) tlb_access_okay = 1'b0;
+            // Page not accessible
+            if (!fetch_translation.exec) tlb_access_okay = 1'b0;
+            // User access to supervisor page
+            if (effective_privilege(
+                    mstatus, current_privilege
+                ) == RXVCSR::PRIV_U && !fetch_translation.user)
+                tlb_access_okay = 1'b0;
+        end
+    endfunction
 
     PosedgeDetect ICacheBusyStart (
         .clk  (clk),
         .reset(reset),
-        .d    (icache_busy),
+        .d    (icache_busy_start_next),
         .q    (icache_busy_start)
     );
 
@@ -150,9 +181,23 @@ module RXVFetch #(
         decode_next_pc    = prefetch_packet_out.next_pc;
         decode_instr      = prefetch_packet_out.instr;
         decode_prediction = prefetch_packet_out.prediction;
+        decode_page_fault = decode_valid & prefetch_packet_out.page_fault;
 `ifdef RXV_TRACE
         decode_phys = prefetch_packet_out.phys;
 `endif  // RXV_TRACE
+    end
+
+    always_comb begin
+        tlb_stalling_next = fetch_tlb_busy;
+    end
+
+    always_comb begin
+        icache_busy_start_next = icache_busy | fetch_tlb_busy;
+    end
+
+    always_comb begin
+        page_fault = ((fetched && !fetch_tlb_busy) ||
+                      (tlb_stalling && !fetch_tlb_busy)) && !tlb_access_okay();
     end
 
     always_comb begin
@@ -160,6 +205,7 @@ module RXVFetch #(
         prefetch_packet_in.next_pc    = next_seq_pc_reg;
         prefetch_packet_in.instr      = icache_instr;
         prefetch_packet_in.prediction = prediction_reg;
+        prefetch_packet_in.page_fault = page_fault;
 `ifdef RXV_TRACE
         prefetch_packet_in.phys = icache_phys[31:12];
 `endif  // RXV_TRACE
@@ -174,17 +220,18 @@ module RXVFetch #(
     end
 
     always_comb begin
-        fetched_next = icache_valid & ~icache_busy & ~resteer &
+        fetched_next = icache_valid & ~icache_busy & ~fetch_tlb_busy & ~resteer &
             ~exception_pending & ~except_valid & ~resteer_pending &
             ~global_stall_active;
     end
 
     always_comb begin
-        stalling = icache_busy | global_stall_active;
+        stalling = icache_busy | fetch_tlb_busy | global_stall_active;
     end
 
     always_comb begin
-        prefetch_wr_en = fetched & ~stalling & ~resteer & ~resteer_pending & ~exception_pending & ~except_valid & ~global_stall_active;
+        prefetch_wr_en = (fetched | page_fault) & ~stalling & ~resteer & ~resteer_pending &
+            ~exception_pending & ~except_valid & ~global_stall_active;
     end
 
     always_comb begin
@@ -197,22 +244,24 @@ module RXVFetch #(
 
     always_comb begin
         icache_valid_next = ~prefetch_nearly_full & ~global_stall_active &
-            ~exception_pending & ~except_valid & ~irq_pending &
+            ~exception_pending & ~except_valid & ~irq_pending & ~page_fault &
             ~fetch_tlb_busy & ~icache_busy;
     end
 
     always_comb begin
         icache_phys       = {fetch_translation.pa, fetched_pc[11:2]};
-        icache_phys_valid = fetch_translation.valid & ~fetch_tlb_busy;
+        icache_phys_valid = fetched & fetch_translation.valid & ~fetch_tlb_busy & ~page_fault;
     end
 
     always_comb begin
         next_seq_pc = pc + 1'b1;
-        next_pc     = !icache_busy && icache_valid ? next_seq_pc : pc;
+        next_pc     = !icache_busy && !fetch_tlb_busy && icache_valid ? next_seq_pc : pc;
 
-        if (prefetch_nearly_full && !icache_busy) next_pc = icache_valid ? next_seq_pc : pc;
+        if (prefetch_nearly_full && !icache_busy && !fetch_tlb_busy)
+            next_pc = icache_valid ? next_seq_pc : pc;
         if (icache_busy_start) next_pc = fetched_pc;
-        if (icache_valid && prediction.predicted && prediction.predict_taken && !icache_busy)
+        if (icache_valid && prediction.predicted && prediction.predict_taken &&
+            !icache_busy && !fetch_tlb_busy)
             next_pc = prediction.prediction;
         if (resteer_pending) next_pc = resteer_target;
         if (decode_resteer) next_pc = decode_resteer_tgt;
@@ -222,7 +271,7 @@ module RXVFetch #(
 
     always_comb begin
         fetched_pc_next = icache_address;
-        if (icache_busy) fetched_pc_next = fetched_pc;
+        if (icache_busy || fetch_tlb_busy) fetched_pc_next = fetched_pc;
     end
 
     always_comb begin
@@ -238,13 +287,13 @@ module RXVFetch #(
 
     always_comb begin
         resteer_pending_next = resteer_pending;
-        if (~icache_busy) resteer_pending_next = 1'b0;
+        if (~icache_busy && ~fetch_tlb_busy) resteer_pending_next = 1'b0;
         if (resteer) resteer_pending_next = 1'b1;
     end
 
     always_comb begin
         fetch_idle_next = prefetch_empty & ~icache_valid & ~fetched & ~icache_busy &
-            ~resteer_pending & ~exec_resteer;
+            ~fetch_tlb_busy & ~resteer_pending & ~exec_resteer;
     end
 
     always_comb begin
@@ -342,6 +391,14 @@ module RXVFetch #(
         .en   (1'b1),
         .d    (fetch_idle_next),
         .q    (fetch_idle)
+    );
+
+    RXVDFF tlb_stalling_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (tlb_stalling_next),
+        .q    (tlb_stalling)
     );
 
 endmodule

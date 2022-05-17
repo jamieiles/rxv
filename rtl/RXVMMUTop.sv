@@ -35,7 +35,10 @@ module RXVMMUTop #(
     input  logic                         dcache_busy,
     input  logic         [         31:0] dcache_rdata,
     output logic         [         31:2] dcache_phys_in,
-    output logic                         dcache_phys_valid
+    output logic                         dcache_phys_valid,
+    input  logic                         dcache_grant,
+    // Prioritisation
+    input  logic                         lsu_busy
 );
 
     logic      [31:12] d_walk_va;
@@ -53,6 +56,7 @@ module RXVMMUTop #(
     sv32_pte_t         walk_pte;
     logic              walk_is_megapage;
     logic              walk_translation_error;
+    logic              i_walk_lsu_gated;
 
     RXVTLB #(
         .num_entries(num_d_entries)
@@ -115,7 +119,8 @@ module RXVMMUTop #(
         .dcache_busy      (dcache_busy),
         .dcache_rdata     (dcache_rdata),
         .dcache_phys_in   (dcache_phys_in),
-        .dcache_phys_valid(dcache_phys_valid)
+        .dcache_phys_valid(dcache_phys_valid),
+        .dcache_grant     (dcache_grant)
     );
 
     StaticArbiter #(
@@ -123,18 +128,20 @@ module RXVMMUTop #(
     ) TLBArb (
         .clk    (clk),
         .reset  (reset),
-        .request({i_walk_valid, d_walk_valid}),
+        .request({i_walk_lsu_gated, d_walk_valid}),
         .hold   (walk_hold),
         .grant  ({i_walk_grant, d_walk_grant})
     );
 
     always_comb begin
-        walk_hold   = walk_busy;
+        walk_hold        = walk_busy;
 
-        walk_va     = d_walk_grant ? d_walk_va : i_walk_va;
-        walk_valid  = d_walk_grant ? d_walk_valid : i_walk_valid;
-        d_walk_busy = d_walk_grant ? walk_busy : 1'b0;
-        i_walk_busy = i_walk_grant ? walk_busy : 1'b0;
+        i_walk_lsu_gated = i_walk_valid & ~lsu_busy;
+
+        walk_va          = d_walk_grant ? d_walk_va : i_walk_va;
+        walk_valid       = d_walk_grant ? d_walk_valid : i_walk_grant ? i_walk_valid : 1'b0;
+        d_walk_busy      = d_walk_grant ? walk_busy : 1'b0;
+        i_walk_busy      = i_walk_grant ? walk_busy : 1'b0;
     end
 
 endmodule

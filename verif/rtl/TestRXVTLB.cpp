@@ -244,7 +244,7 @@ TEST_F(TLBTestbench, PageNotMapped)
     EXPECT_EQ(t2.pa, 0x80012000);
 }
 
-TEST_F(TLBTestbench, InvalidPTE)
+TEST_F(TLBTestbench, ReservedBits)
 {
     enable();
 
@@ -252,7 +252,7 @@ TEST_F(TLBTestbench, InvalidPTE)
                 pte_read | pte_write | pte_user | (3 << 8));
 
     auto t = translate(0xc0004000);
-    EXPECT_FALSE(t.valid);
+    EXPECT_TRUE(t.valid);
 }
 
 TEST_F(TLBTestbench, Bypass)

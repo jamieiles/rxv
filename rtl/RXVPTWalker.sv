@@ -16,16 +16,18 @@ module RXVPTWalker (
     output logic              dcache_valid,
     input  logic              dcache_busy,
     input  logic      [ 31:0] dcache_rdata,
-    output logic [31:2] dcache_phys_in,
-    output logic dcache_phys_valid
+    output logic      [ 31:2] dcache_phys_in,
+    output logic              dcache_phys_valid,
+    input  logic              dcache_grant
 );
 
     localparam int dcache_latency = 2;
 
     typedef enum logic [1:0] {
-        STATE_IDLE   = 2'b00,
+        STATE_IDLE = 2'b00,
         STATE_LEVEL1 = 2'b01,
-        STATE_LEVEL0 = 2'b11
+        STATE_LEVEL0 = 2'b11,
+        STATE_WAIT_GRANT = 2'b10
     } ptwalk_state;
 
     logic        [ 9:0] vpn1;
@@ -65,7 +67,9 @@ module RXVPTWalker (
 
     always_comb begin
         case (state)
-            STATE_IDLE: next_state = valid ? STATE_LEVEL1 : STATE_IDLE;
+            STATE_IDLE:
+            next_state = valid ? (dcache_grant ? STATE_LEVEL1 : STATE_WAIT_GRANT) : STATE_IDLE;
+            STATE_WAIT_GRANT: next_state = dcache_grant ? STATE_LEVEL1 : STATE_WAIT_GRANT;
             STATE_LEVEL1:
             next_state = ~dcache_latency_expired || dcache_busy ? STATE_LEVEL1 :
                 !pte_in.valid ? STATE_IDLE :
@@ -79,9 +83,9 @@ module RXVPTWalker (
 
     always_comb begin
         case (state)
-            STATE_IDLE: begin
+            STATE_IDLE, STATE_WAIT_GRANT: begin
                 dcache_address_next = {translation_base, vpn1};
-                dcache_valid_next   = valid;
+                dcache_valid_next   = state == STATE_WAIT_GRANT ? 1'b1 : valid;
             end
             STATE_LEVEL1: begin
                 dcache_address_next = ~dcache_latency_expired || dcache_busy ?
@@ -89,7 +93,7 @@ module RXVPTWalker (
                 dcache_valid_next = next_state == STATE_LEVEL0;
             end
             STATE_LEVEL0: begin
-                dcache_address_next = {pte_in.ppn1[9:0], pte_in.ppn0, vpn0};
+                dcache_address_next = dcache_address;  //{pte_in.ppn1[9:0], pte_in.ppn0, vpn0};
                 dcache_valid_next   = 1'b0;
             end
             default: begin
@@ -102,6 +106,7 @@ module RXVPTWalker (
     always_comb begin
         busy_next = busy;
         if (state == STATE_IDLE) busy_next = valid;
+        if (state == STATE_WAIT_GRANT) busy_next = 1'b1;
         if (state == STATE_LEVEL1 || state == STATE_LEVEL0) busy_next = next_state != STATE_IDLE;
     end
 

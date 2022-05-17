@@ -79,6 +79,7 @@ module RXVCore #(
     logic          [             31:2] decode_resteer_tgt;
     logic                              decode_fe_stall;
     logic                              decode_valid;
+    logic                              decode_page_fault;
     logic          [             31:2] decode_pc;
     logic          [             31:2] decode_next_pc;
     rxv_prediction                     decode_prediction;
@@ -236,8 +237,11 @@ module RXVCore #(
     logic                              commit_excepted_out;
     renamed_reg                        commit_rename_out;
     logic                              commit_rename_valid;
+    //verilator lint_off UNUSED
     logic          [ commit_width-1:0] commit_id;
+    //verilator lint_on UNUSED
     logic                              retired;
+    logic                              exception_cleanup;
     logic                              exception_priv_change;
     logic                              exception_resteer;
     logic          [             31:2] exception_resteer_tgt;
@@ -263,6 +267,11 @@ module RXVCore #(
     logic          [             31:2] mmu_dcache_phys_in;
     logic                              mmu_dcache_phys_valid;
     logic                              mmu_busy;
+    logic                              mmu_dcache_grant;
+    logic          [            31:12] translation_base;
+    logic          [    asid_bits-1:0] active_asid;
+    logic                              i_tlb_enabled;
+    logic                              d_tlb_enabled;
 
 `ifdef RXV_TRACE
     logic [31:12] decode_phys;
@@ -307,6 +316,8 @@ module RXVCore #(
     ) RXVFetch (
         .clk                   (clk),
         .reset                 (reset),
+        .current_privilege     (current_privilege),
+        .mstatus               (mstatus_val),
         .except_valid          (except_valid),
         .exception_pending     (exception_pending),
         .global_stall_active   (global_stall_active),
@@ -328,6 +339,7 @@ module RXVCore #(
         .decode_resteer_tgt    (decode_resteer_tgt),
         .decode_fe_stall       (decode_fe_stall),
         .decode_valid          (decode_valid),
+        .decode_page_fault     (decode_page_fault),
         .decode_pc             (decode_pc),
 `ifdef RXV_TRACE
         .decode_phys           (decode_phys),
@@ -346,10 +358,11 @@ module RXVCore #(
         .reset                      (reset),
         .current_privilege          (current_privilege),
         .decode_valid               (decode_valid),
+        .decode_page_fault          (decode_page_fault),
         .decode_pc                  (decode_pc),
 `ifdef RXV_TRACE
-        .decode_phys(decode_phys),
-`endif // RXV_TRACE
+        .decode_phys                (decode_phys),
+`endif  // RXV_TRACE
         .decode_next_pc             (decode_next_pc),
         .decode_prediction          (decode_prediction),
         .decode_instr               (decode_instr),
@@ -541,6 +554,9 @@ module RXVCore #(
         .lsu_tlb_inv_op      (lsu_tlb_inv_op),
         .lsu_tlb_inv_asid    (lsu_tlb_inv_asid),
         .lsu_tlb_inv_addr    (lsu_tlb_inv_addr),
+        .lsu_tlb_enabled     (d_tlb_enabled),
+        .current_privilege   (current_privilege),
+        .mstatus             (mstatus_val),
         .lsu_exception       (lsu_exception),
         .lsu_except_id       (lsu_except_id),
         .lsu_busy_kill       (lsu_busy_kill),
@@ -592,6 +608,7 @@ module RXVCore #(
         .irq_pending          (irq_pending),
         .fetch_idle           (fetch_idle),
         .commit_empty         (commit_empty),
+        .exception_pending    (exception_pending),
         .irq_epc              (irq_epc),
         .irq_resteer          (irq_resteer),
         .irq_resteer_tgt      (irq_resteer_tgt),
@@ -603,7 +620,11 @@ module RXVCore #(
         .instretl_wren        (pmu_instretl_wren),
         .pmu_cycles           (pmu_cycles),
         .pmu_instret          (pmu_instret),
-        .current_privilege    (current_privilege)
+        .current_privilege    (current_privilege),
+        .translation_base     (translation_base),
+        .active_asid          (active_asid),
+        .i_tlb_enabled        (i_tlb_enabled),
+        .d_tlb_enabled        (d_tlb_enabled)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -676,6 +697,7 @@ module RXVCore #(
         .mmu_dcache_rdata     (mmu_dcache_rdata),
         .mmu_dcache_phys_in   (mmu_dcache_phys_in),
         .mmu_dcache_phys_valid(mmu_dcache_phys_valid),
+        .mmu_dcache_grant     (mmu_dcache_grant),
         .dcache_address       (dcache_address),
         .dcache_valid         (dcache_valid),
         .dcache_busy          (dcache_busy),
@@ -695,19 +717,19 @@ module RXVCore #(
     ) RXVMMUTop (
         .clk              (clk),
         .reset            (reset),
-        .translation_base ('b0),
+        .translation_base (translation_base),
         .d_va             (lsu_dcache_address[31:12]),
         .d_valid          (lsu_dcache_valid),
-        .d_enabled        (1'b0),
+        .d_enabled        (d_tlb_enabled),
         .d_busy           (lsu_tlb_busy),
         .d_translation    (lsu_translation),
-        .active_asid      ('b0),
+        .active_asid      (active_asid),
         .tlb_op           (lsu_tlb_inv_op),
         .inv_asid         (lsu_tlb_inv_asid),
         .inv_addr         (lsu_tlb_inv_addr),
         .i_va             (icache_address[31:12]),
         .i_valid          (fetch_tlb_valid),
-        .i_enabled        (1'b0),
+        .i_enabled        (i_tlb_enabled),
         .i_busy           (fetch_tlb_busy),
         .i_translation    (fetch_translation),
         .dcache_address   (mmu_dcache_address),
@@ -715,7 +737,9 @@ module RXVCore #(
         .dcache_busy      (mmu_dcache_busy),
         .dcache_rdata     (mmu_dcache_rdata),
         .dcache_phys_in   (mmu_dcache_phys_in),
-        .dcache_phys_valid(mmu_dcache_phys_valid)
+        .dcache_phys_valid(mmu_dcache_phys_valid),
+        .dcache_grant     (mmu_dcache_grant),
+        .lsu_busy         (lsu_busy)
     );
 
     RXVCommitBuffer RXVCommitBuffer (
@@ -793,6 +817,7 @@ module RXVCore #(
         .commit_reg_reg        (reg_free_phys),
         .exception_pending     (exception_pending),
         .exception_resteer     (exception_resteer),
+        .exception_cleanup     (exception_cleanup),
         .exception_priv_change (exception_priv_change)
     );
 

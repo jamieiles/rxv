@@ -27,6 +27,7 @@ module RXVDCacheArb (
     output logic [31:0] mmu_dcache_rdata,
     input  logic [31:2] mmu_dcache_phys_in,
     input  logic        mmu_dcache_phys_valid,
+    output logic        mmu_dcache_grant,
     // To/From Cache
     output logic [31:2] dcache_address,
     output logic        dcache_valid,
@@ -41,16 +42,30 @@ module RXVDCacheArb (
     output logic        dcache_clean
 );
 
+    localparam int dcache_latency = 2;
+
     logic lsu_dcache_grant;
-    logic mmu_dcache_grant;
     logic lsu_dcache_grant_sync;
     logic mmu_dcache_grant_sync;
     logic lsu_dcache_req;
+    logic dcache_latency_reload;
+    logic dcache_latency_expired;
+    logic hold;
 
     RXVAssert no_cache_contention (
         .clk      (clk),
         .en       (1'b1),
-        .condition(!(mmu_dcache_valid && lsu_dcache_valid))
+        .condition(!(mmu_dcache_grant && lsu_dcache_valid))
+    );
+
+    RXVCountdown #(
+        .width     ($bits(dcache_latency)),
+        .reload_val(dcache_latency)
+    ) dcache_latency_count (
+        .clk    (clk),
+        .reset  (reset),
+        .reload (dcache_latency_reload),
+        .expired(dcache_latency_expired)
     );
 
     StaticArbiter #(
@@ -59,12 +74,17 @@ module RXVDCacheArb (
         .clk    (clk),
         .reset  (reset),
         .request({lsu_dcache_req, mmu_dcache_valid}),
-        .hold   (dcache_busy),
+        .hold   (hold),
         .grant  ({lsu_dcache_grant, mmu_dcache_grant})
     );
 
     always_comb begin
         lsu_dcache_req = lsu_dcache_valid | lsu_dcache_invalidate | lsu_dcache_clean;
+    end
+
+    always_comb begin
+        dcache_latency_reload = dcache_valid | dcache_busy;
+        hold                  = dcache_busy | ~dcache_latency_expired;
     end
 
     always_comb begin

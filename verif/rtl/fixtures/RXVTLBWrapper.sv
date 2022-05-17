@@ -81,7 +81,8 @@ module RXVTLBWrapper (
         .dcache_busy      (dcache_busy),
         .dcache_rdata     (dcache_dout),
         .dcache_phys_in   (dcache_phys_in),
-        .dcache_phys_valid(dcache_phys_valid)
+        .dcache_phys_valid(dcache_phys_valid),
+        .dcache_grant     (1'b1)
     );
 
     RXVTLB RXVTLB (

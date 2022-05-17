@@ -27,7 +27,8 @@ module RXVMMUTopWrapper (
     output logic                         i_busy,
     output translation_t                 i_translation,
     input  logic                         dcache_invalidate,
-    output logic                         dcache_busy
+    output logic                         dcache_busy,
+    input  logic                         lsu_busy
 );
 
     logic        dcache_valid;
@@ -35,6 +36,9 @@ module RXVMMUTopWrapper (
     logic [31:2] dcache_address;
     logic [31:2] dcache_phys_in;
     logic        dcache_phys_valid;
+    logic        dcache_grant;
+
+    always_comb dcache_grant = 1'b1;
 
     MemInterface mem_bus ();
 

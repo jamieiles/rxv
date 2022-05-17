@@ -11,6 +11,36 @@
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
 #include "SimTracer.h"
+#include "RXVSim.h"
+
+static const uint32_t PGD_BASE = 0x82000000;
+
+enum mcause_type {
+    M_SWINT = mcause_interrupt | 3,
+    M_TINT = mcause_interrupt | 7,
+    M_EINT = mcause_interrupt | 11,
+    INSTR_ALIGN = 0,
+    ILLEGAL_INSTRUCTION = 2,
+    BREAKPOINT = 3,
+    LOAD_MISALIGN = 4,
+    STORE_MISALIGN = 6,
+    U_ECALL = 8,
+    S_ECALL = 9,
+    M_ECALL = 11,
+    INSTRUCTION_PAGE_FAULT = 12,
+    LOAD_PAGE_FAULT = 13,
+    STORE_PAGE_FAULT = 15,
+};
+
+static inline uint32_t vpn0(uint32_t va)
+{
+    return (va >> 12) & 0x3ff;
+}
+
+static inline uint32_t vpn1(uint32_t va)
+{
+    return (va >> 22) & 0x3ff;
+}
 
 struct InstructionRecord {
     uint32_t pc;
@@ -146,15 +176,16 @@ class RXVCoreEmulWrapperTest
     , public ::testing::Test
 {
 public:
-    RXVCoreEmulWrapperTest()
+    RXVCoreEmulWrapperTest() : next_free_page(PGD_BASE)
     {
         tracer =
             std::make_shared<TestbenchTracer>(current_test_name() + ".trace");
         this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         reset();
-        bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
+        bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024 * 1024);
         this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
         this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
+        pgd_base = alloc_page();
     }
 
     void load(const std::string &objdump)
@@ -202,8 +233,42 @@ public:
         }
     }
 
+    uint32_t alloc_page()
+    {
+        auto r = next_free_page;
+
+        next_free_page += 4096;
+
+        return r;
+    }
+
+    void set_megapage_at(uint32_t va, uint32_t pa, uint32_t perms)
+    {
+        auto pte_addr = pgd_base + vpn1(va) * sizeof(uint32_t);
+
+        bus->write(pte_addr, (pa >> 2) | perms | pte_valid, 0xf);
+    }
+
+    void set_page_at(uint32_t va, uint32_t pa, uint32_t perms)
+    {
+        auto pgd_addr = pgd_base + vpn1(va) * sizeof(uint32_t);
+        auto pgd = bus->read(pgd_addr);
+
+        if (!(pgd & pte_valid)) {
+            auto p = alloc_page();
+
+            bus->write(pgd_addr, (p >> 2) | pte_valid, 0xf);
+        }
+
+        auto pte_addr =
+            ((bus->read(pgd_addr) & ~0x1) << 2) + vpn0(va) * sizeof(uint32_t);
+        bus->write(pte_addr, (pa >> 2) | perms | pte_valid, 0xf);
+    }
+
     std::shared_ptr<MemoryBus> bus;
     std::shared_ptr<TestbenchTracer> tracer;
+    uint32_t next_free_page;
+    uint32_t pgd_base;
 };
 
 TEST_F(RXVCoreEmulWrapperTest, InstructionFetches)
@@ -1039,7 +1104,7 @@ TEST_F(RXVCoreEmulWrapperTest, AMODeviceAborts)
 
     EXPECT_EQ(tracer->read_reg(10), 10);
     EXPECT_EQ(tracer->read_reg(11), 0x80000014);
-    EXPECT_EQ(tracer->read_reg(12), 5);
+    EXPECT_EQ(tracer->read_reg(12), 7);
     EXPECT_EQ(tracer->read_reg(13), 0xf0000000);
 }
 
@@ -1160,4 +1225,299 @@ TEST_F(RXVCoreEmulWrapperTest, SFENCE_VMA)
     )objdump");
 
     execute_n_instructions(2);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, SATPProgram)
+{
+    load(R"objdump(
+        80000000:       800820b7                lui     x1,0x80082
+        80000004:       18009073                csrw    satp,x1
+        80000008:       00000117                auipc   x2,0x0
+        8000000c:       01c10113                addi    x2,x2,28 # 0x80000024
+        80000010:       34111073                csrw    mepc,x2
+        80000014:       000011b7                lui     x3,0x1
+        80000018:       80018193                addi    x3,x3,-2048 # 0x800
+        8000001c:       30019073                csrw    mstatus,x3
+        80000020:       30200073                mret
+        80000024:       00000217                auipc   x4,0x0
+        80000028:       02420213                addi    x4,x4,36 # 0x80000048
+        8000002c:       80000337                lui     x6,0x80000
+        80000030:       00624333                xor     x6,x4,x6
+        80000034:       00022283                lw      x5,0(x4) # 0x0
+        80000038:       00432383                lw      x7,4(x6) # 0x80000004
+        8000003c:       00832403                lw      x8,8(x6)
+        80000040:       00c32483                lw      x9,12(x6)
+        80000044:       00000013                nop
+        80000048:       5678                    lw      x14,108(x12)
+        8000004a:       1234                    addi    x13,x2,296
+        8000004c:       ced0                    sw      x12,28(x13)
+        8000004e:       defa                    sw      x30,124(x2)
+        80000050:       a5a5                    j       0x800006b8
+        80000052:       aa55                    j       0x80000206
+        80000054:       4321                    li      x6,8
+        80000056:       8765                    srai    x14,x14,0x19
+    )objdump");
+
+    set_megapage_at(0x00000000, 0x80000000,
+                    pte_read | pte_write | pte_exec | pte_accessed | pte_dirty);
+    set_megapage_at(0x80000000, 0x80000000,
+                    pte_read | pte_write | pte_exec | pte_accessed | pte_dirty);
+
+    run_until(0x80000044);
+
+    EXPECT_EQ(tracer->read_reg(5), 0x12345678);
+    EXPECT_EQ(tracer->read_reg(7), 0xdefaced0);
+    EXPECT_EQ(tracer->read_reg(8), 0xaa55a5a5);
+    EXPECT_EQ(tracer->read_reg(9), 0x87654321);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, PageFault)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       03c08093                addi    x1,x1,60 # 0x8000003c
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       800820b7                lui     x1,0x80082
+        80000010:       18009073                csrw    satp,x1
+        80000014:       00000097                auipc   x1,0x0
+        80000018:       01c08093                addi    x1,x1,28 # 0x80000030
+        8000001c:       34109073                csrw    mepc,x1
+        80000020:       000011b7                lui     x3,0x1
+        80000024:       80018193                addi    x3,x3,-2048 # 0x800
+        80000028:       30019073                csrw    mstatus,x3
+        8000002c:       30200073                mret
+        80000030:       c00000b7                lui     x1,0xc0000
+        80000034:       0000a083                lw      x1,0(x1) # 0xc0000000
+        80000038:       0000006f                j       0x80000038
+        8000003c:       00000013                nop
+    )objdump");
+
+    set_megapage_at(0x00000000, 0x80000000,
+                    pte_read | pte_write | pte_exec | pte_accessed | pte_dirty);
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+
+    run_until(0x8000003c);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_PAGE_FAULT);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0xc0000000);
+}
+
+static const std::string s_load_store_test = R"objdump(
+80000000:       00000097                auipc   x1,0x0
+80000004:       04808093                addi    x1,x1,72 # 0x80000048
+80000008:       30509073                csrw    mtvec,x1
+8000000c:       800820b7                lui     x1,0x80082
+80000010:       18009073                csrw    satp,x1
+80000014:       00000097                auipc   x1,0x0
+80000018:       02008093                addi    x1,x1,32 # 0x80000034
+8000001c:       34109073                csrw    mepc,x1
+80000020:       000011b7                lui     x3,0x1
+80000024:       80018193                addi    x3,x3,-2048 # 0x800
+80000028:       30019073                csrw    mstatus,x3
+8000002c:       804000b7                lui     x1,0x80400
+80000030:       30200073                mret
+80000034:       f00ff1b7                lui     x3,0xf00ff
+80000038:       00f18193                addi    x3,x3,15 # 0xf00ff00f
+8000003c:       0000a103                lw      x2,0(x1) # 0x80400000
+80000040:       0030a223                sw      x3,4(x1)
+80000044:       0000006f                j       0x80000044
+80000048:       00000013                nop
+)objdump";
+
+TEST_F(RXVCoreEmulWrapperTest, MegapageAccessOkay)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(0x80400000, 0x80400000,
+                    pte_read | pte_write | pte_exec | pte_accessed | pte_dirty);
+
+    run_until(0x80000044);
+
+    EXPECT_EQ(tracer->read_reg(2), 0xf00ff1b7);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, PageAccessOkay)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_page_at(0x80400000, 0x80400000,
+                pte_read | pte_write | pte_exec | pte_accessed | pte_dirty);
+
+    run_until(0x80000044);
+
+    EXPECT_EQ(tracer->read_reg(2), 0xf00ff1b7);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, NotAccessedMegapageFaults)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(0x80400000, 0x80400000,
+                    pte_read | pte_write | pte_exec | pte_dirty);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x8000003c);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_PAGE_FAULT);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, NotAccessedPageFaults)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_page_at(0x80400000, 0x80400000,
+                pte_read | pte_write | pte_exec | pte_dirty);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x8000003c);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_PAGE_FAULT);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, UserNoSUMFaults)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(
+        0x80400000, 0x80400000,
+        pte_read | pte_write | pte_exec | pte_accessed | pte_dirty | pte_user);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x8000003c);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_PAGE_FAULT);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CleanWriteFaults)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(0x80400000, 0x80400000,
+                    pte_read | pte_write | pte_exec | pte_accessed);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000040);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), STORE_PAGE_FAULT);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, ReadOnlyWriteFaults)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(0x80400000, 0x80400000,
+                    pte_read | pte_exec | pte_accessed | pte_dirty);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000040);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), STORE_PAGE_FAULT);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, NoReadFaults)
+{
+    load(s_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(0x80400000, 0x80400000,
+                    pte_write | pte_exec | pte_accessed | pte_dirty);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x8000003c);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_PAGE_FAULT);
+}
+
+static const std::string u_load_store_test = R"objdump(
+80000000:       00000097                auipc   x1,0x0
+80000004:       03c08093                addi    x1,x1,60 # 0x8000003c
+80000008:       30509073                csrw    mtvec,x1
+8000000c:       800820b7                lui     x1,0x80082
+80000010:       18009073                csrw    satp,x1
+80000014:       00000097                auipc   x1,0x0
+80000018:       01408093                addi    x1,x1,20 # 0x80000028
+8000001c:       34109073                csrw    mepc,x1
+80000020:       804000b7                lui     x1,0x80400
+80000024:       30200073                mret
+80000028:       f00ff1b7                lui     x3,0xf00ff
+8000002c:       00f18193                addi    x3,x3,15 # 0xf00ff00f
+80000030:       0000a103                lw      x2,0(x1) # 0x80400000
+80000034:       0030a223                sw      x3,4(x1)
+80000038:       0000006f                j       0x80000038
+8000003c:       00000013                nop
+)objdump";
+
+TEST_F(RXVCoreEmulWrapperTest, UserMegapageAccessOkay)
+{
+    load(u_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000,
+                    pte_read | pte_exec | pte_accessed | pte_user);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(
+        0x80400000, 0x80400000,
+        pte_read | pte_write | pte_exec | pte_accessed | pte_dirty | pte_user);
+
+    run_until(0x80000038);
+
+    EXPECT_EQ(tracer->read_reg(2), 0xf00ff1b7);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, UserSupervisorAccessFaults)
+{
+    load(u_load_store_test);
+
+    set_megapage_at(0x80000000, 0x80000000,
+                    pte_read | pte_exec | pte_accessed | pte_user);
+    bus->write(0x80400000, 0xf00ff1b7, 0xf);
+    set_megapage_at(0x80400000, 0x80400000,
+                    pte_read | pte_write | pte_exec | pte_accessed | pte_dirty);
+
+    run_until(0x8000003c);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000030);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_PAGE_FAULT);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, InstructionPageFault)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       03008093                addi    x1,x1,48 # 0x80000030
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       800820b7                lui     x1,0x80082
+        80000010:       18009073                csrw    satp,x1
+        80000014:       00000097                auipc   x1,0x0
+        80000018:       01408093                addi    x1,x1,20 # 0x80000028
+        8000001c:       34109073                csrw    mepc,x1
+        80000020:       804000b7                lui     x1,0x80400
+        80000024:       30200073                mret
+        80000028:       c00001b7                lui     x3,0xc0000
+        8000002c:       00018067                jr      x3 # 0xc0000000
+        80000030:       00000013                nop
+    )objdump");
+
+    set_megapage_at(0x80000000, 0x80000000,
+                    pte_read | pte_exec | pte_accessed | pte_user);
+
+    run_until(0x80000030);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE),
+              INSTRUCTION_PAGE_FAULT);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0xc0000000);
 }

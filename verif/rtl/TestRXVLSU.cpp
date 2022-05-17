@@ -22,14 +22,23 @@ public:
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024 * 1024);
         this->dut.RXVLSUWrapper->BusTransactor->set_bus(bus);
+        this->dut.current_privilege =
+            VRXVLSUWrapper_RXVCSR::privilege_t::PRIV_M;
 
         periodic(ClockCapture, [&] {
             if (this->dut.dcache_valid) {
                 uint32_t addr = this->dut.dcache_address;
                 after_n_cycles(1, [&, addr] {
                     this->dut.tlb_valid = 1;
+                    this->dut.tlb_accessed = 1;
+                    this->dut.tlb_dirty = 1;
+                    this->dut.tlb_exec = 1;
+                    this->dut.tlb_read = 1;
+                    this->dut.tlb_write = 1;
+                    this->dut.tlb_exec = 1;
+                    this->dut.tlb_user = 1;
+                    this->dut.tlb_valid = 1;
                     this->dut.tlb_pa = addr >> 10;
-                    after_n_cycles(1, [&, addr] { this->dut.tlb_valid = 0; });
                 });
             }
         });

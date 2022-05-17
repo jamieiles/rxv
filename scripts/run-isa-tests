@@ -6,7 +6,7 @@ import sys
 
 TEST_RE = {
     'software': r'.*rv32[msu][aim]-[pv]-[^\.]*$',
-    'rtl': r'.*rv32[msu][aim]-[p]-[^\.]*$',
+    'rtl': r'.*rv32[msu][aim]-[pv]-[^\.]*$',
 }
 
 SKIP_TESTS = {
@@ -24,16 +24,18 @@ def run_tests(runner, sim, test_tree):
             if f in SKIP_TESTS[sim]:
                 continue
             try:
+                print(f'test: run {f}', file=sys.stderr)
                 subprocess.check_call(
                     [runner, '--compliance', sim, os.path.join(root, f),
                      '--waves', os.path.join(root, f) + '.fst',
                      '--trace', os.path.join(root, f) + '.trace'])
             except subprocess.CalledProcessError:
+                print(f'{f} failed', file=sys.stderr)
                 failures.append(f)
 
     if failures:
-        print('TESTS FAILED:')
-        print('\n'.join(failures))
+        print('TESTS FAILED:', file=sys.stderr)
+        print('\n'.join(failures), file=sys.stderr)
         sys.exit(1)
 
 def main():

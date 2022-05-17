@@ -73,7 +73,7 @@ package RXVCSR;
         PRIV_U = 2'b00,
         PRIV_S = 2'b01,
         PRIV_M = 2'b11
-    } privilege_t;
+    } privilege_t  /* verilator public */;
 
     typedef struct packed {
         logic [31:2] pc;
@@ -127,6 +127,7 @@ package RXVCSR;
         logic tvm;
         logic mxr;
         logic m_sum;
+        logic mprv;
     } mstatus_t;
 
     function mstatus_t pack_mstatus;
@@ -140,6 +141,7 @@ package RXVCSR;
             pack_mstatus.tvm   = v[20];
             pack_mstatus.mxr   = v[19];
             pack_mstatus.m_sum = v[18];
+            pack_mstatus.mprv  = v[17];
             pack_mstatus.mpp   = v[12:11];
             if (v[12:11] == 2'b10) pack_mstatus.mpp = orig.mpp;
             pack_mstatus.spp  = v[8];
@@ -175,7 +177,8 @@ package RXVCSR;
                 v.tvm,
                 v.mxr,
                 v.m_sum,
-                5'b0,
+                v.mprv,
+                4'b0,
                 v.mpp,
                 2'b0,
                 v.spp,
@@ -633,6 +636,18 @@ package RXVCSR;
         begin
             if (!cause.is_interrupt || vec.mode == STVEC_DIRECT) stvec_dest = vec.base;
             else stvec_dest = vec.base | 30'(cause.cause);
+        end
+    endfunction
+
+    function privilege_t effective_privilege;
+        // verilator lint_off UNUSED
+        input mstatus_t m;
+        // verilator lint_on UNUSED
+        input privilege_t current_privilege;
+
+        begin
+            effective_privilege = current_privilege;
+            if (m.mprv) effective_privilege = privilege_t'(m.mpp);
         end
     endfunction
 

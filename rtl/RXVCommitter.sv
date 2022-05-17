@@ -32,11 +32,13 @@ module RXVCommitter (
     // Exception handling
     input  logic        exception_pending,
     output logic        exception_resteer,
+    output logic        exception_cleanup,
     output logic        exception_priv_change
 );
 
     logic commit_ready;
     logic exception_resteer_next;
+    logic exception_cleanup_next;
     logic killed;
 
     always_comb begin
@@ -86,12 +88,26 @@ module RXVCommitter (
         exception_priv_change = exception_resteer_next;
     end
 
+    always_comb begin
+        exception_cleanup_next = exception_cleanup;
+        if (~commit_empty && commit_excepted) exception_cleanup_next = 1'b1;
+        if (commit_empty) exception_cleanup_next = 1'b0;
+    end
+
     RXVDFF exception_resteer_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
         .d    (exception_resteer_next),
         .q    (exception_resteer)
+    );
+
+    RXVDFF exception_cleanup_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (exception_cleanup_next),
+        .q    (exception_cleanup)
     );
 
 endmodule

@@ -4,6 +4,9 @@ import RXVTypes::phys_reg_tag;
 import RXVTypes::rxv_uop;
 import RXVTypes::commit_width;
 import RXVCSR::RXVException;
+import RXVCSR::mstatus_t;
+import RXVCSR::privilege_t;
+import RXVCSR::effective_privilege;
 import RXVTrace::trace_write_mem;
 import RXVTrace::trace_read_mem;
 import RXVMMU::translation_t;
@@ -60,7 +63,12 @@ module RXVLSU #(
     output tlb_inv_op                       lsu_tlb_inv_op,
     output logic         [   asid_bits-1:0] lsu_tlb_inv_asid,
     output logic         [           31:12] lsu_tlb_inv_addr,
+    input  logic                            lsu_tlb_enabled,
     // Exception handling
+    input  privilege_t                      current_privilege,
+    // verilator lint_off UNUSED
+    input  mstatus_t                        mstatus,
+    // verilator lint_on UNUSED
     output RXVException                     lsu_exception,
     output logic         [commit_width-1:0] lsu_except_id,
     output logic                            lsu_busy_kill,
@@ -96,10 +104,13 @@ module RXVLSU #(
         logic is_signed;
         logic valid;
         logic is_sc;
+        logic is_lr;
         logic is_store;
+        logic is_load;
         logic is_amo;
         logic reservation_held;
         logic [31:0] address;
+        logic [31:2] pc;
 `ifdef RXV_TRACE
         logic [31:0] store_data;
         logic [31:12] phys;
@@ -165,6 +176,38 @@ module RXVLSU #(
     logic                               reservation_held;
     logic                               reservation_held_next;
     logic                               reservation_matches;
+    logic                               tlb_stalling;
+    logic                               tlb_stalling_next;
+    logic                               page_fault;
+
+    function logic tlb_access_okay;
+        begin
+            tlb_access_okay = 1'b1;
+
+            // Invalid PTE
+            if (!lsu_translation.valid) tlb_access_okay = 1'b0;
+            // PTE not accessed
+            if (!lsu_translation.accessed) tlb_access_okay = 1'b0;
+            // Load without effective read permissions
+            if (op_stage1.is_load && !(lsu_translation.read ||
+                    (lsu_tlb_enabled && mstatus.mxr && lsu_translation.exec)))
+                tlb_access_okay = 1'b0;
+            // Store to read-only or non-dirty page
+            if ((op_stage1.is_store || op_stage1.is_amo) &&
+                    (!lsu_translation.write || !lsu_translation.dirty))
+                tlb_access_okay = 1'b0;
+            // User access to supervisor page
+            if (effective_privilege(
+                    mstatus, current_privilege
+                ) == RXVCSR::PRIV_U && !lsu_translation.user)
+                tlb_access_okay = 1'b0;
+            // Supervisor access to user page without mstatus.sum
+            if (effective_privilege(
+                    mstatus, current_privilege
+                ) == RXVCSR::PRIV_S && lsu_tlb_enabled && !mstatus.m_sum && lsu_translation.user)
+                tlb_access_okay = 1'b0;
+        end
+    endfunction
 
     always_comb begin
         unique case ({
@@ -176,8 +219,8 @@ module RXVLSU #(
             {1'b1, RXVTypes::UOP_SFENCE_VMA_ASID_ADDR} : lsu_tlb_inv_op = RXVMMU::TLB_INV_ASID_ADDR;
             default: lsu_tlb_inv_op = RXVMMU::TLB_INV_NONE;
         endcase
-        lsu_tlb_inv_addr = op2[31:12];
-        lsu_tlb_inv_asid = op1[asid_bits-1:0];
+        lsu_tlb_inv_addr = op1[31:12];
+        lsu_tlb_inv_asid = op2[asid_bits-1:0];
     end
 
     always_comb begin
@@ -230,25 +273,29 @@ module RXVLSU #(
     end
 
     always_comb begin
+        tlb_stalling_next = lsu_tlb_busy;
+    end
+
+    always_comb begin
         address        = op1 + exec_immed;
-        dcache_address = address[31:2];
+        dcache_address = tlb_stalling ? op_stage1.address[31:2] : address[31:2];
     end
 
     always_comb begin
         reservation_held_next    = reservation_held;
         reservation_address_next = reservation_address;
 
-        if (valid && exec_uop == RXVTypes::UOP_SC) reservation_held_next = 1'b0;
-        if (valid && get_reservation_addr(address[31:2]) != reservation_address)
+        if (op_stage1.valid && op_stage1.is_sc) reservation_held_next = 1'b0;
+        if (op_stage1.valid && get_reservation_addr(address[31:2]) != reservation_address)
             reservation_held_next = 1'b0;
 
-        if (valid && exec_uop == RXVTypes::UOP_LR) begin
+        if (op_stage1.valid && op_stage1.is_lr) begin
             reservation_held_next    = ~dcache_device_memory;
-            reservation_address_next = get_reservation_addr(address[31:2]);
+            reservation_address_next = get_reservation_addr(op_stage1.address[31:2]);
         end
 
         reservation_matches = reservation_held &&
-            get_reservation_addr(address[31:2]) == reservation_address;
+            get_reservation_addr(op_stage1.address[31:2]) == reservation_address;
     end
 
     always_comb begin
@@ -325,14 +372,24 @@ module RXVLSU #(
         op_stage1_next.width = width;
         op_stage1_next.is_signed = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
         op_stage1_next.is_sc = exec_uop == RXVTypes::UOP_SC;
+        op_stage1_next.is_lr = exec_uop == RXVTypes::UOP_LR;
         op_stage1_next.is_store = is_store;
-        op_stage1_next.reservation_held = reservation_matches;
+        op_stage1_next.is_load = is_load;
+        op_stage1_next.reservation_held = 1'b1;
         op_stage1_next.address = address;
-        op_stage1_next.is_amo = (exec_uop == RXVTypes::UOP_LW_ATOMIC || exec_uop == RXVTypes::UOP_LR || exec_uop == RXVTypes::UOP_SC);
+        op_stage1_next.pc = exec_pc;
+        op_stage1_next.is_amo = (exec_uop == RXVTypes::UOP_LW_ATOMIC ||
+                                 exec_uop == RXVTypes::UOP_LR ||
+                                 exec_uop == RXVTypes::UOP_SC);
 `ifdef RXV_TRACE
         op_stage1_next.store_data = op2;
         op_stage1_next.phys       = 20'b0;
 `endif  // RXV_TRACE
+
+        if (lsu_stall) op_stage1_next = op_stage1;
+        // Prepare for replay once the TLB is unblocked
+        if (lsu_tlb_busy || tlb_stalling) op_stage1_next = op_stage1;
+        if (page_fault) op_stage1_next.valid = 1'b0;
     end
 
     always_comb begin
@@ -340,7 +397,8 @@ module RXVLSU #(
 `ifdef RXV_TRACE
         op_stage2_next.phys = lsu_translation.pa[31:12];
 `endif  // RXV_TRACE
-        if (lsu_stall) op_stage2_next = 'b0;
+        op_stage2_next.reservation_held = reservation_matches;
+        if (lsu_stall || lsu_exception_next.valid || tlb_stalling) op_stage2_next = 'b0;
     end
 
     always_comb begin
@@ -379,14 +437,28 @@ module RXVLSU #(
     );
 
     always_comb begin
-        lsu_exception_next.pc = exec_pc;
-        lsu_exception_next.val = is_invalid_amo ? op_stage1.address : address;
-        lsu_exception_next.cause = is_invalid_amo ? RXVCSR::CAUSE_LOAD_ACCESS_FAULT :
-        is_load ? RXVCSR::CAUSE_LOAD_MISALIGN : RXVCSR::CAUSE_STORE_MISALIGN;
-        lsu_exception_next.valid = ((is_load | is_store) & valid & is_unaligned) | is_invalid_amo;
+        page_fault = op_stage1.valid &&
+            (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo) &&
+            ((tlb_stalling && !lsu_tlb_busy && !lsu_translation.valid) ||
+             (!lsu_tlb_busy && op_stage1.valid && !tlb_access_okay()));
+    end
+
+    always_comb begin
+        lsu_exception_next.pc  = page_fault || is_invalid_amo ? op_stage1.pc : exec_pc;
+        lsu_exception_next.val = is_invalid_amo || page_fault ? op_stage1.address : address;
+
+        if (is_unaligned)
+            lsu_exception_next.cause = is_store ? RXVCSR::CAUSE_STORE_MISALIGN :
+                RXVCSR::CAUSE_LOAD_MISALIGN;
+        if (page_fault)
+            lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo ?
+                RXVCSR::CAUSE_STORE_PAGE_FAULT : RXVCSR::CAUSE_LOAD_PAGE_FAULT;
+        if (is_invalid_amo) lsu_exception_next.cause = RXVCSR::CAUSE_STORE_ACCESS_FAULT;
+
+        lsu_exception_next.valid = ((is_load | is_store) & valid & is_unaligned) | is_invalid_amo | page_fault;
         lsu_exception_next.irq = 1'b0;
 
-        lsu_except_id_next = is_invalid_amo ? op_stage1.id : exec_id;
+        lsu_except_id_next = is_invalid_amo || page_fault ? op_stage1.id : exec_id;
     end
 
     always_comb begin
@@ -395,17 +467,24 @@ module RXVLSU #(
             RXVTypes::UOP_SH: dcache_wdata_next = op2 << (address[1] * 16);
             default: dcache_wdata_next = op2;
         endcase
+
+        // Replay a load/store after successful translation
+        if (tlb_stalling && !lsu_tlb_busy) dcache_wdata_next = dcache_wdata;
     end
 
     always_comb begin
         dcache_wren = op_stage1.valid & op_stage1.is_store;
         dcache_phys = {lsu_translation.pa, op_stage1.address[11:2]};
-        dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & lsu_translation.valid & ~is_invalid_amo;
+
+        dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & lsu_translation.valid &
+            ~is_invalid_amo & ~page_fault;
+        if (op_stage1.is_sc && !reservation_held) dcache_phys_valid = 1'b0;
     end
 
     always_comb begin
         dcache_valid = (is_load | is_store) & valid & ~is_unaligned;
-        if (exec_uop == RXVTypes::UOP_SC && !reservation_matches) dcache_valid = 1'b0;
+        // Replay a load/store after successful translation
+        if (tlb_stalling && !lsu_tlb_busy && tlb_access_okay()) dcache_valid = 1'b1;
     end
 
     always_comb begin
@@ -437,9 +516,7 @@ module RXVLSU #(
                 default:  size = 4;
             endcase
             trace_read_mem(32'(op_stage2.id), op_stage2.address, {
-                           op_stage2.phys, op_stage2.address[11:0]
-                           },
-                           lsu_reg_wr_data_next, size);
+                           op_stage2.phys, op_stage2.address[11:0]}, lsu_reg_wr_data_next, size);
         end
     end
 `endif
@@ -459,7 +536,7 @@ module RXVLSU #(
     ) lsu_op_stage1_dff (
         .clk  (clk),
         .reset(reset),
-        .en   (~lsu_stall),
+        .en   (1'b1),
         .d    (op_stage1_next),
         .q    (op_stage1)
     );
@@ -638,6 +715,14 @@ module RXVLSU #(
         .en   (1'b1),
         .d    (reservation_held_next),
         .q    (reservation_held)
+    );
+
+    RXVDFF tlb_stalling_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (tlb_stalling_next),
+        .q    (tlb_stalling)
     );
 
 endmodule

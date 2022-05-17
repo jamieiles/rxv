@@ -24,7 +24,9 @@ module RXVTLB #(
     output logic         [        31:12] walk_va,
     output logic                         walk_valid,
     input  logic                         walk_busy,
+    // verilator lint_off UNUSED
     input  sv32_pte_t                    walk_pte,
+    // verilator lint_on UNUSED
     input  logic                         walk_is_megapage,
     input  logic                         walk_translation_error,
     // Global control
@@ -58,7 +60,7 @@ module RXVTLB #(
     translation_t                   bypass_translation;
     state_t                         state;
     state_t                         next_state;
-    logic translation_update;
+    logic                           translation_update;
 
     TLBPLRU #(
         .width(num_entries)
@@ -109,19 +111,24 @@ module RXVTLB #(
                 entry_next = entry;
 
                 unique case (tlb_op)
+                    // verilog_format: off
                     RXVMMU::TLB_INV_ALL: entry_next = tlb_entry_t'(1'b0);
                     RXVMMU::TLB_INV_ASID_ONLY:
-                    entry_next = entry.translation.asid == inv_asid ? tlb_entry_t'(1'b0) : entry;
+                        entry_next = entry.translation.asid == inv_asid &&
+                            !entry.translation.page_global ? tlb_entry_t'(1'b0) :
+                            entry;
                     RXVMMU::TLB_INV_ADDR_ONLY:
-                    entry_next = entry_va_matches(entry, inv_addr) ? tlb_entry_t'(1'b0) : entry;
+                        entry_next = entry_va_matches(entry, inv_addr) ?
+                            tlb_entry_t'(1'b0) : entry;
                     RXVMMU::TLB_INV_ASID_ADDR:
-                    entry_next = entry.translation.asid == inv_asid &&
-                        entry_va_matches(entry, inv_addr) ? tlb_entry_t'(1'b0) : entry;
+                        entry_next = entry.translation.asid == inv_asid &&
+                            entry_va_matches(entry, inv_addr) && !entry.translation.page_global ?
+                            tlb_entry_t'(1'b0) : entry;
                     default: entry_next = entry;
+                    // verilog_format: on
                 endcase
 
-                if (state == STATE_FILL && way == lru_out && !walk_translation_error &&
-                    walk_pte.valid && walk_pte[9:8] == 2'b00) begin
+                if (state == STATE_FILL && way == lru_out && !walk_translation_error && walk_pte.valid) begin
                     // FIXME: handle 34-bit PA
                     entry_next.translation.pa          = 20'({walk_pte.ppn1, walk_pte.ppn0});
                     entry_next.translation.dirty       = walk_pte.dirty;
@@ -133,7 +140,7 @@ module RXVTLB #(
                     entry_next.translation.read        = walk_pte.read;
                     entry_next.translation.valid       = walk_pte.valid;
                     entry_next.translation.asid        = active_asid;
-                    entry_next.va                      = va;
+                    entry_next.va                      = walk_va;
                     entry_next.is_megapage             = walk_is_megapage;
                 end
             end
@@ -154,6 +161,12 @@ module RXVTLB #(
             );
         end
     endgenerate
+
+    RXVAssert no_inval_during_fill (
+        .clk      (clk),
+        .en       (state != STATE_READY),
+        .condition(tlb_op == RXVMMU::TLB_INV_NONE)
+    );
 
     always_comb begin
         bypass_translation.pa          = va;

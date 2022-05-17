@@ -54,9 +54,11 @@ import RXVCSR::MINT_id;
 import RXVCSR::mtvec_dest;
 import RXVCSR::stvec_dest;
 import RXVCSR::privilege_t;
+import RXVCSR::effective_privilege;
 import RXVTrace::trace_write_csr;
 import RXVTrace::trace_irq;
 import RXVTypes::commit_width;
+import RXVMMU::asid_bits;
 
 module RXVCSRFile #(
     parameter logic [31:0] vendorid = 0,
@@ -90,6 +92,7 @@ module RXVCSRFile #(
     output logic                           irq_pending,
     input  logic                           fetch_idle,
     input  logic                           commit_empty,
+    input  logic                           exception_pending,
     input  logic        [            31:2] irq_epc,
     output logic                           irq_resteer,
     output logic        [            31:2] irq_resteer_tgt,
@@ -103,7 +106,12 @@ module RXVCSRFile #(
     output logic                           instretl_wren,
     input  logic        [            63:0] pmu_cycles,
     input  logic        [            63:0] pmu_instret,
-    output privilege_t                     current_privilege
+    output privilege_t                     current_privilege,
+    // MMU
+    output logic        [           31:12] translation_base,
+    output logic        [   asid_bits-1:0] active_asid,
+    output logic                           i_tlb_enabled,
+    output logic                           d_tlb_enabled
 );
 
     localparam logic [31:0] misa_s = 32'd1 << 18;
@@ -403,10 +411,12 @@ module RXVCSRFile #(
             mstatus_next.mie  = mstatus_next.mpie;
             mstatus_next.mpie = 1'b0;
             mstatus_next.mpp  = RXVCSR::PRIV_U;
+            mstatus_next.mprv = 1'b0;
         end else if (do_sret) begin
             mstatus_next.sie  = mstatus_next.spie;
             mstatus_next.spie = 1'b0;
             mstatus_next.spp  = 1'b0;
+            mstatus_next.mprv = 1'b0;
         end else if (mstatus_wren) begin
             mstatus_next = pack_mstatus(wr_data, mstatus_reg);
         end else if (sstatus_wren) begin
@@ -513,6 +523,14 @@ module RXVCSRFile #(
         if (do_mret) next_privilege = privilege_t'(mstatus_reg.mpp);
         if (do_sret) next_privilege = privilege_t'(mstatus_reg.spp);
         if (exception_priv_change || irq_resteer) next_privilege = exception_privilege;
+    end
+
+    always_comb begin
+        translation_base = satp_reg.ppn[19:0];
+        active_asid = satp_reg.asid;
+        d_tlb_enabled = satp_reg.mode &&
+            effective_privilege(mstatus_reg, current_privilege) != RXVCSR::PRIV_M;
+        i_tlb_enabled = satp_reg.mode && current_privilege != RXVCSR::PRIV_M;
     end
 
     RXVAssert #(

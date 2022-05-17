@@ -37,13 +37,18 @@ module RXVCommitter (
 
     logic commit_ready;
     logic exception_resteer_next;
+    logic killed;
+
+    always_comb begin
+        killed = commit_killed | exception_cleanup;
+    end
 
     always_comb begin
         commit_ready = ~commit_empty & (commit_complete | commit_killed | commit_excepted);
     end
 
     always_comb begin
-        retired = commit_ready & (~commit_killed | commit_excepted);
+        retired = commit_ready & (~killed | commit_excepted);
     end
 
     always_comb begin
@@ -52,7 +57,7 @@ module RXVCommitter (
         commit_rename_rollback = 1'b0;
 
         if (!commit_empty && commit_complete && commit_in.have_rename &&
-            |commit_in.dest_reg.arch) begin
+            |commit_in.dest_reg.arch && !killed) begin
             commit_rename_valid = 1'b1;
         end
 
@@ -64,8 +69,7 @@ module RXVCommitter (
     always_comb begin
         commit_reg_reg = commit_in.stale_phys;
 
-        if (!commit_empty && (commit_excepted || commit_killed))
-            commit_reg_reg = commit_in.dest_reg.phys;
+        if (!commit_empty && (commit_excepted || killed)) commit_reg_reg = commit_in.dest_reg.phys;
 
         commit_reg_push = commit_ready & |commit_reg_reg;
     end

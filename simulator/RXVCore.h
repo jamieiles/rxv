@@ -328,6 +328,11 @@ public:
         return s;
     }
 
+    void set_trigger(unsigned long cycle_count) override
+    {
+        this->set_waves_trigger(cycle_count);
+    }
+
 private:
     void do_reset()
     {

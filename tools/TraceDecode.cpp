@@ -356,8 +356,9 @@ int main(int argc, char **argv)
     for (;;) {
         auto range_start = trace_range.event_offset;
         auto range_end = range_start + trace_range.trace->events()->size() - 1;
-
-        for (unsigned long i = start > range_end ? 0 : start - range_start;
+        for (unsigned long i = start > range_end || start < range_start
+                                   ? 0
+                                   : start - range_start;
              i <= range_end - range_start; ++i) {
             if ((*trace_range.trace->events_type())[i] ==
                 RXV::Trace::Event_InstructionTrace) {

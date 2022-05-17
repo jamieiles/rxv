@@ -184,12 +184,18 @@ module RXVCSRFile #(
     always_comb begin
         active_s_irqs = unpack_sie(mie_reg) & unpack_sip(mip_reg) & unpack_mideleg(mideleg_reg);
         active_m_irqs = unpack_mie(mie_reg) & unpack_mip(mip_reg) & ~unpack_mideleg(mideleg_reg);
+    end
 
-        if (current_privilege == RXVCSR::PRIV_M && mstatus_reg.mie && ~exception.valid && |active_m_irqs) begin
+    always_comb begin
+        if ((current_privilege == RXVCSR::PRIV_M && mstatus_reg.mie &&
+             ~exception.valid && |active_m_irqs) ||
+            (current_privilege != RXVCSR::PRIV_M && ~exception.valid && |active_m_irqs)) begin
             irq_pending_next = 1'b1;
-        end else if (current_privilege == RXVCSR::PRIV_S && mstatus_reg.sie && ~exception.valid && |active_s_irqs) begin
+        end else if (current_privilege == RXVCSR::PRIV_S && mstatus_reg.sie &&
+                     ~exception.valid && |active_s_irqs) begin
             irq_pending_next = 1'b1;
-        end else if (current_privilege == RXVCSR::PRIV_U && ~exception.valid && |(active_m_irqs | active_s_irqs)) begin
+        end else if (current_privilege == RXVCSR::PRIV_U && ~exception.valid &&
+                     |(active_m_irqs | active_s_irqs)) begin
             irq_pending_next = 1'b1;
         end else begin
             irq_pending_next = 1'b0;
@@ -210,7 +216,7 @@ module RXVCSRFile #(
         take_irq             = irq_pending & fetch_idle & commit_empty & ~irq_resteer &
                                ~lsu_exception.valid & ~exec_exception.valid;
         if ((current_privilege == RXVCSR::PRIV_M && !mstatus_reg.mie) ||
-            (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.sie))
+            (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.sie && ~|active_m_irqs))
             take_irq = 1'b0;
 
         irq_exception.pc    = irq_epc;

@@ -54,6 +54,7 @@ enum CSRID {
     STVAL       = 0x0143,
     SIP         = 0x0144,
     SATP        = 0x0180,
+    RXV_EMUCTL  = 0x0800,
 };
 
 constexpr uint32_t supported_extensions =
@@ -108,6 +109,7 @@ static const struct CSRDef csr_defs[] = {
     { "tdata1",     0x00000000, 0x00000000, TDATA1 },
     { "tdata2",     0x00000000, 0x00000000, TDATA2 },
     { "tdata3",     0x00000000, 0x00000000, TDATA3 },
+    { "rxvemuctl",  0xffffffff, 0x00000000, RXV_EMUCTL },
     {}
 };
 // clang-format on
@@ -214,6 +216,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , tracer(trace_name)
     , cur_cycle(0)
     , num_irqs(0)
+    , finished(false)
 {
     status.set(M, 0);
     status.mpp = M;
@@ -291,6 +294,11 @@ void RXVSim::do_write_csr(int r, uint32_t v)
     case SIP:
         csrs[MIP].val &= ~mip_s_mask;
         csrs[MIP].val |= v & mip_s_mask;
+        break;
+    case RXV_EMUCTL:
+        std::cerr << "rxvemu: received simulation exit CSR write (" << std::hex
+                  << v << ")" << std::endl;
+        finished = true;
         break;
     default: csrs[static_cast<CSRID>(r)].val = v & wr_mask;
     }
@@ -558,7 +566,7 @@ bool RXVSim::translate(uint32_t virt,
     return !ad_fault(*translation, write);
 }
 
-void RXVSim::step()
+bool RXVSim::step()
 {
     exception_taken = false;
 
@@ -1212,4 +1220,6 @@ void RXVSim::step()
     privilege_level = new_privilege_level;
 
     ++cur_cycle;
+
+    return !finished;
 }

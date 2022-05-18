@@ -483,7 +483,7 @@ public:
         icache.invalidate();
     }
 
-    void step();
+    bool step();
     void raise_timer_irq();
     void clear_timer_irq();
 
@@ -647,4 +647,5 @@ private:
     SimTracer tracer;
     uint64_t cur_cycle;
     uint64_t num_irqs;
+    bool finished;
 };

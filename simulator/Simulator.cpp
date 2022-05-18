@@ -55,8 +55,8 @@ public:
 
         auto start = std::chrono::steady_clock::now();
         try {
-            while (!sigint_received)
-                sim->step();
+            while (!sigint_received && sim->step())
+                continue;
         } catch (std::exception &e) {
             std::cerr << "\r\nERROR: " << e.what() << "\r\n" << std::endl;
         }

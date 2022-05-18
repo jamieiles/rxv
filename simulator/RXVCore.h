@@ -276,7 +276,7 @@ public:
         return tracer->read_csr(static_cast<RXV::Trace::CSRId>(r));
     }
 
-    void step()
+    bool step()
     {
         if (!have_reset)
             do_reset();
@@ -290,6 +290,8 @@ public:
             if (++cycles > 65536)
                 throw std::runtime_error("timeout in step");
         }
+
+        return !Verilated::gotFinish();
     }
 
     uint64_t get_cycle() const

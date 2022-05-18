@@ -482,6 +482,9 @@ module RXVCSRFile #(
             RXVCSR::CSR_SATP:
                 valid_csr_out = current_privilege == RXVCSR::PRIV_M ||
                     (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
+`ifdef verilator
+            RXVCSR::CSR_RXV_EMUCTL: valid_csr_out = 1'b1;
+`endif
             default: valid_csr_out = 1'b0;
         endcase
         // verilog_format: on
@@ -549,6 +552,13 @@ module RXVCSRFile #(
         .en       (exception_write),
         .condition(!(current_privilege == RXVCSR::PRIV_M && next_privilege == RXVCSR::PRIV_S))
     );
+
+    always_ff @(posedge clk) begin
+        if (wr_en && wr_addr == RXVCSR::CSR_RXV_EMUCTL) begin
+            $display("rxvemu: received simulation exit CSR write (%08x)", wr_data);
+            $finish;
+        end
+    end
 `endif
 
 `ifdef verilator

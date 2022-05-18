@@ -80,7 +80,7 @@ public:
     virtual void write_pc(uint32_t v) = 0;
     virtual uint32_t read_reg(int r) = 0;
     virtual uint32_t read_csr(int r) = 0;
-    virtual void step() = 0;
+    virtual bool step() = 0;
     virtual uint64_t get_cycle() const = 0;
     virtual void do_read_phys_mem(uint32_t addr,
                                   char *dst,

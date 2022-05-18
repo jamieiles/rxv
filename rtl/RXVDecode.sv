@@ -134,120 +134,121 @@ module RXVDecode (
         AMO_TYPE_FETCH_OP
     } amo_type;
 
-    logic                                rs1_busy;
-    logic                                rs2_busy;
-    logic                                src_regs_ready;
-    logic                                illegal_instruction;
-    logic                                illegal_opcode;
-    logic                                int_bypass_valid;
-    logic                                have_rs1;
-    logic                                have_rs2;
-    arch_reg_tag                         last_rd_arch;
-    logic                                system_stall;
-    logic                                misc_mem_stall;
-    RXVException                         decode_exception_next;
-    logic        [     commit_width-1:0] decode_except_id_next;
-    logic                                dispatch_lsu;
-    logic                                dispatch_mul;
-    logic                                dispatch_int;
-    logic                                dispatch_div;
-    logic                                decode_be_stall;
+    logic                                  rs1_busy;
+    logic                                  rs2_busy;
+    logic                                  src_regs_ready;
+    logic                                  illegal_instruction;
+    logic                                  illegal_opcode;
+    logic                                  int_bypass_valid;
+    logic                                  have_rs1;
+    logic                                  have_rs2;
+    arch_reg_tag                           last_rd_arch;
+    logic                                  system_stall;
+    logic                                  misc_mem_stall;
+    RXVException                           decode_exception_next;
+    logic          [     commit_width-1:0] decode_except_id_next;
+    logic                                  dispatch_lsu;
+    logic                                  dispatch_mul;
+    logic                                  dispatch_int;
+    logic                                  dispatch_div;
+    logic                                  decode_be_stall;
 
-    logic                                is_branch;
+    logic                                  is_branch;
 
-    logic        [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
-    logic                                exec_have_writeback_next;
-    logic        [                 31:0] exec_immed_next;
-    logic        [                 31:0] exec_branch_target_next;
-    logic        [   $bits(rxv_uop)-1:0] exec_uop_next;
-    logic                                exec_bypass_rs1_next;
-    logic                                exec_bypass_rs2_next;
+    logic          [$bits(rxv_alu_op)-1:0] exec_alu_op_next;
+    logic                                  exec_have_writeback_next;
+    logic          [                 31:0] exec_immed_next;
+    logic          [                 31:0] exec_branch_target_next;
+    logic          [   $bits(rxv_uop)-1:0] exec_uop_next;
+    logic                                  exec_bypass_rs1_next;
+    logic                                  exec_bypass_rs2_next;
+    rxv_prediction                         exec_prediction_next;
 
-    logic                                opc_op;
-    rxv_alu_op                           op_alu_op;
-    logic                                op_illegal_instr;
-    rxv_uop                              op_uop;
+    logic                                  opc_op;
+    rxv_alu_op                             op_alu_op;
+    logic                                  op_illegal_instr;
+    rxv_uop                                op_uop;
 
-    logic                                opc_mul;
-    logic                                mul_illegal_instr;
-    rxv_uop                              mul_uop;
+    logic                                  opc_mul;
+    logic                                  mul_illegal_instr;
+    rxv_uop                                mul_uop;
 
-    logic                                opc_div;
-    logic                                div_illegal_instr;
-    rxv_uop                              div_uop;
+    logic                                  opc_div;
+    logic                                  div_illegal_instr;
+    rxv_uop                                div_uop;
 
-    logic                                opc_imm;
-    rxv_alu_op                           imm_alu_op;
-    logic                                imm_illegal_instr;
-    rxv_uop                              imm_uop;
+    logic                                  opc_imm;
+    rxv_alu_op                             imm_alu_op;
+    logic                                  imm_illegal_instr;
+    rxv_uop                                imm_uop;
 
-    logic                                opc_branch;
-    rxv_alu_op                           branch_alu_op;
-    logic                                branch_illegal_instr;
-    logic        [                 31:0] branch_target;
-    rxv_uop                              branch_uop;
+    logic                                  opc_branch;
+    rxv_alu_op                             branch_alu_op;
+    logic                                  branch_illegal_instr;
+    logic          [                 31:0] branch_target;
+    rxv_uop                                branch_uop;
 
-    logic                                opc_jal;
-    logic        [                 31:0] jal_target;
-    rxv_uop                              jal_uop;
+    logic                                  opc_jal;
+    logic          [                 31:0] jal_target;
+    rxv_uop                                jal_uop;
 
-    logic                                opc_jalr;
-    rxv_alu_op                           jalr_alu_op;
-    rxv_uop                              jalr_uop;
+    logic                                  opc_jalr;
+    rxv_alu_op                             jalr_alu_op;
+    rxv_uop                                jalr_uop;
 
-    logic                                opc_lui;
-    rxv_uop                              lui_uop;
+    logic                                  opc_lui;
+    rxv_uop                                lui_uop;
 
-    logic                                opc_auipc;
-    rxv_uop                              auipc_uop;
+    logic                                  opc_auipc;
+    rxv_uop                                auipc_uop;
 
-    logic                                opc_system;
-    rxv_csr_op                           csr_op_next;
-    logic                                system_illegal_instr;
-    rxv_uop                              system_uop;
-    logic                                system_have_writeback;
-    logic        [                  3:0] system_exec_pipe_en;
+    logic                                  opc_system;
+    rxv_csr_op                             csr_op_next;
+    logic                                  system_illegal_instr;
+    rxv_uop                                system_uop;
+    logic                                  system_have_writeback;
+    logic          [                  3:0] system_exec_pipe_en;
 
-    logic                                opc_misc_mem;
-    logic                                misc_mem_illegal_instr;
-    rxv_uop                              misc_mem_uop;
+    logic                                  opc_misc_mem;
+    logic                                  misc_mem_illegal_instr;
+    rxv_uop                                misc_mem_uop;
 
-    logic                                opc_store;
-    logic                                store_illegal_instr;
-    rxv_uop                              store_uop;
+    logic                                  opc_store;
+    logic                                  store_illegal_instr;
+    rxv_uop                                store_uop;
 
-    logic                                opc_load;
-    logic                                load_illegal_instr;
-    rxv_uop                              load_uop;
+    logic                                  opc_load;
+    logic                                  load_illegal_instr;
+    rxv_uop                                load_uop;
 
-    logic                                opc_amo;
-    logic                                amo_illegal_instr;
-    rxv_uop                              amo_uop;
-    logic                                amo_uop_wb;
-    rxv_alu_op                           amo_alu_op;
-    logic        [                  3:0] amo_exec_pipe_en;
-    logic        [                  1:0] amo_uop_idx;
-    logic        [                  1:0] amo_uop_idx_next;
-    logic                                amo_alloc_tmp_reg;
-    phys_reg_tag                         amo_tmp_reg;
-    phys_reg_tag                         amo_tmp_reg_next;
-    logic                                amo_alloc_dst_reg;
-    phys_reg_tag                         amo_dst_reg;
-    phys_reg_tag                         amo_dst_reg_next;
-    logic        [                  2:0] amo_num_uops;
-    logic                                amo_alloc_reg;
-    logic                                amo_rs1_is_dst;
-    logic                                amo_rs2_is_tmp;
-    logic                                amo_rename_valid;
-    logic                                amo_opc_valid;
-    logic                                amo_complete;
-    phys_reg_tag                         amo_stale_reg;
-    logic        [     commit_width-1:0] amo_parent;
-    logic        [     commit_width-1:0] amo_parent_next;
-    amo_type                             amo_op_type;
+    logic                                  opc_amo;
+    logic                                  amo_illegal_instr;
+    rxv_uop                                amo_uop;
+    logic                                  amo_uop_wb;
+    rxv_alu_op                             amo_alu_op;
+    logic          [                  3:0] amo_exec_pipe_en;
+    logic          [                  1:0] amo_uop_idx;
+    logic          [                  1:0] amo_uop_idx_next;
+    logic                                  amo_alloc_tmp_reg;
+    phys_reg_tag                           amo_tmp_reg;
+    phys_reg_tag                           amo_tmp_reg_next;
+    logic                                  amo_alloc_dst_reg;
+    phys_reg_tag                           amo_dst_reg;
+    phys_reg_tag                           amo_dst_reg_next;
+    logic          [                  2:0] amo_num_uops;
+    logic                                  amo_alloc_reg;
+    logic                                  amo_rs1_is_dst;
+    logic                                  amo_rs2_is_tmp;
+    logic                                  amo_rename_valid;
+    logic                                  amo_opc_valid;
+    logic                                  amo_complete;
+    phys_reg_tag                           amo_stale_reg;
+    logic          [     commit_width-1:0] amo_parent;
+    logic          [     commit_width-1:0] amo_parent_next;
+    amo_type                               amo_op_type;
 
-    logic        [                  3:0] exec_pipe_en;
-    logic                                dispatch_ready;
+    logic          [                  3:0] exec_pipe_en;
+    logic                                  dispatch_ready;
 
     always_comb begin
         opc_op          = 1'b0;
@@ -998,6 +999,10 @@ module RXVDecode (
         decode_except_id_next = dispatch_id;
     end
 
+    always_comb begin
+        exec_prediction_next = is_branch ? decode_prediction : rxv_prediction'(1'b0);
+    end
+
     RXVDFF #(
         .width($bits(exec_alu_op))
     ) exec_alu_op_dff (
@@ -1104,7 +1109,7 @@ module RXVDecode (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (decode_prediction),
+        .d    (exec_prediction_next),
         .q    (exec_prediction)
     );
 

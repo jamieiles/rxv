@@ -105,7 +105,7 @@ module RXVCoreSynthTop (
         .icache_nr_lines     (128),
         .dcache_nr_ways      (2),
         .dcache_nr_lines     (128),
-        .banked_register_file(1)
+        .banked_register_file(0)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),

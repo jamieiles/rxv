@@ -90,8 +90,9 @@ static boost::program_options::variables_map parse_options(int argc,
         ("sim", boost::program_options::value<std::string>(), "Simulator")
         ("waves", boost::program_options::value<std::string>(), "Waves File")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
-        ("trigger-cycles", boost::program_options::value<unsigned long>(), "Trigger wave capture at cycle count N")
         ("uart_log", boost::program_options::value<std::string>(), "UART log path")
+        ("trigger-start", boost::program_options::value<unsigned long>(), "Trigger wave capture at cycle count N")
+        ("trigger-end", boost::program_options::value<unsigned long>(), "Trigger wave capture at cycle count N")
         ("compliance", "Run compliance test")
         ("help,h", "Help screen");
     // clang-format on
@@ -151,8 +152,11 @@ int main(int argc, char *argv[])
                 sim = std::make_unique<RXVCore<true>>(
                     trace_name, 384 * 1024 * 1024, 0x80000000,
                     vm["waves"].as<std::string>(), uart_log);
-                if (vm.count("trigger-cycles"))
-                    sim->set_trigger(vm["trigger-cycles"].as<unsigned long>());
+                if (vm.count("trigger-start"))
+                    sim->set_trigger_start(
+                        vm["trigger-start"].as<unsigned long>());
+                if (vm.count("trigger-end"))
+                    sim->set_trigger_end(vm["trigger-end"].as<unsigned long>());
             } else {
                 sim = std::make_unique<RXVCore<false>>(
                     trace_name, 384 * 1024 * 1024, 0x80000000, "no_waves.fst",

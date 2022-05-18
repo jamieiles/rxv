@@ -331,9 +331,14 @@ public:
         return s;
     }
 
-    void set_trigger(unsigned long cycle_count) override
+    void set_trigger_start(unsigned long cycle_count) override
     {
-        this->set_waves_trigger(cycle_count);
+        this->set_waves_trigger_start(cycle_count);
+    }
+
+    void set_trigger_end(unsigned long cycle_count) override
+    {
+        this->set_waves_trigger_end(cycle_count);
     }
 
 private:

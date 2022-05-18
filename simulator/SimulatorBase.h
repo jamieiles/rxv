@@ -34,7 +34,11 @@ public:
 
     void load_elf(const RiscVELF &elf);
     void load_binary(const std::string &path, uint32_t base);
-    virtual void set_trigger(unsigned long cycle_count)
+    virtual void set_trigger_start(unsigned long cycle_count)
+    {
+        (void)cycle_count;
+    }
+    virtual void set_trigger_end(unsigned long cycle_count)
     {
         (void)cycle_count;
     }

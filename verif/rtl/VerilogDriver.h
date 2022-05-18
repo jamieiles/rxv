@@ -61,9 +61,13 @@ public:
     {
         return cycle_num;
     }
-    void set_waves_trigger(unsigned long cycle_count)
+    void set_waves_trigger_start(unsigned long cycle_count)
     {
-        trigger_cycle = cycle_count;
+        trigger_start = cycle_count;
+    }
+    void set_waves_trigger_end(unsigned long cycle_count)
+    {
+        trigger_end = cycle_count;
     }
 
 protected:
@@ -78,7 +82,8 @@ private:
     VerilatedFstC tracer;
     vluint64_t cur_time;
     vluint64_t cycle_num;
-    unsigned long trigger_cycle;
+    unsigned long trigger_start;
+    unsigned long trigger_end;
 
     static const int max_deferred_delta = 64;
     std::vector<std::function<void()>> deferred_events[max_deferred_delta];
@@ -95,7 +100,7 @@ VerilogDriver<T, debug_enabled>::VerilogDriver()
 
 template <typename T, bool debug_enabled>
 VerilogDriver<T, debug_enabled>::VerilogDriver(const std::string &waves_file)
-    : cycle_num(0), trigger_cycle(0), waves_file(waves_file)
+    : cycle_num(0), trigger_start(0), trigger_end(~0LL), waves_file(waves_file)
 {
     dut.reset = 0;
     dut.clk = 0;
@@ -166,7 +171,8 @@ void VerilogDriver<T, debug_enabled>::cycle(int count)
 {
     for (int i = 0; i < count; ++i) {
         for (auto j = 0; j < evals_per_cycle; ++j) {
-            if (debug_enabled && cycle_num >= trigger_cycle)
+            if (debug_enabled && cycle_num >= trigger_start &&
+                cycle_num <= trigger_end)
                 tracer.dump(cur_time);
             if (j == 0) {
                 run_periodic_events(ClockSetup);

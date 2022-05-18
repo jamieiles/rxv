@@ -198,7 +198,8 @@ private:
 
 RXVSim::RXVSim(const std::optional<std::string> trace_name,
                size_t mem_size,
-               uint32_t mem_base)
+               uint32_t mem_base,
+               std::string uart_log)
     : pc(0)
     , new_pc(0)
     , exception_taken(false)
@@ -231,7 +232,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
 
     bus.add_peripheral(std::make_unique<CLINT>(this, mtime_base, 64 * 1024));
     dcache.set_noncacheable(mtime_base, mtime_base + 65536 - 1);
-    bus.add_peripheral(std::make_unique<UART>(uart_base, 4096));
+    bus.add_peripheral(std::make_unique<UART>(uart_base, 4096, uart_log));
     dcache.set_noncacheable(uart_base, uart_base + 4096 - 1);
 }
 

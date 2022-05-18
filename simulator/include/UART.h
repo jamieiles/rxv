@@ -2,6 +2,8 @@
 
 #include "MemoryDevice.h"
 
+#include <iostream>
+#include <fstream>
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -41,8 +43,17 @@ private:
 class UART : public IOPeripheral
 {
 public:
-    UART(uint32_t base, size_t len) : IOPeripheral(base, len)
+    UART(uint32_t base, size_t len, const std::string &log_file)
+        : IOPeripheral(base, len), log_file(log_file), log_open(false)
     {
+    }
+
+    virtual ~UART()
+    {
+        if (log_open) {
+            log.close();
+            log_open = false;
+        }
     }
 
     void write(uint32_t offset, const char *v, size_t len)
@@ -52,6 +63,10 @@ public:
 
         if (::write(STDIN_FILENO, v, 1) != 1)
             throw std::runtime_error("failed to write stdout");
+
+        open_log();
+        log.write(v, 1);
+        log.flush();
     }
 
     void read(uint32_t offset, char *v, size_t len)
@@ -69,5 +84,18 @@ public:
     }
 
 private:
+    void open_log()
+    {
+        if (log_open)
+            return;
+
+        log.open(log_file, std::ios::out | std::ios::binary);
+
+        log_open = true;
+    }
+
     RawTTY raw_tty;
+    std::string log_file;
+    std::ofstream log;
+    bool log_open;
 };

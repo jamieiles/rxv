@@ -227,7 +227,8 @@ public:
     RXVCore(const std::optional<std::string> trace_name,
             size_t mem_size = default_mem_size,
             uint32_t mem_base = default_ram_base,
-            std::string waves_file = "VRXVCoreEmulWrapper.fst")
+            std::string waves_file = "VRXVCoreEmulWrapper.fst",
+            std::string uart_log = "uart0.log")
         : VerilogDriver<VRXVCoreEmulWrapper, debug_enabled>(waves_file)
         , mem_base(mem_base)
         , shadow_bus(mem_base, mem_size, false)
@@ -236,7 +237,7 @@ public:
         tracer = std::make_shared<ShadowTracer>(trace_name, &shadow_bus);
         this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         bus = std::make_shared<MemoryBus>(mem_base, mem_size);
-        bus->add_peripheral(std::make_unique<UART>(uart_base, 4096));
+        bus->add_peripheral(std::make_unique<UART>(uart_base, 4096, uart_log));
         bus->add_peripheral(std::make_unique<RTLCLINT>(
             &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtime_reg,
             &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtimecmp_reg,

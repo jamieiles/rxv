@@ -91,6 +91,7 @@ static boost::program_options::variables_map parse_options(int argc,
         ("waves", boost::program_options::value<std::string>(), "Waves File")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
         ("trigger-cycles", boost::program_options::value<unsigned long>(), "Trigger wave capture at cycle count N")
+        ("uart_log", boost::program_options::value<std::string>(), "UART log path")
         ("compliance", "Run compliance test")
         ("help,h", "Help screen");
     // clang-format on
@@ -136,23 +137,26 @@ int main(int argc, char *argv[])
             vm.count("trace_file")
                 ? std::optional<std::string>(vm["trace_file"].as<std::string>())
                 : std::nullopt;
+        auto uart_log = vm.count("uart_log") ? vm["uart_log"].as<std::string>()
+                                             : "uart0.log";
 
         std::unique_ptr<SimulatorBase> sim;
         if (vm["sim"].as<std::string>() == "software") {
             sim = std::make_unique<RXVSim>(trace_name, 384 * 1024 * 1024,
-                                           0x80000000);
+                                           0x80000000, uart_log);
         } else if (vm["sim"].as<std::string>() == "rtl") {
             bool waves = vm.count("waves");
 
             if (waves) {
                 sim = std::make_unique<RXVCore<true>>(
                     trace_name, 384 * 1024 * 1024, 0x80000000,
-                    vm["waves"].as<std::string>());
+                    vm["waves"].as<std::string>(), uart_log);
                 if (vm.count("trigger-cycles"))
                     sim->set_trigger(vm["trigger-cycles"].as<unsigned long>());
             } else {
                 sim = std::make_unique<RXVCore<false>>(
-                    trace_name, 384 * 1024 * 1024, 0x80000000);
+                    trace_name, 384 * 1024 * 1024, 0x80000000, "no_waves.fst",
+                    uart_log);
             }
         } else {
             std::cerr << "error: invalid simulator "

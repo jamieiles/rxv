@@ -362,7 +362,8 @@ class RXVSim : public SimulatorBase
 public:
     RXVSim(const std::optional<std::string> trace_name,
            size_t mem_size = default_mem_size,
-           uint32_t mem_base = default_ram_base);
+           uint32_t mem_base = default_ram_base,
+           std::string uart_log = "uart0.log");
 
     uint32_t get_pc() const
     {

@@ -848,7 +848,7 @@ module RXVCore #(
     end
 
     always_comb begin
-        except_valid = lsu_exception.valid | (exec_exception.valid & ~exec_resteer);
+        except_valid = lsu_exception.valid | exec_exception.valid;
         except_id    = exec_exception.valid ? exec_except_id : lsu_except_id;
     end
 

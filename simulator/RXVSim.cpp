@@ -62,7 +62,8 @@ constexpr uint32_t supported_extensions =
     misa_ext_i |
     misa_ext_m |
     misa_ext_s |
-    misa_ext_a;
+    misa_ext_a |
+    misa_ext_u;
 
 static const struct CSRDef csr_defs[] = {
     // Machine information registers

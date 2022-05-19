@@ -114,11 +114,12 @@ module RXVCSRFile #(
     output logic                           d_tlb_enabled
 );
 
+    localparam logic [31:0] misa_u = 32'd1 << 20;
     localparam logic [31:0] misa_s = 32'd1 << 18;
     localparam logic [31:0] misa_m = 32'd1 << 12;
     localparam logic [31:0] misa_i = 32'd1 << 8;
     localparam logic [31:0] misa_a = 32'd1 << 0;
-    localparam logic [31:0] misa = (32'd1 << 30) | misa_m | misa_i | misa_a | misa_s;
+    localparam logic [31:0] misa = (32'd1 << 30) | misa_m | misa_i | misa_a | misa_s | misa_u;
 
     logic        [31:0] rd_data_next;
     logic        [31:0] mscratch;

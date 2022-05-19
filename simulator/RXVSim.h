@@ -26,6 +26,7 @@ constexpr uint32_t misa_ext_a = 1 << 0;
 constexpr uint32_t misa_ext_i = 1 << 8;
 constexpr uint32_t misa_ext_m = 1 << 12;
 constexpr uint32_t misa_ext_s = 1 << 18;
+constexpr uint32_t misa_ext_u = 1 << 20;
 constexpr uint32_t misa_xlen32 = 1 << 30;
 
 constexpr uint32_t mcause_interrupt = (1U << 31);

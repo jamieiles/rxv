@@ -1008,8 +1008,8 @@ TEST_F(RXVCoreEmulWrapperTest, misa)
 
     run_until(0x80000004);
 
-    EXPECT_EQ(tracer->read_reg(1),
-              (1 << 30) | (1 << 18) | (1 << 12) | (1 << 8) | (1 << 0));
+    EXPECT_EQ(tracer->read_reg(1), (1 << 30) | (1 << 20) | (1 << 18) |
+                                       (1 << 12) | (1 << 8) | (1 << 0));
 }
 
 TEST_F(RXVCoreEmulWrapperTest, amoadd)

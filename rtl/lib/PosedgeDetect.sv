@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 module PosedgeDetect (
     input  logic clk,

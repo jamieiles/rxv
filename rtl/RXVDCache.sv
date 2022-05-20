@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 // Data cache
 //
 // Accesses take 3 cycles:

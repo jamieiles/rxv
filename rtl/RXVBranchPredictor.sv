@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 module RXVBranchPredictor #(
     parameter int num_entries = 256,

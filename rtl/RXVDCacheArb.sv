@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 /*
  * Static priority cache arbiter.  MMU takes priority to guarantee forward

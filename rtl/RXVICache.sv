@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module RXVICache #(
     parameter nr_lines        = 4,
     parameter nr_ways         = 4,

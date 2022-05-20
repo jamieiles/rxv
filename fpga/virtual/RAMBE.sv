@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module RAMBE #(
     parameter depth      = 32,
     parameter byte_width = 4

@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module BitSync (
     input  logic clk,
     input  logic reset,

@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 module Fifo #(
     parameter int data_width         = 32,

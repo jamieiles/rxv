@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 import RXVTypes::int_latency;
 import RXVTypes::lsu_latency;

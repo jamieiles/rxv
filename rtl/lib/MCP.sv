@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module MCP #(
     parameter width = 8,
     parameter reset_val = 8'b0

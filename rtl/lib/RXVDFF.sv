@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module RXVDFF #(
     parameter width = 1,
     parameter reset_val = 0

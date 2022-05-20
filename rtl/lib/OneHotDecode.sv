@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module OneHotDecode #(
     parameter width = 1
 ) (

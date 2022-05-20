@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 import RXVMMU::sv32_pte_t;
 

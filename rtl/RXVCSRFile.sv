@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 import RXVCSR::RXVCSR_id;
 import RXVCSR::mstatus_t;

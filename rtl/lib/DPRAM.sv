@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module DPRAM #(
     parameter depth = 32,
     parameter width = 8

@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module SyncPulse (
     input  logic clk,
     input  logic reset,

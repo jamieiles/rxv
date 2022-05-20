@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module SysPLL (
     input  wire refclk,
     input  wire reset,

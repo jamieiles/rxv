@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 module RXVCoreSynthTop (
     input  logic        refclk,

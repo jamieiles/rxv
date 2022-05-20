@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 module BitPLRU #(
     parameter width = 4,
     parameter depth = 32

@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 import RXVTypes::rxv_alu_op;
 import RXVTypes::phys_reg_tag;

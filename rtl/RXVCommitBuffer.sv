@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 
 import RXVTypes::commit_entry;
 import RXVTypes::commit_order;

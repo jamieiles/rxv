@@ -1,4 +1,4 @@
-`default_nettype none
+`include "RXV.svh"
 /*
  * Static priority arbiter with N requests/grants.  LSB in the request takes
  * priority over MSB.

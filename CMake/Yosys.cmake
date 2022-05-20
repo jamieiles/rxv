@@ -3,7 +3,7 @@ file(READ "${PROJECT_SOURCE_DIR}/CMake/Yosys_sby.template" YOSYS_SBY_TEMPLATE)
 function(ys_formal)
     set(options "")
     set(oneValueArgs TOP DEPTH SKIP)
-    set(multiValueArgs SOURCES DEPENDS EXTRA_FILES UNCONVERTED_FILES DEFINES)
+    set(multiValueArgs SOURCES DEPENDS EXTRA_FILES INCLUDES UNCONVERTED_FILES DEFINES)
     cmake_parse_arguments(ys_formal "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
 
     foreach(define ${ys_formal_DEFINES})
@@ -21,8 +21,12 @@ function(ys_formal)
         endif()
     endforeach(source)
 
+    foreach(include ${ys_formal_INCLUDES})
+        list(APPEND SV2V_ARGS --incdir=${include})
+    endforeach(include)
+
     add_custom_command(OUTPUT ${ys_formal_TOP}_sv2v.v
-                       COMMAND sv2v ${sv2v_formal_defines} --exclude=assert -DFORMAL ${ys_formal_SOURCES} > ${ys_formal_TOP}_sv2v.v
+                       COMMAND sv2v ${sv2v_formal_defines} ${SV2V_ARGS} --exclude=assert -DFORMAL ${ys_formal_SOURCES} > ${ys_formal_TOP}_sv2v.v
                        DEPENDS ${ys_formal_SOURCES})
     add_custom_target(sv2v-${ys_formal_TOP} ALL DEPENDS ${ys_formal_TOP}_sv2v.v)
 

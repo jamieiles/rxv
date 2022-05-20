@@ -33,6 +33,7 @@ ys_formal(TOP RXVIntExec
           DEPTH 2
           SKIP 0
           DEFINES "FORMAL_RXVINTEXEC"
+          INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv

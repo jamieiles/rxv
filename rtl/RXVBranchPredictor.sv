@@ -1,5 +1,7 @@
 `include "RXV.svh"
 
+import RXVTypes::rxv_prediction;
+
 module RXVBranchPredictor #(
     parameter int num_entries = 256,
     parameter int tag_bits    = 20

@@ -444,9 +444,10 @@ module RXVLSU #(
     end
 
     always_comb begin
-        lsu_exception_next.pc  = page_fault || is_invalid_amo ? op_stage1.pc : exec_pc;
-        lsu_exception_next.val = is_invalid_amo || page_fault ? op_stage1.address : address;
+        lsu_exception_next.pc    = page_fault || is_invalid_amo ? op_stage1.pc : exec_pc;
+        lsu_exception_next.val   = is_invalid_amo || page_fault ? op_stage1.address : address;
 
+        lsu_exception_next.cause = 'b0;
         if (is_unaligned)
             lsu_exception_next.cause = is_store ? RXVCSR::CAUSE_STORE_MISALIGN :
                 RXVCSR::CAUSE_LOAD_MISALIGN;

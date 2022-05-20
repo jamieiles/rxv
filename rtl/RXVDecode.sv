@@ -14,6 +14,7 @@ import RXVTypes::i_immed;
 import RXVTypes::j_immed;
 import RXVTypes::s_immed;
 import RXVTypes::u_immed;
+import RXVTypes::commit_entry;
 import RXVTypes::commit_width;
 import RXVTrace::trace_start_instruction;
 import RXVTrace::trace_uop;

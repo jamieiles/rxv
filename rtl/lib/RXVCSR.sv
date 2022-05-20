@@ -104,7 +104,7 @@ package RXVCSR;
         // verilator public
         input RXVException e;
 
-        exception_cause = e.cause;
+        exception_cause = CAUSE_id'(e.cause);
     endfunction
 
     function logic exception_valid;

@@ -25,7 +25,9 @@ module DPRAM #(
             mem[addr_b] <= din_b;
         end
         dout_b <= mem[addr_b];
+    end
 
+    always_ff @(posedge clk) begin
         if (wren_a) begin
             mem[addr_a] <= din_a;
         end

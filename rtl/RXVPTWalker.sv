@@ -30,20 +30,21 @@ module RXVPTWalker (
         STATE_WAIT_GRANT = 2'b10
     } ptwalk_state;
 
-    logic        [ 9:0] vpn1;
-    logic        [ 9:0] vpn0;
-    sv32_pte_t          pte_in;
-    logic               dcache_latency_reload;
-    logic               dcache_latency_expired;
-    ptwalk_state        state;
-    ptwalk_state        next_state;
-    logic               dcache_valid_next;
-    logic        [31:2] dcache_address_next;
-    logic               busy_next;
-    logic               is_megapage_next;
-    logic               translation_error_next;
-    logic               result_update;
-    logic               dcache_phys_valid_next;
+    logic        [                    9:0] vpn1;
+    logic        [                    9:0] vpn0;
+    sv32_pte_t                             pte_in;
+    logic                                  dcache_latency_reload;
+    logic                                  dcache_latency_expired;
+    ptwalk_state                           state;
+    ptwalk_state                           next_state;
+    logic                                  dcache_valid_next;
+    logic        [                   31:2] dcache_address_next;
+    logic                                  busy_next;
+    logic                                  is_megapage_next;
+    logic                                  translation_error_next;
+    logic                                  result_update;
+    logic                                  dcache_phys_valid_next;
+    logic        [$bits(ptwalk_state)-1:0] state_q;
 
     RXVCountdown #(
         .width     ($bits(dcache_latency)),
@@ -132,6 +133,10 @@ module RXVPTWalker (
         dcache_phys_valid_next = dcache_valid | dcache_busy;
     end
 
+    always_comb begin
+        state = ptwalk_state'(state_q);
+    end
+
     RXVDFF #(
         .width($bits(state))
     ) state_dff (
@@ -139,7 +144,7 @@ module RXVPTWalker (
         .reset(reset),
         .en   (1'b1),
         .d    (next_state),
-        .q    (state)
+        .q    (state_q)
     );
 
     RXVDFF dcache_valid_dff (

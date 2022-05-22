@@ -122,6 +122,7 @@ module RXVDCache #(
     logic                        cmo_active;
     state_t                      state;
     state_t                      next_state;
+    logic   [$bits(state_t)-1:0] state_q;
 
     BusAdapter BusAdapter (
         .clk          (clk),
@@ -420,6 +421,10 @@ module RXVDCache #(
     );
 
     always_comb begin
+        state = state_t'(state_q);
+    end
+
+    always_comb begin
         unique case (state)
             STATE_RUN: begin
                 next_state = STATE_RUN;
@@ -518,7 +523,7 @@ module RXVDCache #(
         .reset(reset),
         .en   (1'b1),
         .d    (next_state),
-        .q    (state)
+        .q    (state_q)
     );
 
 endmodule

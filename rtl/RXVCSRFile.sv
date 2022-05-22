@@ -193,6 +193,14 @@ module RXVCSRFile #(
     logic        [31:0] active_s_irqs;
     logic        [31:0] active_m_irqs;
 
+    logic [$bits(current_privilege)-1:0] current_privilege_q;
+    logic [$bits(exception_privilege)-1:0] exception_privilege_q;
+
+    always_comb begin
+        current_privilege = privilege_t'(current_privilege_q);
+        exception_privilege = privilege_t'(exception_privilege_q);
+    end
+
     always_comb begin
         active_s_irqs = unpack_sie(mie_reg) & unpack_sip(mip_reg) & unpack_mideleg(mideleg_reg);
         active_m_irqs = unpack_mie(mie_reg) & unpack_mip(mip_reg) & ~unpack_mideleg(mideleg_reg);
@@ -820,7 +828,7 @@ module RXVCSRFile #(
         .reset(reset),
         .en   (1'b1),
         .d    (next_privilege),
-        .q    (current_privilege)
+        .q    (current_privilege_q)
     );
 
     RXVDFF #(
@@ -830,7 +838,7 @@ module RXVCSRFile #(
         .reset(reset),
         .en   (exception_write),
         .d    (exception_target_level),
-        .q    (exception_privilege)
+        .q    (exception_privilege_q)
     );
 
 endmodule

@@ -48,19 +48,20 @@ module RXVTLB #(
         STATE_RESTART = 2'b11
     } state_t;
 
-    logic         [   way_bits-1:0] hit_index;
-    logic                           hit;
-    logic         [   way_bits-1:0] lru_out;
-    tlb_entry_t                     all_entries        [num_entries];
-    logic         [num_entries-1:0] hits;
-    logic                           walk_va_update;
-    logic                           lru_update;
-    logic                           walk_valid_next;
-    translation_t                   translation_next;
-    translation_t                   bypass_translation;
-    state_t                         state;
-    state_t                         next_state;
-    logic                           translation_update;
+    logic         [      way_bits-1:0] hit_index;
+    logic                              hit;
+    logic         [      way_bits-1:0] lru_out;
+    tlb_entry_t                        all_entries        [num_entries];
+    logic         [   num_entries-1:0] hits;
+    logic                              walk_va_update;
+    logic                              lru_update;
+    logic                              walk_valid_next;
+    translation_t                      translation_next;
+    translation_t                      bypass_translation;
+    state_t                            state;
+    state_t                            next_state;
+    logic                              translation_update;
+    logic         [$bits(state_t)-1:0] state_q;
 
     TLBPLRU #(
         .width(num_entries)
@@ -224,6 +225,10 @@ module RXVTLB #(
         walk_valid_next = next_state == STATE_WALK && (state != STATE_WALK || !grant);
     end
 
+    always_comb begin
+        state = state_t'(state_q);
+    end
+
     RXVDFF #(
         .width($bits(state))
     ) state_dff (
@@ -231,7 +236,7 @@ module RXVTLB #(
         .reset(reset),
         .en   (1'b1),
         .d    (next_state),
-        .q    (state)
+        .q    (state_q)
     );
 
     RXVDFF #(

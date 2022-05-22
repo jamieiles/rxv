@@ -34,6 +34,11 @@ module DPRAM #(
         dout_a <= mem[addr_a];
     end
 
+    integer i;
+    initial begin
+        for (i = 0; i < depth; i = i + 1) mem[i] = width'(1'b0);
+    end
+
     `include "DPRAM_formal.sv"
 
 endmodule

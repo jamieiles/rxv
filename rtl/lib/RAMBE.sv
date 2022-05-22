@@ -27,6 +27,11 @@ module RAMBE #(
         dout <= mem[addr];
     end
 
+    integer i;
+    initial begin
+        for (i = 0; i < depth; i = i + 1) mem[i] = data_bits'(1'b0);
+    end
+
     `include "RAMBE_formal.sv"
 
 endmodule

@@ -21,6 +21,11 @@ module RAM #(
         dout <= wren ? din : mem[addr];
     end
 
+    integer i;
+    initial begin
+        for (i = 0; i < depth; i = i + 1) mem[i] = width'(1'b0);
+    end
+
     `include "RAM_formal.sv"
 
 endmodule

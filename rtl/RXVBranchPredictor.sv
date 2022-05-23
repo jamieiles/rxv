@@ -53,6 +53,7 @@ module RXVBranchPredictor #(
                 3'b10_1: strength = 2'b11;
                 3'b11_0: strength = 2'b10;
                 3'b11_1: strength = 2'b00;
+                default: strength = 2'b00;
             endcase
         end
     endfunction

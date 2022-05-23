@@ -1,5 +1,3 @@
-`timescale 1ns / 1ps
-
 module AXIAdapter (
     output wire                 [31:0] axi_awaddr,
     output wire                 [ 7:0] axi_awlen,
@@ -34,7 +32,7 @@ module AXIAdapter (
     input  wire                        axi_rlast,
     input  wire                        axi_rvalid,
     output wire                        axi_rready,
-           MemInterface.Manager        bus
+    MemInterface.Subordinate    bus
 );
 
     localparam AXI_SIZE_32B = 3'd2;
@@ -42,7 +40,6 @@ module AXIAdapter (
     localparam AXI_CACHE_DEVICE = 4'b0000;
     localparam AXI_CACHE_WB = 4'b1111;
 
-    assign axi_awid     = 1'b0;
     assign axi_awaddr   = bus.waddr;
     assign axi_awlen    = {4'b0, bus.wlen};
     assign axi_awsize   = AXI_SIZE_32B;
@@ -54,13 +51,11 @@ module AXIAdapter (
     assign axi_awqos    = 4'b0000;
     assign axi_awvalid  = bus.awvalid;
     assign bus.awready  = axi_awready;
-    assign axi_wid      = 1'b0;
     assign axi_wdata    = bus.wdata;
     assign axi_wstrb    = bus.wstb;
     assign axi_wlast    = bus.wlast;
     assign axi_wvalid   = bus.wvalid;
     assign bus.wready   = axi_wready;
-    assign axi_wid      = 1'b0;
 
     assign bus.bvalid   = axi_bvalid;
     assign axi_bready   = bus.bready;
@@ -80,6 +75,5 @@ module AXIAdapter (
     assign bus.rlast    = axi_rlast;
     assign bus.rvalid   = axi_rvalid;
     assign axi_rready   = bus.rready;
-    assign axi_arid     = 1'b0;
 
 endmodule

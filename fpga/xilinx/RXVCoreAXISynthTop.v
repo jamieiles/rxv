@@ -1,10 +1,12 @@
 module RXVCoreAXISynthTop (
     // verilog_format: off
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME clk, ASSOCIATED_RESET reset, ASSOCIATED_BUSIF m_i_axi:m_d_axi" *)
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 core_clk CLK" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME clk, ASSOCIATED_RESET reset, ASSOCIATED_BUSIF m_i_axi:m_d_axi" *)
     input  wire         clk,
+    (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 RST.reset RST" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME RST.reset, POLARITY ACTIVE_HIGH, TYPE INTERCONNECT" *)
+    input  wire         reset,
     // verilog_format: on
-    input  wire         reset_n,
     output wire  [31:0] m_i_axi_awaddr,
     output wire  [ 7:0] m_i_axi_awlen,
     output wire  [ 2:0] m_i_axi_awsize,
@@ -44,52 +46,51 @@ module RXVCoreAXISynthTop (
     input  wire         m_i_axi_rlast,
     input  wire         m_i_axi_rvalid,
     output wire         m_i_axi_rready,
-    output wire  [31:0] m_d_axi_awaddr,
-    output wire  [ 7:0] m_d_axi_awlen,
-    output wire  [ 2:0] m_d_axi_awsize,
-    output wire  [ 1:0] m_d_axi_awburst,
-    output wire         m_d_axi_awlock,
-    output wire  [ 3:0] m_d_axi_awcache,
-    output wire  [ 2:0] m_d_axi_awprot,
-    output wire  [ 3:0] m_d_axi_awregion,
-    output wire  [ 3:0] m_d_axi_awqos,
-    output wire         m_d_axi_awvalid,
-    input  wire         m_d_axi_awready,
-    output wire  [31:0] m_d_axi_wdata,
-    output wire  [ 3:0] m_d_axi_wstrb,
-    output wire         m_d_axi_wlast,
-    output wire         m_d_axi_wvalid,
-    input  wire         m_d_axi_wready,
-    input  wire  [ 1:0] m_d_axi_bresp,
-    input  wire         m_d_axi_bvalid,
-    output wire         m_d_axi_bready,
-    output wire  [31:0] m_d_axi_araddr,
-    output wire  [ 7:0] m_d_axi_arlen,
-    output wire  [ 2:0] m_d_axi_arsize,
-    output wire  [ 1:0] m_d_axi_arburst,
-    output wire         m_d_axi_arlock,
-    output wire  [ 3:0] m_d_axi_arcache,
-    output wire  [ 2:0] m_d_axi_arprot,
-    output wire  [ 3:0] m_d_axi_arregion,
-    output wire  [ 3:0] m_d_axi_arqos,
-    output wire         m_d_axi_arvalid,
-    input  wire         m_d_axi_arready,
-    input  wire  [31:0] m_d_axi_rdata,
-    input  wire  [ 1:0] m_d_axi_rresp,
-    input  wire         m_d_axi_rlast,
-    input  wire         m_d_axi_rvalid,
-    output wire         m_d_axi_rready,
-    input  wire  [63:0] mtime,
-    input  wire         mtime_irq
-);
 
-    wire reset = ~reset_n;
+    output wire [31:0] m_d_axi_awaddr,
+    output wire [ 7:0] m_d_axi_awlen,
+    output wire [ 2:0] m_d_axi_awsize,
+    output wire [ 1:0] m_d_axi_awburst,
+    output wire        m_d_axi_awlock,
+    output wire [ 3:0] m_d_axi_awcache,
+    output wire [ 2:0] m_d_axi_awprot,
+    output wire [ 3:0] m_d_axi_awregion,
+    output wire [ 3:0] m_d_axi_awqos,
+    output wire        m_d_axi_awvalid,
+    input  wire        m_d_axi_awready,
+    output wire [31:0] m_d_axi_wdata,
+    output wire [ 3:0] m_d_axi_wstrb,
+    output wire        m_d_axi_wlast,
+    output wire        m_d_axi_wvalid,
+    input  wire        m_d_axi_wready,
+    input  wire [ 1:0] m_d_axi_bresp,
+    input  wire        m_d_axi_bvalid,
+    output wire        m_d_axi_bready,
+    output wire [31:0] m_d_axi_araddr,
+    output wire [ 7:0] m_d_axi_arlen,
+    output wire [ 2:0] m_d_axi_arsize,
+    output wire [ 1:0] m_d_axi_arburst,
+    output wire        m_d_axi_arlock,
+    output wire [ 3:0] m_d_axi_arcache,
+    output wire [ 2:0] m_d_axi_arprot,
+    output wire [ 3:0] m_d_axi_arregion,
+    output wire [ 3:0] m_d_axi_arqos,
+    output wire        m_d_axi_arvalid,
+    input  wire        m_d_axi_arready,
+    input  wire [31:0] m_d_axi_rdata,
+    input  wire [ 1:0] m_d_axi_rresp,
+    input  wire        m_d_axi_rlast,
+    input  wire        m_d_axi_rvalid,
+    output wire        m_d_axi_rready,
+    input  wire [63:0] mtime,
+    input  wire        mtime_irq
+);
 
     MemInterface i_mem_bus ();
     MemInterface d_mem_bus ();
 
     AXIAdapter axi_i (
-        .axi_awaddr  (m_i_axi_waddr),
+        .axi_awaddr  (m_i_axi_awaddr),
         .axi_awlen   (m_i_axi_awlen),
         .axi_awsize  (m_i_axi_awsize),
         .axi_awburst (m_i_axi_awburst),
@@ -126,7 +127,7 @@ module RXVCoreAXISynthTop (
     );
 
     AXIAdapter axi_d (
-        .axi_awaddr  (m_d_axi_waddr),
+        .axi_awaddr  (m_d_axi_awaddr),
         .axi_awlen   (m_d_axi_awlen),
         .axi_awsize  (m_d_axi_awsize),
         .axi_awburst (m_d_axi_awburst),
@@ -167,7 +168,8 @@ module RXVCoreAXISynthTop (
         .icache_nr_lines     (128),
         .dcache_nr_ways      (2),
         .dcache_nr_lines     (128),
-        .banked_register_file(0)
+        .banked_register_file(0),
+	.reset_address       (32'h40000000)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),

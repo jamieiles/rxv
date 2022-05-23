@@ -33,6 +33,7 @@ module BusAdapter (
     logic        bus_write_ack;
     logic        bus_write_beat_ack;
     logic        bus_read_beat_ack;
+    logic [ 3:0] bytesel_f;
 
     always_comb begin
         bus_ar_ack         = bus.arready & bus.arvalid;
@@ -44,8 +45,9 @@ module BusAdapter (
 
     assign bus.rlen  = len_f;
     assign bus.wlen  = len_f;
-    assign bus.raddr = {address_f, 2'b0};
-    assign bus.waddr = {address_f, 2'b0};
+    assign bus.raddr = {bus_active ? address_f : address, 2'b0};
+    assign bus.waddr = {bus_active ? address_f : address, 2'b0};
+    assign bus.wstb  = bus_active ? bytesel_f : bytesel;
 
     always_comb begin
         wvalid_next = bus.wvalid;
@@ -65,16 +67,17 @@ module BusAdapter (
             awvalid_next = 1'b1;
         end else begin
             awvalid_next = wren & valid & ~bus_active;
+            if (valid && wren && !bus_active) wvalid_next = 1'b1;
         end
 
         if (bus_write_beat_ack & bus.wlast) begin
             wvalid_next = 1'b0;
         end
 
-        beat_num_next = bus_read_beat_ack || bus_write_beat_ack ? beat_num + 1'b1 : beat_num;
-        wlast_next = beat_num_next == len_f ? wvalid_next : bus_write_beat_ack ? 1'b0 : bus.wlast;
-        beat_ack = bus_read_beat_ack | bus_write_beat_ack;
         bus_active_next = complete ? 1'b0 : valid | bus_active;
+        beat_num_next = bus_read_beat_ack || bus_write_beat_ack ? beat_num + 1'b1 : beat_num;
+        wlast_next = wvalid_next & (beat_num_next == len ? wvalid_next : bus_write_beat_ack ? 1'b0 : bus.wlast);
+        beat_ack = bus_read_beat_ack | bus_write_beat_ack;
 
         rdata = bus.rdata;
         if (complete) beat_num_next = 'b0;
@@ -161,7 +164,7 @@ module BusAdapter (
         .reset(reset),
         .en   (1'b1),
         .d    (bytesel),
-        .q    (bus.wstb)
+        .q    (bytesel_f)
     );
 
 endmodule

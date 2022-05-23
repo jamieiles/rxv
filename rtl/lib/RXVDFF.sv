@@ -10,12 +10,9 @@ module RXVDFF #(
     output logic [width-1:0] q
 );
 
-    always_ff @(posedge clk or posedge reset) begin
-        if (reset) begin
-            q <= width'(reset_val);
-        end else begin
-            if (en) q <= d;
-        end
+    always_ff @(posedge clk) begin
+        if (en) q <= d;
+        if (reset) q <= width'(reset_val);
     end
 
 endmodule

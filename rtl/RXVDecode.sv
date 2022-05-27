@@ -957,7 +957,6 @@ module RXVDecode (
             commit_dispatch.dest_reg   = renamed_reg'('b0);
         end
 
-        commit_dispatch.pc             = decode_pc;
         commit_dispatch.have_writeback = exec_have_writeback_next;
         commit_dispatch.have_rename    = rename_out_valid;
 `ifdef RXV_TRACE

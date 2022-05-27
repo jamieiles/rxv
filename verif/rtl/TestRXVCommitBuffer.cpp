@@ -12,7 +12,6 @@ public:
         uint8_t stale_phys;
         uint8_t dest_arch;
         uint8_t dest_phys;
-        uint32_t pc;
         bool have_writeback;
         bool complete;
         bool killed;
@@ -27,12 +26,11 @@ public:
     uint8_t dispatch(uint8_t stale_phys_reg,
                      uint8_t renamed_arch,
                      uint8_t renamed_phys,
-                     uint32_t pc,
                      bool have_writeback)
     {
         uint8_t dispatch_id;
         auto commit_entry = this->dut.RXVTypes->make_commit_entry(
-            stale_phys_reg, renamed_arch, renamed_phys, pc, have_writeback);
+            stale_phys_reg, renamed_arch, renamed_phys, have_writeback);
         after_n_cycles(0, [&] {
             this->dut.dispatch_in = commit_entry;
             this->dut.dispatch_valid = 1;
@@ -47,11 +45,10 @@ public:
     void dispatch_pipelined(uint8_t stale_phys_reg,
                             uint8_t renamed_arch,
                             uint8_t renamed_phys,
-                            uint32_t pc,
                             bool have_writeback)
     {
         auto commit_entry = this->dut.RXVTypes->make_commit_entry(
-            stale_phys_reg, renamed_arch, renamed_phys, pc, have_writeback);
+            stale_phys_reg, renamed_arch, renamed_phys, have_writeback);
         after_n_cycles(0, [&] {
             this->dut.dispatch_in = commit_entry;
             this->dut.dispatch_valid = 1;
@@ -69,7 +66,6 @@ public:
             ce.stale_phys = this->dut.RXVTypes->commit_entry_stale(rtl_ce);
             ce.dest_arch = this->dut.RXVTypes->commit_entry_dest_arch(rtl_ce);
             ce.dest_phys = this->dut.RXVTypes->commit_entry_dest_phys(rtl_ce);
-            ce.pc = this->dut.RXVTypes->commit_entry_pc(rtl_ce);
             ce.have_writeback =
                 this->dut.RXVTypes->commit_entry_have_writeback(rtl_ce);
             ce.complete = this->dut.commit_complete_out;
@@ -124,7 +120,7 @@ TEST_F(RXVCommitBufferTest, EmptyAtReset)
 TEST_F(RXVCommitBufferTest, DispatchIncrementingID)
 {
     for (int i = 0; i < 7; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, 0x80001000 + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i);
     }
 }
@@ -133,7 +129,7 @@ TEST_F(RXVCommitBufferTest, Except)
 {
     EXPECT_FALSE(this->dut.commit_excepted_out);
 
-    auto id = dispatch(0, 8, 16, 0x80001000, 1);
+    auto id = dispatch(0, 8, 16, 1);
     EXPECT_EQ(id, 0);
 
     except(id);
@@ -144,20 +140,20 @@ TEST_F(RXVCommitBufferTest, Except)
 TEST_F(RXVCommitBufferTest, CommitOrder)
 {
     for (int i = 0; i < 7; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i);
     }
 
     for (int i = 0; i < 7; ++i) {
         auto ce = commit();
-        EXPECT_EQ(ce.pc, (0x80001000 >> 2) + i);
+        EXPECT_EQ(ce.stale_phys, i);
     }
 }
 
 TEST_F(RXVCommitBufferTest, Kill)
 {
     for (int i = 0; i < 5; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i);
     }
 
@@ -165,7 +161,7 @@ TEST_F(RXVCommitBufferTest, Kill)
     kill();
 
     for (int i = 0; i < 2; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i + 5);
     }
 
@@ -189,12 +185,12 @@ TEST_F(RXVCommitBufferTest, Kill)
 TEST_F(RXVCommitBufferTest, KillWithoutExcept)
 {
     for (int i = 0; i < 5; ++i)
-        dispatch_pipelined(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        dispatch_pipelined(i, i + 8, i + 16, 1);
 
     kill();
 
     for (int i = 0; i < 2; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i + 5);
     }
 
@@ -215,7 +211,7 @@ TEST_F(RXVCommitBufferTest, KillWithoutExcept)
 TEST_F(RXVCommitBufferTest, EmptyDrainsException)
 {
     for (int i = 0; i < 7; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i);
     }
 
@@ -230,7 +226,7 @@ TEST_F(RXVCommitBufferTest, EmptyDrainsException)
     cycle();
     EXPECT_TRUE(this->dut.empty);
 
-    dispatch(0, 8, 16, 0x80001000 >> 2, 1);
+    dispatch(0, 8, 16, 1);
     EXPECT_FALSE(this->dut.commit_excepted_out);
     EXPECT_FALSE(this->dut.commit_killed_out);
 
@@ -244,7 +240,7 @@ TEST_F(RXVCommitBufferTest, EmptyDrainsException)
 TEST_F(RXVCommitBufferTest, CommitClearsExceptKill)
 {
     for (int i = 0; i < 5; ++i) {
-        auto id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        auto id = dispatch(i, i + 8, i + 16, 1);
         EXPECT_EQ(id, i);
     }
 
@@ -257,7 +253,7 @@ TEST_F(RXVCommitBufferTest, CommitClearsExceptKill)
     EXPECT_TRUE(this->dut.empty);
 
     for (int i = 0; i < 32; ++i) {
-        int id = dispatch(i, i + 8, i + 16, (0x80001000 >> 2) + i, 1);
+        int id = dispatch(i, i + 8, i + 16, 1);
         complete(id);
         auto ce = commit();
         EXPECT_TRUE(ce.complete);

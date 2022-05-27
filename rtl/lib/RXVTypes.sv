@@ -25,7 +25,6 @@ package RXVTypes;
     typedef struct packed {
         phys_reg_tag stale_phys;
         renamed_reg dest_reg;
-        logic [31:2] pc;
         logic have_writeback;
         logic have_rename;
 `ifdef RXV_TRACE
@@ -177,7 +176,6 @@ package RXVTypes;
         input phys_reg_tag stale_phys_reg;
         input arch_reg_tag renamed_arch;
         input phys_reg_tag renamed_phys;
-        input logic [31:2] pc;
         input logic have_writeback;
 
         begin
@@ -185,7 +183,6 @@ package RXVTypes;
             make_commit_entry.stale_phys     = stale_phys_reg;
             make_commit_entry.dest_reg.arch  = renamed_arch;
             make_commit_entry.dest_reg.phys  = renamed_phys;
-            make_commit_entry.pc             = pc;
             make_commit_entry.have_writeback = have_writeback;
         end
     endfunction
@@ -211,13 +208,6 @@ package RXVTypes;
         input commit_entry ce;
 
         commit_entry_dest_phys = ce.dest_reg.phys;
-    endfunction
-
-    function logic [31:2] commit_entry_pc;
-        // verilator public
-        input commit_entry ce;
-
-        commit_entry_pc = ce.pc;
     endfunction
 
     function logic commit_entry_have_writeback;

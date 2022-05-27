@@ -227,12 +227,12 @@ module RXVCSRFile #(
         logic [3:0] cause;
 
         cause = 4'b0;
-        if (mip_reg.meip & mie_reg.meie) cause = RXVCSR::MINT_M_EXT;
-        if (mip_reg.mtip & mie_reg.mtie) cause = RXVCSR::MINT_M_TIMER;
-        if (mip_reg.msip & mie_reg.msie) cause = RXVCSR::MINT_M_SW;
-        if (mip_reg.seip & mie_reg.seie) cause = RXVCSR::MINT_S_EXT;
-        if (mip_reg.stip & mie_reg.stie) cause = RXVCSR::MINT_S_TIMER;
         if (mip_reg.ssip & mie_reg.ssie) cause = RXVCSR::MINT_S_SW;
+        if (mip_reg.stip & mie_reg.stie) cause = RXVCSR::MINT_S_TIMER;
+        if (mip_reg.seip & mie_reg.seie) cause = RXVCSR::MINT_S_EXT;
+        if (mip_reg.msip & mie_reg.msie) cause = RXVCSR::MINT_M_SW;
+        if (mip_reg.mtip & mie_reg.mtie) cause = RXVCSR::MINT_M_TIMER;
+        if (mip_reg.meip & mie_reg.meie) cause = RXVCSR::MINT_M_EXT;
 
         take_irq             = irq_pending & fetch_idle & commit_empty & ~irq_resteer &
                                ~lsu_exception.valid & ~exec_exception.valid &

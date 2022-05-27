@@ -254,7 +254,8 @@ module RXVDCache #(
         integer i;
 
         tag_write_val = {state != STATE_INVAL, addr_tag(phys_in)};
-        tag_ram_index = cmo_active ? cmo_index : busy ? addr_index(phys_in) : addr_index(address);
+        tag_ram_index = cmo_active ? (|dirty ? cmo_index : cmo_index_next) :
+            busy ? addr_index(phys_in) : addr_index(address);
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             unique case (state)
                 STATE_INVAL: tag_write_en[i] = 1'b1;
@@ -266,7 +267,7 @@ module RXVDCache #(
 
     // Dirty RAM control
     always_comb begin
-        dirty_ram_index = cmo_active ? cmo_index_next : addr_index(phys_in);
+        dirty_ram_index = cmo_active ? (|dirty ? cmo_index : cmo_index_next) : addr_index(phys_in);
     end
 
     // LRU update
@@ -295,10 +296,11 @@ module RXVDCache #(
                 bus_bytesel = 4'b1111;
             end
             STATE_CLEAN: begin
-                bus_valid   = 1'b1 & ~bus_complete & dirty[cmo_way];
-                bus_wren    = 1'b1;
-                bus_len     = fill_beats;
-                bus_address = {way_tag[cmo_way], cmo_index, offset_bits'('b0)};
+                bus_valid = 1'b1 & ~bus_complete & dirty[cmo_way];
+                bus_wren  = 1'b1;
+                bus_len   = fill_beats;
+                if (|dirty) bus_address = {way_tag[cmo_way], cmo_index, offset_bits'('b0)};
+                else bus_address = {way_tag[cmo_way_next], cmo_index_next, offset_bits'('b0)};
                 bus_wdata   = dout_cached;
                 bus_bytesel = 4'b1111;
             end
@@ -366,7 +368,7 @@ module RXVDCache #(
 
     // Cycle + fill/writeback control
     always_comb begin
-        index = state == STATE_CLEAN ? cmo_index : addr_index(phys_in);
+        index = state == STATE_CLEAN ? cmo_index_next : addr_index(phys_in);
     end
 
     // Data output

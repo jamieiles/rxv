@@ -223,6 +223,7 @@ module RXVDCache #(
                 STATE_RUN: begin
                     dirty_wren[i] = tag_compare_valid && wren && way_hit[i];
                     dirty_next    = tag_compare_valid && wren;
+                    if (device_memory) dirty_wren[i] = 1'b0;
                 end
                 STATE_CLEAN: begin
                     dirty_wren[i] = bus_complete && way_bits'(i) == cmo_way;
@@ -241,7 +242,6 @@ module RXVDCache #(
                     dirty_next    = 1'b0;
                 end
             endcase
-            if (device_memory) dirty_wren[i] = 1'b0;
         end
     end
 

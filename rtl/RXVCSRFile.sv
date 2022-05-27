@@ -99,6 +99,7 @@ module RXVCSRFile #(
     // Time
     input  logic        [            63:0] mtime,
     input  logic                           mtime_irq,
+    input  logic                           ext_irq,
     // PMU
     output logic                           cyclesh_wren,
     output logic                           cyclesl_wren,
@@ -461,6 +462,7 @@ module RXVCSRFile #(
         if (mip_wren) mip_next = pack_mip(wr_data);
         if (sip_wren) mip_next = pack_sip(wr_data, mip_next);
         mip_next.mtip = mtime_irq;
+        mip_next.seip = ext_irq;
     end
 
     always_comb begin

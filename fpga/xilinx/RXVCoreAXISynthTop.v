@@ -83,7 +83,8 @@ module RXVCoreAXISynthTop (
     input  wire        m_d_axi_rvalid,
     output wire        m_d_axi_rready,
     input  wire [63:0] mtime,
-    input  wire        mtime_irq
+    input  wire        mtime_irq,
+    input  wire        ext_irq
 );
 
     MemInterface i_mem_bus ();
@@ -169,14 +170,15 @@ module RXVCoreAXISynthTop (
         .dcache_nr_ways      (2),
         .dcache_nr_lines     (128),
         .banked_register_file(0),
-	.reset_address       (32'h40000000)
+        .reset_address       (32'h40000000)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),
         .instruction_bus(i_mem_bus.Manager),
         .data_bus       (d_mem_bus.Manager),
         .mtime          (mtime),
-        .mtime_irq      (mtime_irq)
+        .mtime_irq      (mtime_irq),
+        .ext_irq        (ext_irq)
     );
 
 endmodule

@@ -46,7 +46,8 @@ module RXVCore #(
           MemInterface.Manager        instruction_bus,
           MemInterface.Manager        data_bus,
     input logic                [63:0] mtime,
-    input logic                       mtime_irq
+    input logic                       mtime_irq,
+    input logic                       ext_irq
 );
 
     logic          [             31:2] icache_address;
@@ -614,6 +615,7 @@ module RXVCore #(
         .irq_resteer_tgt      (irq_resteer_tgt),
         .mtime                (mtime),
         .mtime_irq            (mtime_irq),
+        .ext_irq              (ext_irq),
         .cyclesh_wren         (pmu_cyclesh_wren),
         .cyclesl_wren         (pmu_cyclesl_wren),
         .instreth_wren        (pmu_instreth_wren),

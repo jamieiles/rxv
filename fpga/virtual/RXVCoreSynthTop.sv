@@ -112,7 +112,8 @@ module RXVCoreSynthTop (
         .instruction_bus(i_mem_bus.Manager),
         .data_bus       (d_mem_bus.Manager),
         .mtime          (mtime),
-        .mtime_irq      (mtime_irq)
+        .mtime_irq      (mtime_irq),
+        .ext_irq        (1'b0)
     );
 
 endmodule

@@ -1,0 +1,164 @@
+module RXVCLINT (
+    input  wire        refclk,
+    input  wire        s_axi_aclk,
+    input  wire        s_axi_aresetn,
+    input  wire [15:0] s_axi_awaddr,
+    input  wire        s_axi_awvalid,
+    output reg         s_axi_awready,
+    input  wire [31:0] s_axi_wdata,
+    input  wire [ 3:0] s_axi_wstrb,
+    input  wire        s_axi_wvalid,
+    output reg         s_axi_wready,
+    output reg  [ 1:0] s_axi_bresp,
+    output wire        s_axi_bvalid,
+    input  wire        s_axi_bready,
+    input  wire [15:0] s_axi_araddr,
+    input  wire        s_axi_arvalid,
+    output reg         s_axi_arready,
+    output wire [31:0] s_axi_rdata,
+    output reg  [ 1:0] s_axi_rresp,
+    output wire        s_axi_rvalid,
+    input  wire        s_axi_rready,
+    output wire [63:0] mtime,
+    output wire        mtime_irq
+);
+
+    localparam MTIMECMP_LOW_OFFSET = 16'h4000;
+    localparam MTIMECMP_HIGH_OFFSET = 16'h4004;
+    localparam MTIME_LOW_OFFSET = 16'hbff8;
+    localparam MTIME_HIGH_OFFSET = 16'hbffc;
+
+    wire        refclk_sync;
+    wire [63:0] mtimecmp;
+    reg  [63:0] mtimecmp_next;
+    reg  [63:0] mtime_next;
+    reg         mtime_irq_next;
+    reg         s_axi_bvalid_next;
+    reg         s_axi_rvalid_next;
+    reg  [31:0] s_axi_rdata_next;
+    wire        refclk_last;
+    reg         reset;
+
+    always @(*) begin
+        reset = ~s_axi_aresetn;
+    end
+
+    always @(*) begin
+        mtime_next = mtime;
+        if (refclk_sync & ~refclk_last) mtime_next = mtime + 1'b1;
+        if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIME_LOW_OFFSET)
+            mtime_next[31:0] = s_axi_wdata;
+        if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIME_HIGH_OFFSET)
+            mtime_next[63:32] = s_axi_wdata;
+    end
+
+    always @(*) begin
+        mtimecmp_next = mtimecmp;
+        if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIMECMP_LOW_OFFSET)
+            mtimecmp_next[31:0] = s_axi_wdata;
+        if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIMECMP_HIGH_OFFSET)
+            mtimecmp_next[63:32] = s_axi_wdata;
+    end
+
+    always @(*) begin
+        case (s_axi_araddr)
+            MTIME_LOW_OFFSET: s_axi_rdata_next = mtime[31:0];
+            MTIME_HIGH_OFFSET: s_axi_rdata_next = mtime[63:32];
+            MTIMECMP_LOW_OFFSET: s_axi_rdata_next = mtimecmp[31:0];
+            MTIMECMP_HIGH_OFFSET: s_axi_rdata_next = mtimecmp[63:32];
+            default: s_axi_rdata_next = 32'b0;
+        endcase
+    end
+
+    always @(*) begin
+        mtime_irq_next = mtime > mtimecmp;
+    end
+
+    always @(*) begin
+        s_axi_awready = s_axi_awvalid & s_axi_wvalid;
+        s_axi_wready  = s_axi_awvalid & s_axi_wvalid;
+        s_axi_bresp   = 2'b00;
+    end
+
+    always @(*) begin
+        s_axi_arready     = s_axi_arvalid & s_axi_rready;
+        s_axi_rvalid_next = s_axi_arvalid & s_axi_rready;
+        s_axi_rresp       = 2'b00;
+    end
+
+    always @(*) begin
+        s_axi_bvalid_next = s_axi_bvalid;
+        if (s_axi_awvalid && s_axi_wvalid) s_axi_bvalid_next = 1'b1;
+        if (s_axi_bvalid && s_axi_bready) s_axi_bvalid_next = 1'b0;
+    end
+
+    BitSync refclk_synchronizer (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .d    (refclk),
+        .q    (refclk_sync)
+    );
+
+    RXVDFF refclk_last_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (refclk_sync),
+        .q    (refclk_last)
+    );
+
+    RXVDFF #(
+        .width(64)
+    ) mtime_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (mtime_next),
+        .q    (mtime)
+    );
+
+    RXVDFF s_axi_bvalid_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (s_axi_bvalid_next),
+        .q    (s_axi_bvalid)
+    );
+
+    RXVDFF #(
+        .width(64)
+    ) mtimecmp_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (mtimecmp_next),
+        .q    (mtimecmp)
+    );
+
+    RXVDFF mtime_irq_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (mtime_irq_next),
+        .q    (mtime_irq)
+    );
+
+    RXVDFF s_axi_rready_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (s_axi_rvalid_next),
+        .q    (s_axi_rvalid)
+    );
+
+    RXVDFF #(
+        .width(32)
+    ) s_axi_rdata_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (s_axi_rdata_next),
+        .q    (s_axi_rdata)
+    );
+
+endmodule

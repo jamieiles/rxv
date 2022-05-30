@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <poll.h>
 
 class RawTTY
 {
@@ -44,7 +45,10 @@ class UART : public IOPeripheral
 {
 public:
     UART(uint32_t base, size_t len, const std::string &log_file)
-        : IOPeripheral(base, len), log_file(log_file), log_open(false)
+        : IOPeripheral(base, len)
+        , log_file(log_file)
+        , log_open(false)
+        , dlab_enabled(false)
     {
     }
 
@@ -58,15 +62,23 @@ public:
 
     void write(uint32_t offset, const char *v, size_t len)
     {
-        (void)offset;
         (void)len;
 
-        if (::write(STDIN_FILENO, v, 1) != 1)
-            throw std::runtime_error("failed to write stdout");
+        uint8_t data = *v;
 
-        open_log();
-        log.write(v, 1);
-        log.flush();
+        switch (static_cast<RegMap>(offset)) {
+        case THR:
+            if (!dlab_enabled) {
+                if (::write(STDIN_FILENO, v, 1) != 1)
+                    throw std::runtime_error("failed to write stdout");
+                open_log();
+                log.write(v, 1);
+                log.flush();
+            }
+            break;
+        case LCR: dlab_enabled = !!(data & (1 << 7)); break;
+        default: break;
+        }
     }
 
     void read(uint32_t offset, char *v, size_t len)
@@ -74,16 +86,61 @@ public:
         (void)offset;
         (void)len;
 
-        char c;
         uint32_t val = 0;
-        if (::read(STDIN_FILENO, &c, 1) == 1)
-            val = 0x100 | c;
+
+        switch (static_cast<RegMap>(offset)) {
+        case RHR:
+            if (!dlab_enabled) {
+                char c;
+
+                if (::read(STDIN_FILENO, &c, 1) == 1)
+                    val = c;
+            }
+            break;
+        case LCR: val = dlab_enabled << 7; break;
+        case LSR:
+            // Transmitter always empty
+            val = 3 << 5;
+            if (data_ready())
+                val |= (1 << 0);
+            break;
+        default: break;
+        }
 
         if (len == sizeof(uint32_t))
             memcpy(v, &val, len);
     }
 
 private:
+    enum RegMap {
+        RHR = 0,
+        THR = 0,
+        IER = 4,
+        ISR = 8,
+        FCR = 12,
+        LCR = 12,
+        MCR = 16,
+        LSR = 20,
+        MSR = 24,
+        SCRATCH = 28,
+        DLL = 0,
+        DLM = 4,
+        PD = 20
+    };
+
+    bool data_ready()
+    {
+        struct pollfd pfd;
+
+        pfd.fd = STDIN_FILENO;
+        pfd.events = POLLIN;
+
+        if (poll(&pfd, 1, 0) < 0)
+            throw std::runtime_error("failed to poll stdin");
+
+        return pfd.revents & POLLIN;
+    }
+
     void open_log()
     {
         if (log_open)
@@ -98,4 +155,5 @@ private:
     std::string log_file;
     std::ofstream log;
     bool log_open;
+    bool dlab_enabled;
 };

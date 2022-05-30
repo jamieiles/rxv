@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+
+/ {
+	#address-cells = <1>;
+	#size-cells = <1>;
+	compatible = "rxv,rxv-emu";
+
+	aliases {
+		serial0 = &uart0;
+	};
+
+	chosen {
+		bootargs = "console=ttyS0,115200 earlycon loglevel=9 phram.phram=rootfs,0x88000000,64Mi root=/dev/mtdblock0 rw";
+		stdout-path = "serial0:115200n8";
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		timebase-frequency = <100000000>;
+		cpu0: cpu@0 {
+			device_type = "cpu";
+			compatible = "rxv,emu", "riscv";
+			reg = <0>;
+			riscv,isa = "rv32ima";
+			mmu-type = "riscv,sv32";
+			d-cache-block-size = <32>;
+			d-cache-sets = <16>;
+			d-cache-size = <2048>;
+			i-cache-block-size = <32>;
+			i-cache-sets = <16>;
+			i-cache-size = <2048>;
+			tlb-split;
+			i-tlb-size = <8>;
+			i-tlb-sets = <1>;
+			d-tlb-size = <8>;
+			d-tlb-sets = <1>;
+
+			cpu0_intc: interrupt-controller {
+				#interrupt-cells = <1>;
+				#address-cells = <0>;
+				interrupt-controller;
+				compatible = "riscv,cpu-intc";
+			};
+		};
+	};
+
+	clint0: clint@f0000000 {
+		compatible = "riscv,clint0";
+		interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7 >;
+		reg = <0xf0000000 0x10000>;
+	};
+
+	sram: memory@80000000 {
+		device_type = "memory";
+		compatible = "rxv,rxv-sram";
+		reg = <0x80000000 0x08000000>;
+	};
+
+	uart0: serial@ffff1000 {
+		compatible = "ns16550a";
+		reg = <0xffff1000 0x1000>;
+		clock-frequency = <81247969>;
+		reg-shift = <2>;
+		reg-io-width = <4>;
+		status = "okay";
+		current-speed = <115200>;
+	};
+};

@@ -3,6 +3,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include <fmt/core.h>
+
 #include "RiscVELF.h"
 #include "RXVSim.h"
 
@@ -25,6 +27,8 @@ void SimulatorBase::load_binary(const std::string &path, uint32_t base)
     struct stat s;
     if (fstat(fd, &s) < 0)
         throw std::runtime_error("failed to stat binary file");
+
+    fmt::print(stderr, "loading {0} at {1:08x}\r\n", path, base);
 
     std::unique_ptr<char[]> buf(new char[s.st_size]);
     if (read(fd, buf.get(), s.st_size) != s.st_size)

@@ -86,7 +86,7 @@ static boost::program_options::variables_map parse_options(int argc,
     // clang-format off
     options.add_options()
         ("elf", boost::program_options::value<std::string>(), "ELF file")
-        ("binary", boost::program_options::value<std::string>(), "Extra binary file")
+        ("binary", boost::program_options::value<std::vector<std::string>>()->multitoken(), "Extra binary file(s)")
         ("sim", boost::program_options::value<std::string>(), "Simulator")
         ("waves", boost::program_options::value<std::string>(), "Waves File")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
@@ -169,14 +169,17 @@ int main(int argc, char *argv[])
         }
 
         if (vm.count("binary")) {
-            std::vector<std::string> strs;
-            boost::split(strs, vm["binary"].as<std::string>(),
-                         boost::is_any_of("@"));
+            auto binaries = vm["binary"].as<std::vector<std::string>>();
 
-            if (strs.size() != 2)
-                throw std::runtime_error(
-                    "invalid --binary usage: \"--binary PATH@ADDRESS\"");
-            sim->load_binary(strs[0], strtoul(strs[1].c_str(), NULL, 0));
+            for (auto &b : binaries) {
+                std::vector<std::string> strs;
+                boost::split(strs, b, boost::is_any_of("@"));
+
+                if (strs.size() != 2)
+                    throw std::runtime_error(
+                        "invalid --binary usage: \"--binary PATH@ADDRESS\"");
+                sim->load_binary(strs[0], strtoul(strs[1].c_str(), NULL, 0));
+            }
         }
 
         if (vm.count("compliance")) {

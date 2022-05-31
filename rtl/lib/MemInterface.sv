@@ -1,26 +1,26 @@
 interface MemInterface;
 
     // verilator lint_off UNUSED
-    logic [31:0] waddr;
-    logic [31:0] raddr;
+    wire [31:0] waddr;
+    wire [31:0] raddr;
     // verilator lint_on UNUSED
-    logic        awready;
-    logic        awvalid;
-    logic        arready;
-    logic        arvalid;
-    logic        wvalid;
-    logic        wready;
-    logic        rvalid;
-    logic        rready;
-    logic [ 3:0] wstb;
-    logic [31:0] wdata;
-    logic [31:0] rdata;
-    logic        wlast;
-    logic        rlast;
-    logic [ 3:0] rlen;
-    logic [ 3:0] wlen;
-    logic        bready;
-    logic        bvalid;
+    wire        awready;
+    wire        awvalid;
+    wire        arready;
+    wire        arvalid;
+    wire        wvalid;
+    wire        wready;
+    wire        rvalid;
+    wire        rready;
+    wire [ 3:0] wstb;
+    wire [31:0] wdata;
+    wire [31:0] rdata;
+    wire        wlast;
+    wire        rlast;
+    wire [ 3:0] rlen;
+    wire [ 3:0] wlen;
+    wire        bready;
+    wire        bvalid;
 
     modport Manager(
         output waddr,

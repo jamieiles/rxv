@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         cmake \
         cpp \
         curl \
+	device-tree-compiler \
 	flatbuffers-compiler \
         flex \
 	gawk \

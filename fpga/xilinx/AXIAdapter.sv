@@ -32,7 +32,7 @@ module AXIAdapter (
     input  wire                        axi_rlast,
     input  wire                        axi_rvalid,
     output wire                        axi_rready,
-    MemInterface.Subordinate    bus
+    MemInterface    bus
 );
 
     localparam AXI_SIZE_32B = 3'd2;

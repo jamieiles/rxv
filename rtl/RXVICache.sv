@@ -85,10 +85,8 @@ module RXVICache #(
         .complete     (bus_complete),
         .address      (bus_address),
         .wren         (1'b0),
-        // verilator lint_off PINCONNECTEMPTY
-        .wdata        (),
-        .bytesel      (),
-        // verilator lint_on PINCONNECTEMPTY
+        .wdata        (32'b0),
+        .bytesel      (4'b0000),
         .rdata        (bus_rdata),
         .len          (fill_beats),
         .beat_num     (bus_beat_num),

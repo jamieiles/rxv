@@ -10,7 +10,6 @@ module RXVAssert #(
     input logic condition
 );
 
-`ifdef verilator
     always_ff @(posedge clk) begin
         if (en) begin
             if (!condition) begin
@@ -20,6 +19,5 @@ module RXVAssert #(
             end
         end
     end
-`endif  // verilator
 
 endmodule

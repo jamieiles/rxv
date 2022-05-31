@@ -5,7 +5,7 @@ create_project -in_memory -part xc7s50csga324-2 RXVArty
 
 set_property source_mgmt_mode All [current_project]
 
-add_files "${origin_dir}/fpga/xilinx/bootrom.mem"
+add_files "${origin_dir}/_build/fpga/xilinx/bootrom/bootrom.mem"
 
 read_verilog -sv "${origin_dir}/rtl/lib/RXV.svh"
 set_property is_global_include true [get_files "${origin_dir}/rtl/lib/RXV.svh"]

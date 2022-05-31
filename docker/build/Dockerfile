@@ -56,6 +56,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
 	unzip \
         wget \
 	xdot \
+	xxd \
 	zip
 RUN cd /tmp && \
 	wget https://github.com/verilator/verilator/archive/refs/tags/v$VERILATOR_VERSION.tar.gz && \

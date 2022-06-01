@@ -6,23 +6,27 @@ module BitSync (
     output logic q
 );
 
-    logic p1;
-    logic p2;
+    (* ASYNC_REG = "TRUE" *)logic p1;
+    (* ASYNC_REG = "TRUE" *)logic p2;
 
     RXVDFF p1_dff (
-        .clk(clk),
+        .clk  (clk),
         .reset(reset),
-        .en(1'b1),
-        .d(d),
-        .q(p1)
+        .en   (1'b1),
+        .d    (d),
+        .q    (p1)
     );
 
     RXVDFF p2_dff (
-        .clk(clk),
+        .clk  (clk),
         .reset(reset),
-        .en(1'b1),
-        .d(p1),
-        .q(q)
+        .en   (1'b1),
+        .d    (p1),
+        .q    (p2)
     );
+
+    always_comb begin
+        q = p2;
+    end
 
 endmodule

@@ -52,7 +52,7 @@ module RXVDCache #(
     localparam tag_bits = 30 - index_bits - offset_bits;
     localparam way_bits = $clog2(nr_ways);
     localparam fill_beats = 4'((line_size_bytes / 4) - 'b1);
-    localparam data_ram_depth = nr_lines * line_size_bytes;
+    localparam data_ram_depth = nr_ways * nr_lines * (line_size_bytes / 4);
     localparam data_addr_bits = $clog2(data_ram_depth);
     initial assert (offset_bits + index_bits + tag_bits == 30);
 
@@ -142,7 +142,7 @@ module RXVDCache #(
     );
 
     RAMBE #(
-        .depth     (nr_lines * line_size_bytes),
+        .depth     (data_ram_depth),
         .byte_width(4)
     ) DataRam (
         .clk    (clk),

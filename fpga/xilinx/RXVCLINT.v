@@ -38,14 +38,20 @@ module RXVCLINT (
     reg  [31:0] s_axi_rdata_next;
     wire        refclk_last;
     reg         reset;
+    reg         refclk_half_next;
+    wire        refclk_half;
 
     always @(*) begin
         reset = ~s_axi_aresetn;
     end
 
     always @(*) begin
+        refclk_half_next = ~refclk_half;
+    end
+
+    always @(*) begin
         mtime_next = mtime;
-        if (refclk_sync & ~refclk_last) mtime_next = mtime + 1'b1;
+        if (refclk_sync & ~refclk_last) mtime_next = mtime + 64'd2;
         if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIME_LOW_OFFSET)
             mtime_next[31:0] = s_axi_wdata;
         if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIME_HIGH_OFFSET)
@@ -95,7 +101,7 @@ module RXVCLINT (
     BitSync refclk_synchronizer (
         .clk  (s_axi_aclk),
         .reset(reset),
-        .d    (refclk),
+        .d    (refclk_half),
         .q    (refclk_sync)
     );
 
@@ -159,6 +165,14 @@ module RXVCLINT (
         .en   (1'b1),
         .d    (s_axi_rdata_next),
         .q    (s_axi_rdata)
+    );
+
+    RXVDFF refclk_dff (
+        .clk  (refclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (refclk_half_next),
+        .q    (refclk_half)
     );
 
 endmodule

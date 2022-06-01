@@ -48,8 +48,6 @@ module Top (
     wire        bootrom_bram_en;
     wire [ 3:0] bootrom_bram_we;
 
-    wire        reset_sync;
-
     wire        sd_busy_counter_reload;
     wire        sd_busy_counter;
     wire        sd_busy_expired;
@@ -87,13 +85,6 @@ module Top (
         .wea   (bootrom_bram_we),
         .regcea(1'b1),
         .sleep (1'b0)
-    );
-
-    BitSync BitSync (
-        .clk  (clk),
-        .reset(1'b0),
-        .d    (ext_reset),
-        .q    (reset_sync)
     );
 
     RXVArty_wrapper inst (

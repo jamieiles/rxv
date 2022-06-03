@@ -4,7 +4,7 @@
 / {
 	#address-cells = <1>;
 	#size-cells = <1>;
-	compatible = "rxv,rxv-emu";
+	compatible = "jamieiles,rxv-emu";
 
 	aliases {
 		serial0 = &uart0;
@@ -21,7 +21,7 @@
 		timebase-frequency = <100000000>;
 		cpu0: cpu@0 {
 			device_type = "cpu";
-			compatible = "rxv,emu", "riscv";
+			compatible = "jamieiles,rxv", "riscv";
 			reg = <0>;
 			riscv,isa = "rv32ima";
 			mmu-type = "riscv,sv32";
@@ -54,7 +54,7 @@
 
 	sram: memory@80000000 {
 		device_type = "memory";
-		compatible = "rxv,rxv-sram";
+		compatible = "jamieiles,rxv-sram";
 		reg = <0x80000000 0x08000000>;
 	};
 

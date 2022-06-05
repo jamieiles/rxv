@@ -31,8 +31,12 @@ module RXVCoreEmulWrapper (
     RXVCore #(
         .icache_line_size_bytes(32),
         .icache_nr_ways        (8),
+        .icache_nr_lines       (128),
         .dcache_line_size_bytes(32),
         .dcache_nr_ways        (8),
+        .dcache_nr_lines       (128),
+        .num_itlb_entries      (16),
+        .num_dtlb_entries      (16),
         .vendorid              (32'h53454c49)
     ) RXVCore (
         .clk            (clk),

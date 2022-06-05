@@ -10,8 +10,8 @@ good performance and synthesizable for a variety of FPGAs.
 The core is capable of running mainline Linux with a user-space compiled for rv32ima.
 ## Performance
 
-2.45 CoreMark/MHz and can be synthesized to ~100MHz for Intel Cyclone V or
-Xilinx Spartan 7.
+2.61 CoreMark/MHz (32KB 8-way I+D cache, 2 cycle memory latency) and can be
+synthesized to ~100MHz for Intel Cyclone V or Xilinx Spartan 7.
 
 ## Microarchitecture
 

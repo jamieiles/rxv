@@ -33,10 +33,10 @@
 			i-cache-sets = <256>;
 			i-cache-size = <32768>;
 			tlb-split;
-			i-tlb-size = <8>;
+			i-tlb-size = <16>;
 			i-tlb-sets = <1>;
 			d-tlb-size = <8>;
-			d-tlb-sets = <1>;
+			d-tlb-sets = <16>;
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;

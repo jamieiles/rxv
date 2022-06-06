@@ -421,7 +421,7 @@ module RXVCSRFile #(
             mstatus_next.mie  = mstatus_next.mpie;
             mstatus_next.mpie = 1'b0;
             mstatus_next.mpp  = RXVCSR::PRIV_U;
-            mstatus_next.mprv = 1'b0;
+            mstatus_next.mprv = mstatus_reg.mpp != RXVCSR::PRIV_M ? 1'b0 : mstatus_reg.mprv;
         end else if (do_sret) begin
             mstatus_next.sie  = mstatus_next.spie;
             mstatus_next.spie = 1'b0;

@@ -391,6 +391,9 @@ void RXVSim::do_xret(PrivilegeLevel level)
         break;
     default: throw std::runtime_error("Unreachable");
     }
+
+    if (level != M)
+        status.mprv = 0;
 }
 
 void RXVSim::do_exception(enum mcause_type type, uint32_t val)

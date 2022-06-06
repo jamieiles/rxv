@@ -11,8 +11,7 @@ TEST_RE = {
 
 SKIP_TESTS = {
     'software': [],
-    # rv32si-p-dirty uses sv32 VM
-    'rtl': ['rv32si-p-dirty']
+    'rtl': []
 }
 
 def run_tests(runner, sim, test_tree):

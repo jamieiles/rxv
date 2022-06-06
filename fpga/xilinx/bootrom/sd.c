@@ -6,7 +6,7 @@
 #include "spi.h"
 #include <stdint.h>
 
-#define SD_NCR 8
+#define SD_NCR 64
 #define DATA_START_TOKEN 0xfe
 
 static void sd_initial_clocks(void)

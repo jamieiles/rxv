@@ -180,22 +180,18 @@ struct Symbol {
     uint32_t end;
 };
 
-static std::map<RXV::Trace::Privilege, std::vector<Symbol>> symbols;
-
-static bool symbol_compare(const Symbol &a, const Symbol &b)
-{
-    return a.start < b.start;
-}
+static std::unordered_map<RXV::Trace::Privilege, std::map<uint32_t, Symbol>>
+    symbols;
 
 static std::string lookup_pc_symbol(RXV::Trace::Privilege level, uint32_t addr)
 {
-    auto s = std::find_if(symbols[level].rbegin(), symbols[level].rend(),
-                          [&](const Symbol &s) { return addr >= s.start; });
-
-    if (s == symbols[level].rend())
+    auto s = symbols[level].lower_bound(addr);
+    if (s == symbols[level].end())
         return "";
+    if (s != symbols[level].begin() && s->second.start != addr)
+        s--;
 
-    return fmt::format("{:s}+0x{:x}", s->name, addr - s->start);
+    return fmt::format("{:s}+0x{:x}", s->second.name, addr - s->second.start);
 }
 
 static bool is_interesting_symbol(const std::string &name, unsigned char type)
@@ -242,13 +238,11 @@ static void load_symbols(RXV::Trace::Privilege level,
             if (!is_interesting_symbol(name, type))
                 continue;
 
-            symbols[level].emplace_back(
+            symbols[level][value] =
                 Symbol{name, static_cast<uint32_t>(value),
-                       static_cast<uint32_t>(value + size - 1)});
+                       static_cast<uint32_t>(value + size - 1)};
         }
     }
-
-    std::sort(symbols[level].begin(), symbols[level].end(), symbol_compare);
 }
 
 static void dump_instruction(const LLVMDisasmContextRef &dcr,

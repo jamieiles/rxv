@@ -24,7 +24,13 @@ module Top (
     output wire        sd_mosi,
     output wire        sd_ncs,
     output wire        sd_sck,
-    output wire        sd_busy
+    output wire        sd_busy,
+    input  wire        eth_miso,
+    output wire        eth_mosi,
+    output wire        eth_ncs,
+    output wire        eth_sck,
+    input  wire        eth_int,
+    output wire        eth_reset
 );
 
     wire        reset_rtl_0;
@@ -52,6 +58,23 @@ module Top (
     wire        sd_busy_counter;
     wire        sd_busy_expired;
 
+    wire        spi_miso;
+    wire        spi_mosi;
+    wire [ 1:0] spi_ncs;
+    wire        spi_sck;
+
+    assign sd_busy   = ~sd_busy_expired;
+    assign sd_mosi   = spi_mosi;
+    assign sd_ncs    = spi_ncs[0];
+    assign sd_sck    = spi_sck;
+
+    assign eth_mosi  = spi_mosi;
+    assign eth_ncs   = spi_ncs[1];
+    assign eth_sck   = spi_sck;
+    assign eth_reset = 1'b1;
+
+    assign spi_miso  = ~sd_ncs ? sd_miso : ~eth_ncs ? eth_miso : 1'b1;
+
     RXVCountdown #(
         .width     (22),
         .reload_val(22'h3fffff)
@@ -61,8 +84,6 @@ module Top (
         .reload (~sd_ncs),
         .expired(sd_busy_expired)
     );
-
-    assign sd_busy = ~sd_busy_expired;
 
     xpm_memory_spram #(
         .ADDR_WIDTH_A      (14),
@@ -126,10 +147,11 @@ module Top (
         .ddr3_ras_n         (ddr3_ras_n),
         .ddr3_reset_n       (ddr3_reset_n),
         .ddr3_we_n          (ddr3_we_n),
-        .sd_miso            (sd_miso),
-        .sd_mosi            (sd_mosi),
-        .sd_ncs             (sd_ncs),
-        .sd_sck             (sd_sck)
+        .spi_miso           (spi_miso),
+        .spi_mosi           (spi_mosi),
+        .spi_ncs            (spi_ncs),
+        .spi_sck            (spi_sck),
+        .eth_int            (eth_int)
     );
 
 endmodule

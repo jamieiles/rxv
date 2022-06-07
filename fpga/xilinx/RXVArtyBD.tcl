@@ -395,6 +395,10 @@ proc create_root_design { parentCell } {
 
   # Create ports
   set clk_100MHz [ create_bd_port -dir I -type clk -freq_hz 100000000 clk_100MHz ]
+  set eth_int [ create_bd_port -dir I -type intr eth_int ]
+  set_property -dict [ list \
+   CONFIG.SENSITIVITY {EDGE_FALLING} \
+ ] $eth_int
   set pwr_on_rst [ create_bd_port -dir I -type rst pwr_on_rst ]
   set_property -dict [ list \
    CONFIG.POLARITY {ACTIVE_HIGH} \
@@ -403,10 +407,10 @@ proc create_root_design { parentCell } {
   set_property -dict [ list \
    CONFIG.POLARITY {ACTIVE_HIGH} \
  ] $reset_rtl_0
-  set sd_miso [ create_bd_port -dir I -type data sd_miso ]
-  set sd_mosi [ create_bd_port -dir O -type data sd_mosi ]
-  set sd_ncs [ create_bd_port -dir O -from 0 -to 0 sd_ncs ]
-  set sd_sck [ create_bd_port -dir O -type clk sd_sck ]
+  set spi_miso [ create_bd_port -dir I -type data spi_miso ]
+  set spi_mosi [ create_bd_port -dir O -type data spi_mosi ]
+  set spi_ncs [ create_bd_port -dir O -from 1 -to 0 spi_ncs ]
+  set spi_sck [ create_bd_port -dir O -type clk spi_sck ]
 
   # Create instance: RXVCLINT_0, and set properties
   set block_name RXVCLINT
@@ -434,7 +438,6 @@ proc create_root_design { parentCell } {
   set axi_intc_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_intc:4.1 axi_intc_0 ]
   set_property -dict [ list \
    CONFIG.C_IRQ_CONNECTION {1} \
-   CONFIG.C_KIND_OF_INTR {0x00000000} \
  ] $axi_intc_0
 
   # Create instance: axi_quad_spi_0, and set properties
@@ -442,6 +445,7 @@ proc create_root_design { parentCell } {
   set_property -dict [ list \
    CONFIG.C_BYTE_LEVEL_INTERRUPT_EN {0} \
    CONFIG.C_FIFO_DEPTH {256} \
+   CONFIG.C_NUM_SS_BITS {2} \
    CONFIG.C_NUM_TRANSFER_BITS {8} \
    CONFIG.C_SCK_RATIO {4} \
    CONFIG.C_SPI_MODE {0} \
@@ -498,6 +502,9 @@ AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } S00_Entry { SUPPORTS_WRAP 0\
 
   # Create instance: xlconcat_0, and set properties
   set xlconcat_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_0 ]
+  set_property -dict [ list \
+   CONFIG.NUM_PORTS {3} \
+ ] $xlconcat_0
 
   # Create interface connections
   connect_bd_intf_net -intf_net RXVCoreAXISynthTop_0_m_d_axi [get_bd_intf_pins RXVCoreAXISynthTop_0/m_d_axi] [get_bd_intf_pins smartconnect_0/S00_AXI]
@@ -516,12 +523,13 @@ AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_net -net RXVCLINT_0_mtime [get_bd_pins RXVCLINT_0/mtime] [get_bd_pins RXVCoreAXISynthTop_0/mtime]
   connect_bd_net -net RXVCLINT_0_mtime_irq [get_bd_pins RXVCLINT_0/mtime_irq] [get_bd_pins RXVCoreAXISynthTop_0/mtime_irq]
   connect_bd_net -net axi_intc_0_irq [get_bd_pins RXVCoreAXISynthTop_0/ext_irq] [get_bd_pins axi_intc_0/irq]
-  connect_bd_net -net axi_quad_spi_0_io0_o [get_bd_ports sd_mosi] [get_bd_pins axi_quad_spi_0/io0_o]
+  connect_bd_net -net axi_quad_spi_0_io0_o [get_bd_ports spi_mosi] [get_bd_pins axi_quad_spi_0/io0_o]
   connect_bd_net -net axi_quad_spi_0_ip2intc_irpt [get_bd_pins axi_quad_spi_0/ip2intc_irpt] [get_bd_pins xlconcat_0/In0]
-  connect_bd_net -net axi_quad_spi_0_sck_o [get_bd_ports sd_sck] [get_bd_pins axi_quad_spi_0/sck_o]
-  connect_bd_net -net axi_quad_spi_0_ss_o [get_bd_ports sd_ncs] [get_bd_pins axi_quad_spi_0/ss_o]
+  connect_bd_net -net axi_quad_spi_0_sck_o [get_bd_ports spi_sck] [get_bd_pins axi_quad_spi_0/sck_o]
+  connect_bd_net -net axi_quad_spi_0_ss_o [get_bd_ports spi_ncs] [get_bd_pins axi_quad_spi_0/ss_o]
   connect_bd_net -net axi_uart16550_0_ip2intc_irpt [get_bd_pins axi_uart16550_0/ip2intc_irpt] [get_bd_pins xlconcat_0/In1]
   connect_bd_net -net clk_100MHz_1 [get_bd_ports clk_100MHz] [get_bd_pins mig_7series_0/sys_clk_i]
+  connect_bd_net -net eth_int_1 [get_bd_ports eth_int] [get_bd_pins xlconcat_0/In2]
   connect_bd_net -net mig_7series_0_ui_addn_clk_0 [get_bd_pins mig_7series_0/clk_ref_i] [get_bd_pins mig_7series_0/ui_addn_clk_0]
   connect_bd_net -net mig_7series_0_ui_addn_clk_1 [get_bd_pins RXVCLINT_0/refclk] [get_bd_pins mig_7series_0/ui_addn_clk_1]
   connect_bd_net -net mig_7series_0_ui_clk [get_bd_pins RXVCLINT_0/s_axi_aclk] [get_bd_pins RXVCoreAXISynthTop_0/clk] [get_bd_pins axi_intc_0/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins axi_uart16550_0/s_axi_aclk] [get_bd_pins bootrom_ctrl/s_axi_aclk] [get_bd_pins mig_7series_0/ui_clk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins smartconnect_0/aclk]
@@ -530,7 +538,7 @@ AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_net -net rst_clk_wiz_100M_interconnect_aresetn [get_bd_pins rst_clk_wiz_100M/interconnect_aresetn] [get_bd_pins smartconnect_0/aresetn]
   connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins RXVCLINT_0/s_axi_aresetn] [get_bd_pins axi_intc_0/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn] [get_bd_pins bootrom_ctrl/s_axi_aresetn] [get_bd_pins mig_7series_0/aresetn] [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn]
   connect_bd_net -net rst_clk_wiz_100M_peripheral_reset [get_bd_pins RXVCoreAXISynthTop_0/reset] [get_bd_pins rst_clk_wiz_100M/peripheral_reset]
-  connect_bd_net -net sd_miso_1 [get_bd_ports sd_miso] [get_bd_pins axi_quad_spi_0/io1_i]
+  connect_bd_net -net spi_miso_1 [get_bd_ports spi_miso] [get_bd_pins axi_quad_spi_0/io1_i]
   connect_bd_net -net xlconcat_0_dout [get_bd_pins axi_intc_0/intr] [get_bd_pins xlconcat_0/dout]
 
   # Create address segments

@@ -62,13 +62,14 @@
 	spi0: spi@fffe0000 {
 		compatible = "xlnx,xps-spi-2.00.a";
 		reg = <0xfffe0000 0x10000>;
-		xlnx,num-ss-bits = <0x1>;
+		xlnx,num-ss-bits = <0x2>;
 		xlnx,num-transfer-bits = <8>;
 		status = "okay";
 		#address-cells = <1>;
 		#size-cells = <0>;
 		interrupt-parent = <&intc>;
-		interrupts = <0>;
+		// Edge-rising
+		interrupts = <0 1>;
 
 		slot@0 {
 			compatible = "mmc-spi-slot";
@@ -77,18 +78,27 @@
 			spi-max-frequency = <25000000>;
 			broken-cd;
 		};
+
+		eth@1 {
+			compatible = "microchip,enc28j60";
+			reg = <1>;
+			interrupt-parent = <&intc>;
+			// Edge-falling
+			interrupts = <2 2>;
+			spi-max-frequency = <25000000>;
+		};
 	};
 
 	intc: interrupt-controller@fffd0000 {
-		#interrupt-cells = <0x1>;
+		#interrupt-cells = <2>;
 		#address-cells = <0>;
 		compatible = "xlnx,xps-intc-1.00.a";
 		interrupt-controller;
 		interrupt-parent = <&cpu0_intc>;
 		interrupts-extended = <&cpu0_intc 9>;
 		reg = <0xfffd0000 0x10000>;
-		xlnx,kind-of-intr = <0x0>;
-		xlnx,num-intr-inputs = <0x2>;
+		xlnx,kind-of-intr = <0x5>;
+		xlnx,num-intr-inputs = <0x3>;
 	};
 
 	uart0: serial@ffff1000 {
@@ -98,7 +108,8 @@
 		reg-shift = <2>;
 		reg-io-width = <4>;
 		interrupt-parent = <&intc>;
-		interrupts = <1>;
+		// Level-high
+		interrupts = <1 4>;
 		status = "okay";
 		current-speed = <115200>;
 	};

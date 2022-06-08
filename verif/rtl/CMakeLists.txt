@@ -111,6 +111,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/CacheRAM.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVICacheWrapper
@@ -131,6 +132,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCountdown.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/CacheRAM.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE RXVDCacheWrapper
@@ -445,6 +447,7 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/CacheRAM.sv
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib

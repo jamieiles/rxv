@@ -55,6 +55,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCountdown.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/CacheRAM.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv)
 set(FPGA_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/SysPLL.v

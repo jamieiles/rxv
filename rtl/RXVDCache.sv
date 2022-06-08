@@ -73,56 +73,58 @@ module RXVDCache #(
     endfunction
     // verilator lint_on UNUSED
 
-    logic   [    index_bits-1:0] index;
-    logic   [   offset_bits-1:0] data_offset;
-    logic   [      tag_bits-1:0] way_tag                [0:nr_ways-1];
-    logic   [       nr_ways-1:0] way_valid;
-    logic                        miss;
-    logic                        tag_compare_valid;
-    logic   [       nr_ways-1:0] way_hit;
-    logic   [      way_bits-1:0] hit_way;
-    logic   [      way_bits-1:0] lru;
-    logic                        lru_update;
-    logic   [      way_bits-1:0] lru_way_sel;
-    logic   [    index_bits-1:0] tag_ram_index;
-    logic   [    index_bits-1:0] dirty_ram_index;
-    logic   [    index_bits-1:0] cmo_index;
-    logic   [    index_bits-1:0] cmo_index_next;
-    logic   [        tag_bits:0] tag_write_val;
-    logic   [       nr_ways-1:0] tag_write_en;
-    logic                        data_write_en;
-    logic   [      way_bits-1:0] data_way_sel;
-    logic   [               3:0] data_write_bytesel;
-    logic   [              31:0] data_din;
-    logic   [       nr_ways-1:0] dirty_wren;
-    logic                        dirty_next;
-    logic   [       nr_ways-1:0] dirty;
-    logic   [      way_bits-1:0] cmo_way;
-    logic   [      way_bits-1:0] cmo_way_next;
-    logic   [      way_bits-1:0] fill_way;
-    logic   [      way_bits-1:0] fill_way_next;
-    logic   [              31:0] dout_cached;
-    logic   [              31:0] dout_uncached;
-    logic   [               1:0] dout_use_uncached;
-    logic   [               1:0] dout_use_uncached_next;
-    logic   [               3:0] bus_len;
-    logic   [              31:2] bus_address;
-    logic                        bus_valid;
-    logic                        bus_complete;
-    logic   [              31:0] bus_rdata;
+    logic   [                index_bits-1:0] index;
+    logic   [               offset_bits-1:0] data_offset;
+    logic   [                  tag_bits-1:0] way_tag                [0:nr_ways-1];
+    logic   [                   nr_ways-1:0] way_valid;
+    logic                                    miss;
+    logic                                    tag_compare_valid;
+    logic   [                   nr_ways-1:0] way_hit;
+    logic   [                  way_bits-1:0] hit_way;
+    logic   [                  way_bits-1:0] lru;
+    logic                                    lru_update;
+    logic   [                  way_bits-1:0] lru_way_sel;
+    logic   [                index_bits-1:0] tag_ram_index;
+    logic   [                index_bits-1:0] dirty_ram_index;
+    logic   [                index_bits-1:0] cmo_index;
+    logic   [                index_bits-1:0] cmo_index_next;
+    logic   [                    tag_bits:0] tag_write_val;
+    logic   [                   nr_ways-1:0] tag_write_en;
+    logic                                    data_write_en;
+    logic   [                  way_bits-1:0] data_way_sel;
+    logic   [                           3:0] data_write_bytesel;
+    logic   [                          31:0] data_din;
+    logic   [                   nr_ways-1:0] dirty_wren;
+    logic                                    dirty_next;
+    logic   [                   nr_ways-1:0] dirty;
+    logic   [                  way_bits-1:0] cmo_way;
+    logic   [                  way_bits-1:0] cmo_way_next;
+    logic   [                  way_bits-1:0] fill_way;
+    logic   [                  way_bits-1:0] fill_way_next;
+    logic   [                          31:0] dout_cached;
+    logic   [                          31:0] dout_uncached;
+    logic   [                           1:0] dout_use_uncached;
+    logic   [                           1:0] dout_use_uncached_next;
+    logic   [                           3:0] bus_len;
+    logic   [                          31:2] bus_address;
+    logic                                    bus_valid;
+    logic                                    bus_complete;
+    logic   [                          31:0] bus_rdata;
     // verilator lint_off UNUSED
-    logic   [               3:0] bus_beat_num;
-    logic   [               3:0] bus_beat_num_next;
+    logic   [                           3:0] bus_beat_num;
+    logic   [                           3:0] bus_beat_num_next;
     // verilator lint_on UNUSED
-    logic   [               3:0] bus_bytesel;
-    logic                        bus_beat_ack;
-    logic                        bus_wren;
-    logic   [data_addr_bits-1:0] data_ram_addr;
-    logic   [              31:0] bus_wdata;
-    logic                        cmo_active;
-    state_t                      state;
-    state_t                      next_state;
-    logic   [$bits(state_t)-1:0] state_q;
+    logic   [                           3:0] bus_bytesel;
+    logic                                    bus_beat_ack;
+    logic                                    bus_wren;
+    logic   [            data_addr_bits-1:0] data_ram_addr;
+    logic   [                          31:0] bus_wdata;
+    logic                                    cmo_active;
+    state_t                                  state;
+    state_t                                  next_state;
+    logic   [            $bits(state_t)-1:0] state_q;
+    logic   [((tag_bits + 1) * nr_ways)-1:0] tag_ram_out;
+    logic   [                   nr_ways-1:0] dirty_ram_out;
 
     BusAdapter BusAdapter (
         .clk          (clk),
@@ -153,30 +155,39 @@ module RXVDCache #(
         .dout   (dout_cached)
     );
 
+    CacheRAM #(
+        .depth            (nr_lines),
+        .lane_width       (tag_bits + 1),
+        .num_lanes        (nr_ways),
+        .read_during_write(1)
+    ) TagRam (
+        .clk      (clk),
+        .reset    (reset),
+        .addr     (tag_ram_index),
+        .lane_wren(tag_write_en),
+        .din      ({nr_ways{tag_write_val}}),
+        .dout     (tag_ram_out)
+    );
+
+    CacheRAM #(
+        .depth            (nr_lines),
+        .lane_width       (1),
+        .num_lanes        (nr_ways),
+        .read_during_write(1)
+    ) DirtyRam (
+        .clk      (clk),
+        .reset    (reset),
+        .addr     (dirty_ram_index),
+        .lane_wren(dirty_wren),
+        .din      ({nr_ways{dirty_next}}),
+        .dout     (dirty_ram_out)
+    );
+
     generate
         genvar way;
         for (way = 0; way < nr_ways; way = way + 1) begin : way_data
-            RAM #(
-                .depth(nr_lines),
-                .width(tag_bits + 1)
-            ) TagRam (
-                .clk (clk),
-                .addr(tag_ram_index),
-                .wren(tag_write_en[way]),
-                .din (tag_write_val),
-                .dout({way_valid[way], way_tag[way]})
-            );
-
-            RAM #(
-                .depth(nr_lines),
-                .width(1)
-            ) DirtyRam (
-                .clk (clk),
-                .addr(dirty_ram_index),
-                .wren(dirty_wren[way]),
-                .din (dirty_next),
-                .dout(dirty[way])
-            );
+            assign {way_valid[way], way_tag[way]} = tag_ram_out[way*(tag_bits+1)+:(tag_bits+1)];
+            assign dirty[way]                     = dirty_ram_out[way];
         end
     endgenerate
 

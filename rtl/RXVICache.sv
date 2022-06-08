@@ -43,39 +43,41 @@ module RXVICache #(
     endfunction
     // verilator lint_on UNUSED
 
-    logic [ index_bits-1:0] index;
-    logic [offset_bits-1:0] data_offset;
-    logic [           31:0] way_dout              [0:nr_ways-1];
-    logic [   tag_bits-1:0] way_tag               [0:nr_ways-1];
-    logic [    nr_ways-1:0] way_valid;
-    logic                   miss;
-    logic                   tag_compare_valid;
-    logic                   filling;
-    logic                   fill_complete;
-    logic [    nr_ways-1:0] way_hit;
-    logic [   way_bits-1:0] hit_way;
-    logic [   way_bits-1:0] lru;
-    logic                   lru_update;
-    logic [   way_bits-1:0] lru_way_sel;
-    logic [ index_bits-1:0] tag_ram_index;
-    logic [ index_bits-1:0] invalidate_index;
-    logic [     tag_bits:0] tag_write_val;
-    logic [    nr_ways-1:0] tag_write_en;
-    logic                   invalidating;
-    logic [    nr_ways-1:0] way_write_en;
-    logic                   need_fill;
-    logic                   invalidating_update;
-    logic [ index_bits-1:0] invalidate_index_next;
-    logic                   filling_next;
-    logic [           31:2] bus_address;
-    logic                   bus_valid;
-    logic                   bus_complete;
-    logic [           31:0] bus_rdata;
+    logic [                index_bits-1:0] index;
+    logic [               offset_bits-1:0] data_offset;
+    logic [                          31:0] way_dout              [0:nr_ways-1];
+    logic [                  tag_bits-1:0] way_tag               [0:nr_ways-1];
+    logic [                   nr_ways-1:0] way_valid;
+    logic                                  miss;
+    logic                                  tag_compare_valid;
+    logic                                  filling;
+    logic                                  fill_complete;
+    logic [                   nr_ways-1:0] way_hit;
+    logic [                  way_bits-1:0] hit_way;
+    logic [                  way_bits-1:0] lru;
+    logic                                  lru_update;
+    logic [                  way_bits-1:0] lru_way_sel;
+    logic [                index_bits-1:0] tag_ram_index;
+    logic [                index_bits-1:0] invalidate_index;
+    logic [                    tag_bits:0] tag_write_val;
+    logic [                   nr_ways-1:0] tag_write_en;
+    logic                                  invalidating;
+    logic [                   nr_ways-1:0] way_write_en;
+    logic                                  need_fill;
+    logic                                  invalidating_update;
+    logic [                index_bits-1:0] invalidate_index_next;
+    logic                                  filling_next;
+    logic [                          31:2] bus_address;
+    logic                                  bus_valid;
+    logic                                  bus_complete;
+    logic [                          31:0] bus_rdata;
     // verilator lint_off UNUSED
-    logic [            3:0] bus_beat_num;
-    logic [            3:0] bus_beat_num_next;
+    logic [                           3:0] bus_beat_num;
+    logic [                           3:0] bus_beat_num_next;
     // verilator lint_on UNUSED
-    logic                   bus_beat_ack;
+    logic                                  bus_beat_ack;
+    logic [            (32 * nr_ways)-1:0] data_ram_out;
+    logic [((tag_bits + 1) * nr_ways)-1:0] tag_ram_out;
 
     BusAdapter BusAdapter (
         .clk          (clk),
@@ -94,30 +96,39 @@ module RXVICache #(
         .beat_ack     (bus_beat_ack)
     );
 
+    CacheRAM #(
+        .depth            (nr_lines * line_size_bytes / 4),
+        .lane_width       (32),
+        .num_lanes        (nr_ways),
+        .read_during_write(0)
+    ) DataRam (
+        .clk      (clk),
+        .reset    (reset),
+        .addr     ({index, data_offset}),
+        .lane_wren(way_write_en),
+        .din      ({nr_ways{bus_rdata}}),
+        .dout     (data_ram_out)
+    );
+
+    CacheRAM #(
+        .depth            (nr_lines),
+        .lane_width       (tag_bits + 1),
+        .num_lanes        (nr_ways),
+        .read_during_write(1)
+    ) TagRam (
+        .clk      (clk),
+        .reset    (reset),
+        .addr     (tag_ram_index),
+        .lane_wren(tag_write_en),
+        .din      ({nr_ways{tag_write_val}}),
+        .dout     (tag_ram_out)
+    );
+
     generate
         genvar way;
         for (way = 0; way < nr_ways; way = way + 1) begin : way_data
-            RAM #(
-                .depth(nr_lines * line_size_bytes / 4),
-                .width(32)
-            ) DataRam (
-                .clk (clk),
-                .addr({index, data_offset}),
-                .wren(way_write_en[way]),
-                .din (bus_rdata),
-                .dout(way_dout[way])
-            );
-
-            RAM #(
-                .depth(nr_lines),
-                .width(tag_bits + 1)
-            ) TagRam (
-                .clk (clk),
-                .addr(tag_ram_index),
-                .wren(tag_write_en[way]),
-                .din (tag_write_val),
-                .dout({way_valid[way], way_tag[way]})
-            );
+            assign way_dout[way]                  = data_ram_out[way*32+:32];
+            assign {way_valid[way], way_tag[way]} = tag_ram_out[way*(tag_bits+1)+:(tag_bits+1)];
         end
     endgenerate
 

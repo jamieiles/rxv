@@ -69,6 +69,7 @@ read_verilog -sv "${origin_dir}/rtl/lib/RXVTrace_cpp.svh"
 read_verilog -sv "${origin_dir}/rtl/lib/StaticArbiter.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/SyncPulse.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/TLBPLRU.sv"
+read_verilog -sv "${origin_dir}/rtl/lib/CacheRAM.sv"
 
 source "${origin_dir}/fpga/xilinx/RXVArtyBD.tcl"
 

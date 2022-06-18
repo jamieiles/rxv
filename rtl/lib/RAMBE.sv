@@ -3,6 +3,7 @@ module RAMBE #(
     parameter depth = 32,
     parameter byte_width = 4
 ) (
+    `POWER_PIN_PORTS
     input  logic                  clk,
     input  logic [ addr_bits-1:0] addr,
     input  logic                  wren,

@@ -4,6 +4,7 @@ module RXVICache #(
     parameter nr_ways         = 4,
     parameter line_size_bytes = 16
 ) (
+    `POWER_PIN_PORTS
     input  logic                       clk,
     input  logic                       reset,
     // To memory
@@ -102,6 +103,7 @@ module RXVICache #(
         .num_lanes        (nr_ways),
         .read_during_write(0)
     ) DataRam (
+        `POWER_PIN_CONNECT
         .clk      (clk),
         .reset    (reset),
         .addr     ({index, data_offset}),
@@ -116,6 +118,7 @@ module RXVICache #(
         .num_lanes        (nr_ways),
         .read_during_write(1)
     ) TagRam (
+        `POWER_PIN_CONNECT
         .clk      (clk),
         .reset    (reset),
         .addr     (tag_ram_index),
@@ -143,7 +146,9 @@ module RXVICache #(
         .width(nr_ways),
         .depth(nr_lines)
     ) BitPLRU (
+        `POWER_PIN_CONNECT
         .clk       (clk),
+        .reset     (reset),
         .read_index(index),
         .access_way(lru_way_sel),
         .valid     (lru_update),

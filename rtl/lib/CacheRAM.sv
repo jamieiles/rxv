@@ -5,6 +5,7 @@ module CacheRAM #(
     parameter num_lanes         = 4,
     parameter read_during_write = 1
 ) (
+    `POWER_PIN_PORTS
     input  logic                 clk,
     // verilator lint_off UNUSED
     input  logic                 reset,

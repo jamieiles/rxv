@@ -41,6 +41,7 @@ module RXVCore #(
     parameter logic [31:0] device_base            = 32'hf0000000,
     parameter logic [31:0] device_end             = 32'hffffffff
 ) (
+    `POWER_PIN_PORTS
     input logic                       clk,
     input logic                       reset,
           MemInterface.Manager        instruction_bus,
@@ -283,6 +284,7 @@ module RXVCore #(
         .nr_ways        (icache_nr_ways),
         .line_size_bytes(icache_line_size_bytes)
     ) RXVICache (
+        `POWER_PIN_CONNECT
         .clk       (clk),
         .reset     (reset),
         .bus       (instruction_bus),
@@ -299,6 +301,7 @@ module RXVCore #(
         .num_entries(btb_num_entries),
         .tag_bits   (btb_tag_bits)
     ) RXVBranchPredictor (
+        `POWER_PIN_CONNECT
         .clk                       (clk),
         .reset                     (reset),
         .fetch_address             (fetch_predict_address),
@@ -661,6 +664,7 @@ module RXVCore #(
         .nr_ways        (dcache_nr_ways),
         .line_size_bytes(dcache_line_size_bytes)
     ) RXVDCache (
+        `POWER_PIN_CONNECT
         .clk          (clk),
         .reset        (reset),
         .bus          (data_bus),

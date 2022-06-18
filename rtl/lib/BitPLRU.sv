@@ -3,7 +3,9 @@ module BitPLRU #(
     parameter width = 4,
     parameter depth = 32
 ) (
+    `POWER_PIN_PORTS
     input  logic                 clk,
+    input  logic                 reset,
     input  logic [addr_bits-1:0] read_index,
     input  logic [ way_bits-1:0] access_way,
     input  logic                 valid,
@@ -19,23 +21,19 @@ module BitPLRU #(
     logic [    width-1:0] new_plru;
     wire  [    width-1:0] new_plru_reg;
     wire                  update;
-    logic [    width-1:0] read_din;
 
     DPRAM #(
         .depth(depth),
         .width(width)
     ) DPRAM (
+        `POWER_PIN_CONNECT
         .clk   (clk),
+        .reset (reset),
         .addr_a(read_index),
-        .wren_a(1'b0),
-        .din_a (read_din),
         .dout_a(read_plru_ram_out),
         .addr_b(write_index),
         .wren_b(update),
-        .din_b (new_plru_reg),
-        // verilator lint_off PINCONNECTEMPTY
-        .dout_b()
-        // verilator lint_on PINCONNECTEMPTY
+        .din_b (new_plru_reg)
     );
 
     RXVDFF #(
@@ -67,10 +65,6 @@ module BitPLRU #(
     );
 
     assign read_plru = read_index == write_index && update ? new_plru_reg : read_plru_ram_out;
-
-    always_comb begin
-        read_din = width'('b0);
-    end
 
     always_comb begin
         new_plru = read_plru;

@@ -6,6 +6,7 @@ module RXVBranchPredictor #(
     parameter int num_entries = 256,
     parameter int tag_bits    = 20
 ) (
+    `POWER_PIN_PORTS
     input  logic                 clk,
     input  logic                 reset,
     // Fetch port
@@ -70,28 +71,22 @@ module RXVBranchPredictor #(
     logic                  update_valid;
     logic [          31:2] predict_target;
     logic [index_bits-1:0] lookup_addr;
-    logic [ btb_width-1:0] btb_read_din;
 
     DPRAM #(
         .depth(num_entries),
         .width(btb_width)
     ) BTB (
         .clk   (clk),
+        .reset (reset),
         .addr_a(lookup_addr),
-        .wren_a(1'b0),
-        .din_a (btb_read_din),
         .dout_a({btb_lookup_tag, btb_lookup_strength, predict_target, btb_lookup_valid}),
         .addr_b(update_addr),
         .wren_b(update),
-        .din_b ({update_tag, update_strength, update_target, update_valid}),
-        // verilator lint_off PINCONNECTEMPTY
-        .dout_b()
-        // verilator lint_on PINCONNECTEMPTY
+        .din_b ({update_tag, update_strength, update_target, update_valid})
     );
 
     always_comb begin
-        lookup_addr  = addr_index(fetch_address);
-        btb_read_din = btb_width'('b0);
+        lookup_addr = addr_index(fetch_address);
     end
 
     always_comb begin

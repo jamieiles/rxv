@@ -14,6 +14,7 @@ module RXVDCache #(
     parameter nr_ways         = 4,
     parameter line_size_bytes = 16
 ) (
+    `POWER_PIN_PORTS
     input  logic                       clk,
     input  logic                       reset,
     // To memory
@@ -147,6 +148,7 @@ module RXVDCache #(
         .depth     (data_ram_depth),
         .byte_width(4)
     ) DataRam (
+        `POWER_PIN_CONNECT
         .clk    (clk),
         .addr   (data_ram_addr),
         .wren   (data_write_en),
@@ -161,6 +163,7 @@ module RXVDCache #(
         .num_lanes        (nr_ways),
         .read_during_write(1)
     ) TagRam (
+        `POWER_PIN_CONNECT
         .clk      (clk),
         .reset    (reset),
         .addr     (tag_ram_index),
@@ -175,6 +178,7 @@ module RXVDCache #(
         .num_lanes        (nr_ways),
         .read_during_write(1)
     ) DirtyRam (
+        `POWER_PIN_CONNECT
         .clk      (clk),
         .reset    (reset),
         .addr     (dirty_ram_index),
@@ -202,7 +206,9 @@ module RXVDCache #(
         .width(nr_ways),
         .depth(nr_lines)
     ) BitPLRU (
+        `POWER_PIN_CONNECT
         .clk       (clk),
+        .reset     (reset),
         .read_index(addr_index(phys_in)),
         .access_way(lru_way_sel),
         .valid     (lru_update),

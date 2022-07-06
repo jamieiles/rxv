@@ -42,6 +42,11 @@ enum CSRID {
     MCAUSE      = 0x0342,
     MTVAL       = 0x0343,
     MIP         = 0x0344,
+    PMPCFG0     = 0x03A0,
+    PMPADDR0    = 0x03B0,
+    PMPADDR1    = 0x03B1,
+    PMPADDR2    = 0x03B2,
+    PMPADDR3    = 0x03B3,
     SSTATUS     = 0x0100,
     SEDELEG     = 0x0102,
     SIDELEG     = 0x0103,
@@ -111,6 +116,12 @@ static const struct CSRDef csr_defs[] = {
     { "tdata2",     0x00000000, 0x00000000, TDATA2 },
     { "tdata3",     0x00000000, 0x00000000, TDATA3 },
     { "rxvemuctl",  0xffffffff, 0x00000000, RXV_EMUCTL },
+    // PMP
+    { "pmpcfg0",    0x9f9f9f9f, 0x00000000, PMPCFG0 },
+    { "pmpaddr0",   0x3fffffff, 0x00000000, PMPADDR0 },
+    { "pmpaddr1",   0x3fffffff, 0x00000000, PMPADDR1 },
+    { "pmpaddr2",   0x3fffffff, 0x00000000, PMPADDR2 },
+    { "pmpaddr3",   0x3fffffff, 0x00000000, PMPADDR3 },
     {}
 };
 // clang-format on
@@ -229,6 +240,9 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     for (auto *def = csr_defs; def->name; ++def)
         csrs[def->number] = CSR{def, def->default_val};
 
+    for (int i = 0; i < 4; ++i)
+        pmps[i] = {};
+
     mtime.time = mtime.cmp = 0;
 
     bus.add_peripheral(std::make_unique<CLINT>(this, mtime_base, 64 * 1024));
@@ -275,6 +289,15 @@ static T sign_extend(uint32_t u, int bits)
     return s;
 }
 
+void RXVSim::set_pmp_addr(int pmp_id, uint32_t v)
+{
+    auto first_zero = __builtin_ffs(~v);
+    auto size = (1 << (first_zero + 2));
+    auto addr = v & ~((1 << first_zero) - 1);
+    pmps[pmp_id].base = addr << 2;
+    pmps[pmp_id].size = size;
+}
+
 void RXVSim::do_write_csr(int r, uint32_t v)
 {
     auto wr_mask = csrs[static_cast<CSRID>(r)].def->wr_mask;
@@ -296,6 +319,36 @@ void RXVSim::do_write_csr(int r, uint32_t v)
     case SIP:
         csrs[MIP].val &= ~mip_s_mask;
         csrs[MIP].val |= v & mip_s_mask;
+        break;
+    case PMPCFG0:
+        // Only A==3 (NAPOT) or A==0 (NULL) are supported
+        for (int i = 0; i < 4; ++i) {
+            uint32_t mask = (0x3 << 3) << (i * 8);
+            uint8_t perms = (v >> (i * 8)) & 0x7;
+
+            if ((v & mask) != 0 && (v & mask) != mask)
+                v &= ~mask;
+
+            pmps[i].enabled = !!(perms & mask);
+            pmps[i].perms = perms;
+        }
+        csrs[PMPCFG0].val = v;
+        break;
+    case PMPADDR0:
+        csrs[PMPADDR0].val = v;
+        set_pmp_addr(0, v);
+        break;
+    case PMPADDR1:
+        csrs[PMPADDR1].val = v;
+        set_pmp_addr(1, v);
+        break;
+    case PMPADDR2:
+        csrs[PMPADDR2].val = v;
+        set_pmp_addr(2, v);
+        break;
+    case PMPADDR3:
+        csrs[PMPADDR3].val = v;
+        set_pmp_addr(3, v);
         break;
     case RXV_EMUCTL:
         std::cerr << "rxvemu: received simulation exit CSR write (" << std::hex
@@ -456,6 +509,9 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
     case INSTRUCTION_PAGE_FAULT:
     case LOAD_PAGE_FAULT:
     case STORE_PAGE_FAULT:
+    case INSTR_ACCESS_FAULT:
+    case LOAD_ACCESS_FAULT:
+    case STORE_ACCESS_FAULT:
     case BREAKPOINT: do_write_csr(xTVAL, val); break;
     default: break;
     }
@@ -499,6 +555,8 @@ bool RXVSim::access_valid(const translation *translation,
     if (effective_level == M && (status.mpp == M || !status.mprv))
         return true;
 
+    if (!translation->valid)
+        return false;
     if (read && !(translation->attributes & pte_read))
         return false;
     if (write && !(translation->attributes & pte_write))
@@ -513,22 +571,26 @@ bool RXVSim::access_valid(const translation *translation,
             return false;
     }
 
+    if (ad_fault(translation, write))
+        return false;
+
     return true;
 }
 
-bool RXVSim::translate(uint32_t virt,
-                       struct translation **translation,
-                       bool write)
+bool RXVSim::translate(uint32_t virt, struct translation **translation)
 {
     for (auto i = 0, idx = last_tlb_hit; i < num_tlb_entries; ++i) {
         if (tlb[idx].valid && virt == tlb[idx].virt &&
             (tlb[idx].asid == asid || (tlb[idx].attributes & pte_global))) {
             *translation = &tlb[idx];
             last_tlb_hit = idx;
-            return !ad_fault(*translation, write);
+            return true;
         }
         idx = (idx + 1) % num_tlb_entries;
     }
+
+    *translation = &tlb[next_tlb_replacement];
+    **translation = {};
 
     uint32_t base = translation_base;
     uint32_t pte = 0;
@@ -538,24 +600,32 @@ bool RXVSim::translate(uint32_t virt,
         auto vpn = (virt >> (sv32_page_offset_bits + i * sv32_vpn_bits)) &
                    ((1 << sv32_vpn_bits) - 1);
         pte_addr = base + vpn * sizeof(uint32_t);
+
+        if (!pmp_access_allowed(pte_addr, PMP::PMP_READ))
+            return false;
+
         dcache.read(pte_addr, reinterpret_cast<char *>(&pte), sizeof(pte),
                     false);
 
-        if (!(pte & pte_valid))
-            return false;
+        if (!(pte & pte_valid)) {
+            (*translation)->valid = false;
+            return true;
+        }
         if (pte & (pte_read | pte_exec)) {
-            if (i > 0 && (pte & 0x000ffc00))
-                return false;
+            if (i > 0 && (pte & 0x000ffc00)) {
+                (*translation)->valid = false;
+                return true;
+            }
             megapage = i != 0;
             break;
         }
         base = (pte << 2) & 0xfffff000;
 
-        if (i == 0)
-            return false;
+        if (i == 0) {
+            (*translation)->valid = false;
+            return true;
+        }
     }
-
-    *translation = &tlb[next_tlb_replacement];
 
     (*translation)->phys = ((pte << 2) & 0xfffff000);
     if (!megapage)
@@ -568,7 +638,7 @@ bool RXVSim::translate(uint32_t virt,
     (*translation)->valid = true;
     next_tlb_replacement = (next_tlb_replacement + 1) % num_tlb_entries;
 
-    return !ad_fault(*translation, write);
+    return true;
 }
 
 bool RXVSim::step()
@@ -718,7 +788,7 @@ bool RXVSim::step()
                 if (!aligned)
                     do_exception(LOAD_MISALIGN, addr);
                 else if (abort)
-                    do_exception(LOAD_PAGE_FAULT, addr);
+                    do_exception(mem_abort_cause, addr);
                 else
                     do_write_reg(rd, v);
             }
@@ -752,7 +822,7 @@ bool RXVSim::step()
             if (!illegal_instruction && !aligned)
                 do_exception(STORE_MISALIGN, addr);
             else if (abort)
-                do_exception(STORE_PAGE_FAULT, addr);
+                do_exception(mem_abort_cause, addr);
             break;
         }
         case 0x13: { // ARITHI
@@ -812,12 +882,12 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = *v + rs2_val;
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -828,11 +898,11 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 if (!write_mem<uint32_t>(rs1_val, rs2_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -841,7 +911,7 @@ bool RXVSim::step()
             case 0x2: { // LR.W
                 auto v = read_mem<uint32_t>(read_reg(rs1), true);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, read_reg(rs1));
+                    do_exception(mem_abort_cause, read_reg(rs1));
                     break;
                 }
                 do_write_reg(rd, v.value());
@@ -851,7 +921,7 @@ bool RXVSim::step()
                 bool reservation_held;
                 if (!write_mem<uint32_t>(read_reg(rs1), read_reg(rs2), true,
                                          &reservation_held)) {
-                    do_exception(STORE_PAGE_FAULT, read_reg(rs1));
+                    do_exception(mem_abort_cause, read_reg(rs1));
                     break;
                 }
 
@@ -866,12 +936,12 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = *v ^ rs2_val;
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -882,12 +952,12 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = *v & rs2_val;
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -898,12 +968,12 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = *v | rs2_val;
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -914,13 +984,13 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = std::min(static_cast<int32_t>(*v),
                                         static_cast<int32_t>(rs2_val));
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -931,13 +1001,13 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = std::max(static_cast<int32_t>(*v),
                                         static_cast<int32_t>(rs2_val));
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -948,12 +1018,12 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = std::min(*v, rs2_val);
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -964,12 +1034,12 @@ bool RXVSim::step()
                 auto rs2_val = read_reg(rs2);
                 auto v = read_mem<uint32_t>(rs1_val);
                 if (!v) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 auto new_val = std::max(*v, rs2_val);
                 if (!write_mem<uint32_t>(rs1_val, new_val)) {
-                    do_exception(STORE_PAGE_FAULT, rs1_val);
+                    do_exception(mem_abort_cause, rs1_val);
                     break;
                 }
                 do_write_reg(rd, *v);
@@ -1205,7 +1275,7 @@ bool RXVSim::step()
     } else {
         tracer.trace_start_instruction(0, pc, pc, 0, get_cycle(),
                                        privilege_level);
-        do_exception(INSTRUCTION_PAGE_FAULT, pc);
+        do_exception(mem_abort_cause, pc);
     }
 
     if (illegal_instruction)

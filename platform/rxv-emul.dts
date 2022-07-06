@@ -13,6 +13,16 @@
 	chosen {
 		bootargs = "console=ttyS0,115200 earlycon loglevel=9 phram.phram=rootfs,0x88000000,64Mi root=/dev/mtdblock0 rw";
 		stdout-path = "serial0:115200n8";
+
+		opensbi-domains {
+			compatible = "opensbi,domain,config";
+
+			mmio0: mmio {
+				compatible = "opensbi,domain,memregion";
+				base = <0xf0000000>;
+				order = <16>;
+			};
+		};
 	};
 
 	cpus {

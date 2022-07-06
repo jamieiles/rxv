@@ -38,6 +38,7 @@ read_verilog -sv "${origin_dir}/rtl/RXVLSU.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVMMUTop.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVMulExec.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVMul.sv"
+read_verilog -sv "${origin_dir}/rtl/RXVPMP.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVPMU.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVPTWalker.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVRegisterAllocator.sv"
@@ -89,14 +90,14 @@ write_checkpoint -force post_synth
 report_timing_summary -file post_synth_timing_summary.rpt
 report_power -file post_synth_power.rpt
 
-opt_design -directive Default
+opt_design -directive ExploreWithRemap
 power_opt_design
 place_design -directive ExtraTimingOpt
 phys_opt_design -directive Explore
 write_checkpoint -force post_place
 report_timing_summary -file post_place_timing_summary.rpt
 
-route_design -directive NoTimingRelaxation
+route_design -directive Explore
 write_checkpoint -force post_route
 report_timing_summary -file post_route_timing_summary.rpt
 report_timing -file post_route_timing.rpt -sort_by group -max_paths 100 -path_type summary

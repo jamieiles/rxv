@@ -33,6 +33,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMulExec.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMP.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv

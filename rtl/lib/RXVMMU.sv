@@ -5,6 +5,12 @@ package RXVMMU;
     // verilator lint_on UNUSED
 
     typedef struct packed {
+        logic read;
+        logic write;
+        logic exec;
+    } pmp_perms  /* verilator public */;
+
+    typedef struct packed {
         logic [11:0] ppn1;
         logic [9:0] ppn0;
         logic [1:0] rsw;
@@ -30,6 +36,7 @@ package RXVMMU;
         logic valid;
         // Translation ASID, ignored for global mappings
         logic [asid_bits-1:0] asid;
+        pmp_perms pmp;
     } translation_t  /* verilator public */;
 
     typedef enum bit [2:0] {

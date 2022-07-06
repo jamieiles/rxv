@@ -32,6 +32,7 @@ module RXVFetch #(
     // verilator lint_off UNUSED
     input  translation_t          fetch_translation,
     // verilator lint_on UNUSED
+    input  logic                  fetch_access_fault,
     input  logic                  fetch_tlb_busy,
     // To branch predictor
     output logic          [ 31:2] branch_predict_address,
@@ -44,6 +45,7 @@ module RXVFetch #(
     // To decode
     output logic                  decode_valid,
     output logic                  decode_page_fault,
+    output logic                  decode_pmp_fault,
     output logic          [ 31:2] decode_pc,
 `ifdef RXV_TRACE
     output logic          [31:12] decode_phys,
@@ -64,6 +66,7 @@ module RXVFetch #(
         logic [31:2] next_pc;
         logic [31:0] instr;
         logic page_fault;
+        logic pmp_fault;
         rxv_prediction prediction;
 `ifdef RXV_TRACE
         logic [31:12] phys;
@@ -113,6 +116,7 @@ module RXVFetch #(
     logic                 tlb_stalling;
     logic                 tlb_stalling_next;
     logic                 page_fault;
+    logic                 pmp_fault;
     logic                 icache_busy_start_next;
 
     function logic tlb_access_okay;
@@ -130,6 +134,16 @@ module RXVFetch #(
                     mstatus, current_privilege
                 ) == RXVCSR::PRIV_U && !fetch_translation.user)
                 tlb_access_okay = 1'b0;
+        end
+    endfunction
+
+    function logic pmp_access_okay;
+        begin
+            pmp_access_okay = 1'b1;
+
+            if (current_privilege != RXVCSR::PRIV_M && !fetch_translation.pmp.exec)
+                pmp_access_okay = 1'b0;
+            if (current_privilege != RXVCSR::PRIV_M && fetch_access_fault) pmp_access_okay = 1'b0;
         end
     endfunction
 
@@ -182,6 +196,7 @@ module RXVFetch #(
         decode_instr      = prefetch_packet_out.instr;
         decode_prediction = prefetch_packet_out.prediction;
         decode_page_fault = decode_valid & prefetch_packet_out.page_fault;
+        decode_pmp_fault  = decode_valid & prefetch_packet_out.pmp_fault;
 `ifdef RXV_TRACE
         decode_phys = prefetch_packet_out.phys;
 `endif  // RXV_TRACE
@@ -197,7 +212,10 @@ module RXVFetch #(
 
     always_comb begin
         page_fault = ((fetched && !fetch_tlb_busy) ||
-                      (tlb_stalling && !fetch_tlb_busy)) && !tlb_access_okay();
+                      (tlb_stalling && !fetch_tlb_busy)) && !tlb_access_okay() && !fetch_access_fault;
+        pmp_fault = ((fetched && !fetch_tlb_busy) ||
+                      (tlb_stalling && !fetch_tlb_busy)) && !pmp_access_okay() &&
+                      (!page_fault || fetch_access_fault);
     end
 
     always_comb begin
@@ -206,6 +224,7 @@ module RXVFetch #(
         prefetch_packet_in.instr      = icache_instr;
         prefetch_packet_in.prediction = prediction_reg;
         prefetch_packet_in.page_fault = page_fault;
+        prefetch_packet_in.pmp_fault  = pmp_fault;
 `ifdef RXV_TRACE
         prefetch_packet_in.phys = icache_phys[31:12];
 `endif  // RXV_TRACE
@@ -230,8 +249,8 @@ module RXVFetch #(
     end
 
     always_comb begin
-        prefetch_wr_en = (fetched | page_fault) & ~stalling & ~resteer & ~resteer_pending &
-            ~exception_pending & ~except_valid & ~global_stall_active;
+        prefetch_wr_en = (fetched | page_fault | pmp_fault) & ~stalling & ~resteer &
+            ~resteer_pending & ~exception_pending & ~except_valid & ~global_stall_active;
     end
 
     always_comb begin
@@ -245,12 +264,13 @@ module RXVFetch #(
     always_comb begin
         icache_valid_next = ~prefetch_nearly_full & ~global_stall_active &
             ~exception_pending & ~except_valid & ~irq_pending & ~page_fault &
-            ~fetch_tlb_busy & ~icache_busy;
+            ~pmp_fault & ~fetch_tlb_busy & ~icache_busy;
     end
 
     always_comb begin
-        icache_phys       = {fetch_translation.pa, fetched_pc[11:2]};
-        icache_phys_valid = fetched & fetch_translation.valid & ~fetch_tlb_busy & ~page_fault;
+        icache_phys = {fetch_translation.pa, fetched_pc[11:2]};
+        icache_phys_valid = fetched & fetch_translation.valid & ~fetch_tlb_busy &
+            ~page_fault & ~pmp_fault;
     end
 
     always_comb begin

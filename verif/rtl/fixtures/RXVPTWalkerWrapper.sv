@@ -1,6 +1,7 @@
 `include "RXV.svh"
 
 import RXVMMU::sv32_pte_t;
+import RXVMMU::pmp_perms;
 
 module RXVPTWalkerWrapper (
     input  logic              clk,
@@ -11,15 +12,21 @@ module RXVPTWalkerWrapper (
     output logic              busy,
     output sv32_pte_t         pte_out,
     output logic              is_megapage,
-    output logic              translation_error
+    output logic              translation_error,
+    output logic              pmp_violation
 );
 
-    logic        dcache_valid;
-    logic [31:0] dcache_dout;
-    logic        dcache_busy;
-    logic [31:2] dcache_address;
-    logic [31:2] dcache_phys_in;
-    logic        dcache_phys_valid;
+    logic            dcache_valid;
+    logic     [31:0] dcache_dout;
+    logic            dcache_busy;
+    logic     [31:2] dcache_address;
+    logic     [31:2] dcache_phys_in;
+    logic            dcache_phys_valid;
+    pmp_perms        pmp;
+
+    always_comb begin
+        pmp = 3'b111;
+    end
 
     MemInterface mem_bus ();
 
@@ -65,7 +72,12 @@ module RXVPTWalkerWrapper (
         .dcache_rdata     (dcache_dout),
         .dcache_phys_in   (dcache_phys_in),
         .dcache_phys_valid(dcache_phys_valid),
-        .dcache_grant     (1'b1)
+        .dcache_grant     (1'b1),
+        // verilator lint_off PINCONNECTEMPTY
+        .pmp_addr         (),
+        // verilator lint_on PINCONNECTEMPTY
+        .pmp              (pmp),
+        .pmp_violation    (pmp_violation)
     );
 
 endmodule

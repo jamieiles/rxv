@@ -108,6 +108,13 @@ module RXVCSRFile #(
     input  logic        [            63:0] pmu_cycles,
     input  logic        [            63:0] pmu_instret,
     output privilege_t                     current_privilege,
+    // PMP
+    output logic        [             1:0] pmp_addr_idx,
+    input  logic        [            31:0] pmp_addr,
+    input  logic        [            31:0] pmp_cfg,
+    output logic                           pmp_update_cfg,
+    output logic                           pmp_update_addr,
+    output logic        [             1:0] pmp_update_addr_idx,
     // MMU
     output logic        [           31:12] translation_base,
     output logic        [   asid_bits-1:0] active_asid,
@@ -122,83 +129,83 @@ module RXVCSRFile #(
     localparam logic [31:0] misa_a = 32'd1 << 0;
     localparam logic [31:0] misa = (32'd1 << 30) | misa_m | misa_i | misa_a | misa_s | misa_u;
 
-    logic        [31:0] rd_data_next;
-    logic        [31:0] mscratch;
-    logic               mscratch_wren;
-    logic        [31:0] sscratch;
-    logic               sscratch_wren;
-    logic               irq_pending_next;
+    logic        [                          31:0] rd_data_next;
+    logic        [                          31:0] mscratch;
+    logic                                         mscratch_wren;
+    logic        [                          31:0] sscratch;
+    logic                                         sscratch_wren;
+    logic                                         irq_pending_next;
 
-    mstatus_t           mstatus_reg;
-    logic               mstatus_wren;
-    logic               sstatus_wren;
-    logic               update_mstatus;
-    logic               update_mie;
-    mtvec_t             mtvec_reg;
-    logic               mtvec_wren;
-    stvec_t             stvec_reg;
-    logic               stvec_wren;
-    mepc_t              mepc_reg;
-    logic               mepc_wren;
-    sepc_t              sepc_reg;
-    logic               sepc_wren;
-    mcause_t            mcause_reg;
-    logic               mcause_wren;
-    scause_t            scause_reg;
-    logic               scause_wren;
-    mtval_t             mtval_reg;
-    logic               mtval_wren;
-    mtval_t             stval_reg;
-    logic               stval_wren;
-    mie_t               mie_reg;
-    logic               mie_wren;
-    logic               sie_wren;
-    mip_t               mip_reg;
-    logic               mip_wren;
-    logic               sip_wren;
-    medeleg_t           medeleg_reg;
-    logic               medeleg_wren;
-    mideleg_t           mideleg_reg;
-    logic               mideleg_wren;
-    satp_t              satp_reg;
-    logic               satp_wren;
+    mstatus_t                                     mstatus_reg;
+    logic                                         mstatus_wren;
+    logic                                         sstatus_wren;
+    logic                                         update_mstatus;
+    logic                                         update_mie;
+    mtvec_t                                       mtvec_reg;
+    logic                                         mtvec_wren;
+    stvec_t                                       stvec_reg;
+    logic                                         stvec_wren;
+    mepc_t                                        mepc_reg;
+    logic                                         mepc_wren;
+    sepc_t                                        sepc_reg;
+    logic                                         sepc_wren;
+    mcause_t                                      mcause_reg;
+    logic                                         mcause_wren;
+    scause_t                                      scause_reg;
+    logic                                         scause_wren;
+    mtval_t                                       mtval_reg;
+    logic                                         mtval_wren;
+    mtval_t                                       stval_reg;
+    logic                                         stval_wren;
+    mie_t                                         mie_reg;
+    logic                                         mie_wren;
+    logic                                         sie_wren;
+    mip_t                                         mip_reg;
+    logic                                         mip_wren;
+    logic                                         sip_wren;
+    medeleg_t                                     medeleg_reg;
+    logic                                         medeleg_wren;
+    mideleg_t                                     mideleg_reg;
+    logic                                         mideleg_wren;
+    satp_t                                        satp_reg;
+    logic                                         satp_wren;
 
-    logic               exception_write;
-    mepc_t              mepc_next;
-    sepc_t              sepc_next;
-    mtval_t             mtval_next;
-    mtval_t             stval_next;
-    mcause_t            mcause_next;
-    scause_t            scause_next;
-    mstatus_t           mstatus_next;
-    mtvec_t             mtvec_next;
-    stvec_t             stvec_next;
-    mie_t               mie_next;
-    mip_t               mip_next;
-    medeleg_t           medeleg_next;
-    mideleg_t           mideleg_next;
-    satp_t              satp_next;
+    logic                                         exception_write;
+    mepc_t                                        mepc_next;
+    sepc_t                                        sepc_next;
+    mtval_t                                       mtval_next;
+    mtval_t                                       stval_next;
+    mcause_t                                      mcause_next;
+    scause_t                                      scause_next;
+    mstatus_t                                     mstatus_next;
+    mtvec_t                                       mtvec_next;
+    stvec_t                                       stvec_next;
+    mie_t                                         mie_next;
+    mip_t                                         mip_next;
+    medeleg_t                                     medeleg_next;
+    mideleg_t                                     mideleg_next;
+    satp_t                                        satp_next;
 
-    RXVException        exception;
-    RXVException        irq_exception;
-    logic               irq_resteer_next;
-    logic        [31:2] irq_resteer_tgt_next;
-    logic        [31:2] exception_resteer_tgt_next;
-    logic               take_irq;
+    RXVException                                  exception;
+    RXVException                                  irq_exception;
+    logic                                         irq_resteer_next;
+    logic        [                          31:2] irq_resteer_tgt_next;
+    logic        [                          31:2] exception_resteer_tgt_next;
+    logic                                         take_irq;
 
-    privilege_t         exception_privilege;
-    privilege_t         next_privilege;
-    privilege_t         exception_target_level;
-    logic               exception_has_val;
+    privilege_t                                   exception_privilege;
+    privilege_t                                   next_privilege;
+    privilege_t                                   exception_target_level;
+    logic                                         exception_has_val;
 
-    logic        [31:0] active_s_irqs;
-    logic        [31:0] active_m_irqs;
+    logic        [                          31:0] active_s_irqs;
+    logic        [                          31:0] active_m_irqs;
 
-    logic [$bits(current_privilege)-1:0] current_privilege_q;
-    logic [$bits(exception_privilege)-1:0] exception_privilege_q;
+    logic        [  $bits(current_privilege)-1:0] current_privilege_q;
+    logic        [$bits(exception_privilege)-1:0] exception_privilege_q;
 
     always_comb begin
-        current_privilege = privilege_t'(current_privilege_q);
+        current_privilege   = privilege_t'(current_privilege_q);
         exception_privilege = privilege_t'(exception_privilege_q);
     end
 
@@ -309,6 +316,9 @@ module RXVCSRFile #(
             RXVCSR::CSR_SEPC: rd_data_next = unpack_sepc(sepc_reg);
             RXVCSR::CSR_UTIME: rd_data_next = mtime[31:0];
             RXVCSR::CSR_UTIMEH: rd_data_next = mtime[63:32];
+            RXVCSR::CSR_PMPCFG0: rd_data_next = pmp_cfg;
+            RXVCSR::CSR_PMPADDR0, RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3:
+            rd_data_next = pmp_addr;
             default: rd_data_next = 32'b0;
         endcase
     end
@@ -354,6 +364,11 @@ module RXVCSRFile #(
         stval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
                       !take_irq && exception_has_val) ||
                      (wr_en && wr_addr == RXVCSR::CSR_STVAL);
+        pmp_update_cfg = wr_en && wr_addr == RXVCSR::CSR_PMPCFG0;
+        pmp_update_addr = wr_en && (wr_addr == RXVCSR::CSR_PMPADDR0 ||
+                                    wr_addr == RXVCSR::CSR_PMPADDR1 ||
+                                    wr_addr == RXVCSR::CSR_PMPADDR2 ||
+                                    wr_addr == RXVCSR::CSR_PMPADDR3);
 
         sscratch_wren = wr_en && wr_addr == RXVCSR::CSR_SSCRATCH;
 
@@ -470,6 +485,11 @@ module RXVCSRFile #(
     end
 
     always_comb begin
+        pmp_addr_idx        = rd_addr[1:0];
+        pmp_update_addr_idx = wr_addr[1:0];
+    end
+
+    always_comb begin
         // verilog_format: off
         unique case (rd_addr)
             // Debug
@@ -481,7 +501,9 @@ module RXVCSRFile #(
             RXVCSR::CSR_MCYCLE, RXVCSR::CSR_MCYCLEH, RXVCSR::CSR_MINSTRET,
             RXVCSR::CSR_MINSTRETH, RXVCSR::CSR_MHARTID, RXVCSR::CSR_MIE,
             RXVCSR::CSR_MIP, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG,
-            RXVCSR::CSR_MISA, RXVCSR::CSR_MCOUNTEREN,
+            RXVCSR::CSR_MISA, RXVCSR::CSR_PMPCFG0, RXVCSR::CSR_PMPADDR0,
+            RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3,
+            RXVCSR::CSR_MCOUNTEREN,
             // Supervisor
             RXVCSR::CSR_SSTATUS, RXVCSR::CSR_SEDELEG, RXVCSR::CSR_SIDELEG, RXVCSR::CSR_SIE,
             RXVCSR::CSR_SIP, RXVCSR::CSR_STVEC, RXVCSR::CSR_SCOUNTEREN, RXVCSR::CSR_SSCRATCH,
@@ -614,6 +636,15 @@ module RXVCSRFile #(
         if (sstatus_wren)
             trace_write_csr(trace_id, RXVCSR::CSR_SSTATUS, unpack_sstatus(mstatus_next));
         if (satp_wren) trace_write_csr(trace_id, RXVCSR::CSR_SATP, unpack_satp(satp_next));
+        if (pmp_update_cfg) trace_write_csr(trace_id, RXVCSR::CSR_PMPCFG0, wr_data);
+        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR0)
+            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR0, wr_data);
+        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR1)
+            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR1, wr_data);
+        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR2)
+            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR2, wr_data);
+        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR3)
+            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR3, wr_data);
     end
 `endif  // verilator
 

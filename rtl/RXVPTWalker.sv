@@ -1,6 +1,7 @@
 `include "RXV.svh"
 
 import RXVMMU::sv32_pte_t;
+import RXVMMU::pmp_perms;
 
 module RXVPTWalker (
     input  logic              clk,
@@ -12,13 +13,18 @@ module RXVPTWalker (
     output sv32_pte_t         pte_out,
     output logic              is_megapage,
     output logic              translation_error,
+    output logic              pmp_violation,
     output logic      [ 31:2] dcache_address,
     output logic              dcache_valid,
     input  logic              dcache_busy,
     input  logic      [ 31:0] dcache_rdata,
     output logic      [ 31:2] dcache_phys_in,
     output logic              dcache_phys_valid,
-    input  logic              dcache_grant
+    input  logic              dcache_grant,
+    output logic      [ 31:2] pmp_addr,
+    // verilator lint_off UNUSED
+    input  pmp_perms          pmp
+    // verilator lint_on UNUSED
 );
 
     localparam int dcache_latency = 2;
@@ -42,6 +48,7 @@ module RXVPTWalker (
     logic                                  busy_next;
     logic                                  is_megapage_next;
     logic                                  translation_error_next;
+    logic                                  pmp_violation_next;
     logic                                  result_update;
     logic                                  dcache_phys_valid_next;
     logic        [$bits(ptwalk_state)-1:0] state_q;
@@ -72,12 +79,14 @@ module RXVPTWalker (
             next_state = valid ? (dcache_grant ? STATE_LEVEL1 : STATE_WAIT_GRANT) : STATE_IDLE;
             STATE_WAIT_GRANT: next_state = dcache_grant ? STATE_LEVEL1 : STATE_WAIT_GRANT;
             STATE_LEVEL1:
-            next_state = ~dcache_latency_expired || dcache_busy ? STATE_LEVEL1 :
+            next_state = (dcache_grant && !pmp.read) ? STATE_IDLE :
+                ~dcache_latency_expired || dcache_busy ? STATE_LEVEL1 :
                 !pte_in.valid ? STATE_IDLE :
                 pte_in.read || pte_in.exec ? STATE_IDLE :
                 STATE_LEVEL0;
             STATE_LEVEL0:
-            next_state = ~dcache_latency_expired || dcache_busy ? STATE_LEVEL0 : STATE_IDLE;
+            next_state = (dcache_grant && !pmp.read) ? STATE_IDLE :
+                ~dcache_latency_expired || dcache_busy ? STATE_LEVEL0 : STATE_IDLE;
             default: ;
         endcase
     end
@@ -105,6 +114,10 @@ module RXVPTWalker (
     end
 
     always_comb begin
+        pmp_addr = dcache_address;
+    end
+
+    always_comb begin
         busy_next = busy;
         if (state == STATE_IDLE) busy_next = valid;
         if (state == STATE_WAIT_GRANT) busy_next = 1'b1;
@@ -113,9 +126,18 @@ module RXVPTWalker (
 
     always_comb begin
         unique case (state)
-            STATE_LEVEL1: translation_error_next = !pte_in.valid || |pte_in.ppn0;
-            STATE_LEVEL0: translation_error_next = !pte_in.valid;
-            default: translation_error_next = 1'b0;
+            STATE_LEVEL1: begin
+                translation_error_next = !pte_in.valid || |pte_in.ppn0;
+                pmp_violation_next     = dcache_grant && !pmp.read;
+            end
+            STATE_LEVEL0: begin
+                translation_error_next = !pte_in.valid;
+                pmp_violation_next     = dcache_grant && !pmp.read;
+            end
+            default: begin
+                translation_error_next = 1'b0;
+                pmp_violation_next     = 1'b0;
+            end
         endcase
         is_megapage_next = state == STATE_LEVEL1 && next_state == STATE_IDLE;
     end
@@ -130,7 +152,7 @@ module RXVPTWalker (
     end
 
     always_comb begin
-        dcache_phys_valid_next = dcache_valid | dcache_busy;
+        dcache_phys_valid_next = (dcache_valid | dcache_busy) & pmp.read;
     end
 
     always_comb begin
@@ -197,6 +219,14 @@ module RXVPTWalker (
         .en   (result_update),
         .d    (translation_error_next),
         .q    (translation_error)
+    );
+
+    RXVDFF pmp_violation_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (result_update),
+        .d    (pmp_violation_next),
+        .q    (pmp_violation)
     );
 
     RXVDFF #(

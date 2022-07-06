@@ -4,6 +4,7 @@ import RXVMMU::sv32_pte_t;
 import RXVMMU::translation_t;
 import RXVMMU::tlb_inv_op;
 import RXVMMU::asid_bits;
+import RXVMMU::pmp_perms;
 
 module RXVTLBWrapper (
     input  logic                         clk,
@@ -14,6 +15,7 @@ module RXVTLBWrapper (
     input  logic                         valid,
     input  logic                         grant,
     output translation_t                 translation,
+    output logic                         access_fault,
     output logic                         busy,
     input  tlb_inv_op                    tlb_op,
     input  logic         [asid_bits-1:0] inv_asid,
@@ -37,6 +39,13 @@ module RXVTLBWrapper (
     logic              walk_is_megapage;
     logic              walk_translation_error;
     logic              walk_valid;
+    logic              walk_pmp_violation;
+
+    pmp_perms          walk_pmp;
+    pmp_perms          tlb_pmp;
+
+    always_comb walk_pmp = 3'b111;
+    always_comb tlb_pmp = 3'b111;
 
     MemInterface mem_bus ();
 
@@ -76,17 +85,26 @@ module RXVTLBWrapper (
         .pte_out          (walk_pte),
         .is_megapage      (walk_is_megapage),
         .translation_error(walk_translation_error),
+        .pmp_violation    (walk_pmp_violation),
         .dcache_address   (dcache_address),
         .dcache_valid     (dcache_valid),
         .dcache_busy      (dcache_busy),
         .dcache_rdata     (dcache_dout),
         .dcache_phys_in   (dcache_phys_in),
         .dcache_phys_valid(dcache_phys_valid),
-        .dcache_grant     (1'b1)
+        .dcache_grant     (1'b1),
+        // verilator lint_off PINCONNECTEMPTY
+        .pmp_addr         (),
+        // verilator lint_on PINCONNECTEMPTY
+        .pmp              (walk_pmp)
     );
 
     RXVTLB RXVTLB (
         .walk_valid(walk_valid_req),
+        // verilator lint_off PINCONNECTEMPTY
+        .phys_addr (),
+        // verilator lint_on PINCONNECTEMPTY
+        .phys_perms(tlb_pmp),
         .*
     );
 

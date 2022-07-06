@@ -416,16 +416,26 @@ public:
         struct translation *translation;
 
         if (need_translation(true)) {
-            if (!translate(addr, &translation, false))
+            if (!translate(addr, &translation)) {
+                mem_abort_cause = INSTR_ACCESS_FAULT;
                 return false;
+            }
 
-            if (!access_valid(translation, false, false, true))
+            if (!access_valid(translation, false, false, true)) {
+                mem_abort_cause = INSTRUCTION_PAGE_FAULT;
                 return false;
+            }
 
             *phys = translation->phys;
         } else {
             *phys = addr;
         }
+
+        if (!pmp_access_allowed(*phys, PMP::PMP_EXEC)) {
+            mem_abort_cause = INSTR_ACCESS_FAULT;
+            return false;
+        }
+
         icache.read(*phys, dst, len);
 
         tracer.trace_read_mem(0, addr, *phys, dst, len);
@@ -443,16 +453,26 @@ public:
         struct translation *translation;
 
         if (need_translation(false)) {
-            if (!translate(addr, &translation, true))
+            if (!translate(addr, &translation)) {
+                mem_abort_cause = STORE_ACCESS_FAULT;
                 return false;
+            }
 
-            if (!access_valid(translation, false, true, false))
+            if (!access_valid(translation, false, true, false)) {
+                mem_abort_cause = STORE_PAGE_FAULT;
                 return false;
+            }
 
             *phys = translation->phys;
         } else {
             *phys = addr;
         }
+
+        if (!pmp_access_allowed(*phys, PMP::PMP_WRITE)) {
+            mem_abort_cause = STORE_ACCESS_FAULT;
+            return false;
+        }
+
         dcache.write(*phys, val, len, conditional, reservation_held);
         tracer.trace_write_mem(0, addr, *phys, val, len);
 
@@ -513,16 +533,29 @@ private:
         uint32_t val;
     };
 
+    struct PMP {
+        uint32_t base;
+        uint32_t size;
+        static constexpr uint8_t PMP_READ = (1 << 0);
+        static constexpr uint8_t PMP_WRITE = (1 << 1);
+        static constexpr uint8_t PMP_EXEC = (1 << 2);
+        uint8_t perms;
+        bool enabled;
+    };
+
     // clang-format off
     enum mcause_type {
         M_SWINT                 = mcause_interrupt | 3,
         M_TINT                  = mcause_interrupt | 7,
         M_EINT                  = mcause_interrupt | 11,
         INSTR_ALIGN             = 0,
+        INSTR_ACCESS_FAULT      = 1,
         ILLEGAL_INSTRUCTION     = 2,
         BREAKPOINT              = 3,
         LOAD_MISALIGN           = 4,
+        LOAD_ACCESS_FAULT       = 5,
         STORE_MISALIGN          = 6,
+        STORE_ACCESS_FAULT      = 7,
         U_ECALL                 = 8,
         S_ECALL                 = 9,
         M_ECALL                 = 11,
@@ -532,7 +565,35 @@ private:
     };
     // clang-format on
 
-    bool translate(uint32_t virt, struct translation **translation, bool write);
+    const PMP *find_pmp(uint32_t pa)
+    {
+        for (int i = 0; i < 4; ++i) {
+            auto *pmp = &pmps[i];
+            if (!pmp->enabled)
+                continue;
+            if (pa < pmp->base || pa >= pmp->base + pmp->size)
+                continue;
+
+            return pmp;
+        }
+
+        return nullptr;
+    }
+
+    bool pmp_access_allowed(uint32_t pa, uint8_t required_perms)
+    {
+        // No lock bits supported
+        if (privilege_level == M)
+            return true;
+
+        auto pmp = find_pmp(pa);
+        if (!pmp)
+            return true;
+
+        return (pmp->perms & required_perms) != required_perms;
+    }
+
+    bool translate(uint32_t virt, struct translation **translation);
 
     template <typename T>
     std::optional<T> read_mem(uint32_t addr, bool reserved = false)
@@ -557,14 +618,23 @@ private:
         struct translation *translation;
 
         if (need_translation(false)) {
-            if (!translate(addr, &translation, false))
+            if (!translate(addr, &translation)) {
+                mem_abort_cause = LOAD_ACCESS_FAULT;
                 return false;
+            }
 
-            if (!access_valid(translation, true, false, false))
+            if (!access_valid(translation, true, false, false)) {
+                mem_abort_cause = LOAD_PAGE_FAULT;
                 return false;
+            }
             *phys = translation->phys;
         } else {
             *phys = addr;
+        }
+
+        if (!pmp_access_allowed(*phys, PMP::PMP_READ)) {
+            mem_abort_cause = LOAD_ACCESS_FAULT;
+            return false;
         }
 
         dcache.read(*phys, dst, len, reserved);
@@ -613,7 +683,7 @@ private:
 
     void do_exception(enum mcause_type t, uint32_t val = 0);
 
-    static bool ad_fault(struct translation *t, bool write)
+    static bool ad_fault(const struct translation *t, bool write)
     {
         if (!(t->attributes & pte_accessed))
             return true;
@@ -625,6 +695,7 @@ private:
     void check_interrupts();
     bool csr_access_allowed(int r, bool write);
     void do_xret(PrivilegeLevel level);
+    void set_pmp_addr(int pmp_id, uint32_t addr);
 
     std::map<uint16_t, CSR> csrs;
     uint32_t regs[32];
@@ -650,4 +721,6 @@ private:
     uint64_t cur_cycle;
     uint64_t num_irqs;
     bool finished;
+    PMP pmps[4];
+    mcause_type mem_abort_cause;
 };

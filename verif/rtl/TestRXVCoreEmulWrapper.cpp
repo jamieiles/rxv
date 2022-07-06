@@ -20,10 +20,13 @@ enum mcause_type {
     M_TINT = mcause_interrupt | 7,
     M_EINT = mcause_interrupt | 11,
     INSTR_ALIGN = 0,
+    INSTR_ACCESS_FAULT = 1,
     ILLEGAL_INSTRUCTION = 2,
     BREAKPOINT = 3,
     LOAD_MISALIGN = 4,
+    LOAD_ACCESS_FAULT = 5,
     STORE_MISALIGN = 6,
+    STORE_ACCESS_FAULT = 7,
     U_ECALL = 8,
     S_ECALL = 9,
     M_ECALL = 11,
@@ -1520,4 +1523,113 @@ TEST_F(RXVCoreEmulWrapperTest, InstructionPageFault)
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE),
               INSTRUCTION_PAGE_FAULT);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0xc0000000);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, PMPDeny)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       05008093                addi    x1,x1,80 # 0x80000050
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       80401137                lui     x2,0x80401
+        80000010:       00012183                lw      x3,0(x2) # 0x80401000
+        80000014:       201800b7                lui     x1,0x20180
+        80000018:       fff08093                addi    x1,x1,-1 # 0x2017ffff
+        8000001c:       3b009073                csrw    pmpaddr0,x1
+        80000020:       01800093                li      x1,24
+        80000024:       3a009073                csrw    pmpcfg0,x1
+        80000028:       12000073                sfence.vma
+        8000002c:       000011b7                lui     x3,0x1
+        80000030:       80018193                addi    x3,x3,-2048 # 0x800
+        80000034:       30019073                csrw    mstatus,x3
+        80000038:       00000197                auipc   x3,0x0
+        8000003c:       01018193                addi    x3,x3,16 # 0x80000048
+        80000040:       34119073                csrw    mepc,x3
+        80000044:       30200073                mret
+        80000048:       00012203                lw      x4,0(x2)
+        8000004c:       0000006f                j       0x8000004c
+        80000050:       341025f3                csrr    x11,mepc
+        80000054:       34202673                csrr    x12,mcause
+        80000058:       0000006f                j       0x80000058
+    )objdump");
+
+    run_until(0x80000058);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), LOAD_ACCESS_FAULT);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x80401000);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000048);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, PMPExecDeny)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       05008093                addi    x1,x1,80 # 0x80000050
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       80401137                lui     x2,0x80401
+        80000010:       00012183                lw      x3,0(x2) # 0x80401000
+        80000014:       201800b7                lui     x1,0x20180
+        80000018:       fff08093                addi    x1,x1,-1 # 0x2017ffff
+        8000001c:       3b009073                csrw    pmpaddr0,x1
+        80000020:       01800093                li      x1,24
+        80000024:       3a009073                csrw    pmpcfg0,x1
+        80000028:       12000073                sfence.vma
+        8000002c:       000011b7                lui     x3,0x1
+        80000030:       80018193                addi    x3,x3,-2048 # 0x800
+        80000034:       30019073                csrw    mstatus,x3
+        80000038:       00000197                auipc   x3,0x0
+        8000003c:       01018193                addi    x3,x3,16 # 0x80000048
+        80000040:       34119073                csrw    mepc,x3
+        80000044:       30200073                mret
+        80000048:       00010067                jr      x2
+        8000004c:       0000006f                j       0x8000004c
+        80000050:       341025f3                csrr    x11,mepc
+        80000054:       34202673                csrr    x12,mcause
+        80000058:       0000006f                j       0x80000058
+    )objdump");
+
+    run_until(0x80000058);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), INSTR_ACCESS_FAULT);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x80401000);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80401000);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, PMPMMUDeny)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       06008093                addi    x1,x1,96 # 0x80000060
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       80401137                lui     x2,0x80401
+        80000010:       00012183                lw      x3,0(x2) # 0x80401000
+        80000014:       240000b7                lui     x1,0x24000
+        80000018:       fff08093                addi    x1,x1,-1 # 0x23ffffff
+        8000001c:       3b009073                csrw    pmpaddr0,x1
+        80000020:       01800093                li      x1,24
+        80000024:       3a009073                csrw    pmpcfg0,x1
+        80000028:       12000073                sfence.vma
+        8000002c:       000011b7                lui     x3,0x1
+        80000030:       80018193                addi    x3,x3,-2048 # 0x800
+        80000034:       30019073                csrw    mstatus,x3
+        80000038:       00c15113                srli    x2,x2,0xc
+        8000003c:       80000237                lui     x4,0x80000
+        80000040:       00416133                or      x2,x2,x4
+        80000044:       18011073                csrw    satp,x2
+        80000048:       00000197                auipc   x3,0x0
+        8000004c:       01018193                addi    x3,x3,16 # 0x80000058
+        80000050:       34119073                csrw    mepc,x3
+        80000054:       30200073                mret
+        80000058:       00000013                nop
+        8000005c:       0000006f                j       0x8000005c
+        80000060:       341025f3                csrr    x11,mepc
+        80000064:       34202673                csrr    x12,mcause
+        80000068:       0000006f                j       0x80000068
+    )objdump");
+
+    run_until(0x80000064);
+
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), INSTR_ACCESS_FAULT);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x80000058);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000058);
 }

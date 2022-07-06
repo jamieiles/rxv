@@ -122,6 +122,7 @@ module RXVLSUWrapper #(
         .reset       (reset),
         .dcache_phys (dcache_phys_in),
         .lsu_tlb_busy(tlb_busy),
+        .lsu_access_fault(1'b0),
         .*
     );
 
@@ -140,6 +141,7 @@ module RXVLSUWrapper #(
         lsu_translation.read        = tlb_read;
         lsu_translation.valid       = tlb_valid;
         lsu_translation.asid        = tlb_asid;
+        lsu_translation.pmp         = 3'b111;
     end
 
 endmodule

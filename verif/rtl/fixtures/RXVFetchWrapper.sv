@@ -53,6 +53,7 @@ module RXVFetchWrapper #(
     // To decode
     output logic                       decode_valid,
     output logic                       decode_page_fault,
+    output logic                       decode_pmp_fault,
     output logic       [         31:2] decode_pc,
 `ifdef RXV_TRACE
     output logic       [         31:2] decode_phys,
@@ -74,7 +75,7 @@ module RXVFetchWrapper #(
     rxv_prediction predict_in;
     rxv_prediction predict_out;
     translation_t  fetch_translation;
-
+    logic          fetch_access_fault;
 
     assign predict_in.predicted        = branch_predict_valid;
     assign predict_in.prediction       = branch_prediction;
@@ -106,6 +107,8 @@ module RXVFetchWrapper #(
         fetch_translation.read        = tlb_read;
         fetch_translation.valid       = tlb_valid;
         fetch_translation.asid        = tlb_asid;
+        fetch_translation.pmp         = 3'b111;
+        fetch_access_fault            = 1'b0;
     end
 
 endmodule

@@ -58,6 +58,7 @@ module RXVLSU #(
     // From TLB
     // verilator lint_off UNUSED
     input  translation_t                    lsu_translation,
+    input  logic                            lsu_access_fault,
     // verilator lint_on UNUSED
     input  logic                            lsu_tlb_busy,
     output tlb_inv_op                       lsu_tlb_inv_op,
@@ -179,6 +180,7 @@ module RXVLSU #(
     logic                               tlb_stalling;
     logic                               tlb_stalling_next;
     logic                               page_fault;
+    logic                               pmp_fault;
 
     function logic tlb_access_okay;
         begin
@@ -206,6 +208,21 @@ module RXVLSU #(
                     mstatus, current_privilege
                 ) == RXVCSR::PRIV_S && lsu_tlb_enabled && !mstatus.m_sum && lsu_translation.user)
                 tlb_access_okay = 1'b0;
+        end
+    endfunction
+
+    function logic pmp_access_okay;
+        begin
+            pmp_access_okay = 1'b1;
+
+            if (current_privilege != RXVCSR::PRIV_M && op_stage1.is_load && !lsu_translation.pmp.read)
+                pmp_access_okay = 1'b0;
+            if (current_privilege != RXVCSR::PRIV_M && op_stage1.is_store && !lsu_translation.pmp.write)
+                pmp_access_okay = 1'b0;
+            if (current_privilege != RXVCSR::PRIV_M && op_stage1.is_amo && !(lsu_translation.pmp.read && lsu_translation.write))
+                pmp_access_okay = 1'b0;
+            if (current_privilege != RXVCSR::PRIV_M && op_stage1.valid && lsu_access_fault)
+                pmp_access_okay = 1'b0;
         end
     endfunction
 
@@ -389,7 +406,7 @@ module RXVLSU #(
         if (lsu_stall) op_stage1_next = op_stage1;
         // Prepare for replay once the TLB is unblocked
         if (lsu_tlb_busy || tlb_stalling) op_stage1_next = op_stage1;
-        if (page_fault) op_stage1_next.valid = 1'b0;
+        if (page_fault || pmp_fault) op_stage1_next.valid = 1'b0;
     end
 
     always_comb begin
@@ -441,11 +458,15 @@ module RXVLSU #(
             (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo) &&
             ((tlb_stalling && !lsu_tlb_busy && !lsu_translation.valid) ||
              (!lsu_tlb_busy && op_stage1.valid && !tlb_access_okay()));
+        pmp_fault = (lsu_access_fault || !page_fault) && op_stage1.valid &&
+            (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo) &&
+            ((tlb_stalling && !lsu_tlb_busy && !lsu_translation.valid) ||
+             (!lsu_tlb_busy && op_stage1.valid && !pmp_access_okay()));
     end
 
     always_comb begin
-        lsu_exception_next.pc    = page_fault || is_invalid_amo ? op_stage1.pc : exec_pc;
-        lsu_exception_next.val   = is_invalid_amo || page_fault ? op_stage1.address : address;
+        lsu_exception_next.pc = page_fault || pmp_fault || is_invalid_amo ? op_stage1.pc : exec_pc;
+        lsu_exception_next.val = is_invalid_amo || page_fault || pmp_fault ? op_stage1.address : address;
 
         lsu_exception_next.cause = 'b0;
         if (is_unaligned)
@@ -454,12 +475,15 @@ module RXVLSU #(
         if (page_fault)
             lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo ?
                 RXVCSR::CAUSE_STORE_PAGE_FAULT : RXVCSR::CAUSE_LOAD_PAGE_FAULT;
+        if (pmp_fault)
+            lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo ?
+                RXVCSR::CAUSE_STORE_ACCESS_FAULT : RXVCSR::CAUSE_LOAD_ACCESS_FAULT;
         if (is_invalid_amo) lsu_exception_next.cause = RXVCSR::CAUSE_STORE_ACCESS_FAULT;
 
-        lsu_exception_next.valid = ((is_load | is_store) & valid & is_unaligned) | is_invalid_amo | page_fault;
+        lsu_exception_next.valid = ((is_load | is_store) & valid & is_unaligned) | is_invalid_amo | page_fault | pmp_fault;
         lsu_exception_next.irq = 1'b0;
 
-        lsu_except_id_next = is_invalid_amo || page_fault ? op_stage1.id : exec_id;
+        lsu_except_id_next = is_invalid_amo || page_fault || pmp_fault ? op_stage1.id : exec_id;
     end
 
     always_comb begin
@@ -478,7 +502,7 @@ module RXVLSU #(
         dcache_phys = {lsu_translation.pa, op_stage1.address[11:2]};
 
         dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & lsu_translation.valid &
-            ~is_invalid_amo & ~page_fault;
+            ~is_invalid_amo & ~page_fault & ~pmp_fault;
         if (op_stage1.is_sc && !reservation_held) dcache_phys_valid = 1'b0;
     end
 

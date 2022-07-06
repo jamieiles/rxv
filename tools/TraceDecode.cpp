@@ -122,10 +122,13 @@ enum mcause_type {
     S_EINT = mcause_interrupt | 9,
     M_EINT = mcause_interrupt | 11,
     INSTR_ALIGN = 0,
+    INSTR_ACCESS_FAULT = 1,
     ILLEGAL_INSTRUCTION = 2,
     BREAKPOINT = 3,
     LOAD_MISALIGN = 4,
+    LOAD_ACCESS_FAULT = 5,
     STORE_MISALIGN = 6,
+    STORE_ACCESS_FAULT = 7,
     U_ECALL = 8,
     S_ECALL = 9,
     M_ECALL = 11,
@@ -170,6 +173,12 @@ static std::string decode_mcause(uint32_t v)
         return "LOAD_PAGE_FAULT";
     if (v == STORE_PAGE_FAULT)
         return "STORE_PAGE_FAULT";
+    if (v == INSTR_ACCESS_FAULT)
+        return "INSTR_ACCESS_FAULT";
+    if (v == LOAD_ACCESS_FAULT)
+        return "LOAD_ACCESS_FAULT";
+    if (v == STORE_ACCESS_FAULT)
+        return "STORE_ACCESS_FAULT";
 
     return "UNKNOWN";
 }

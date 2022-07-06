@@ -19,6 +19,7 @@ module RXVMMUTop #(
     input  logic                         d_enabled,
     output logic                         d_busy,
     output translation_t                 d_translation,
+    output logic                         d_access_fault,
     input  logic         [asid_bits-1:0] active_asid,
     input  tlb_inv_op                    tlb_op,
     input  logic         [asid_bits-1:0] inv_asid,
@@ -29,6 +30,7 @@ module RXVMMUTop #(
     input  logic                         i_enabled,
     output logic                         i_busy,
     output translation_t                 i_translation,
+    output logic                         i_access_fault,
     // To/from cache
     output logic         [         31:2] dcache_address,
     output logic                         dcache_valid,
@@ -37,6 +39,11 @@ module RXVMMUTop #(
     output logic         [         31:2] dcache_phys_in,
     output logic                         dcache_phys_valid,
     input  logic                         dcache_grant,
+    // To PMP
+    output logic         [         31:2] d_pmp_addr,
+    input  pmp_perms                     d_pmp,
+    output logic         [         31:2] i_pmp_addr,
+    input  pmp_perms                     i_pmp,
     // Prioritisation
     input  logic                         lsu_busy
 );
@@ -56,7 +63,10 @@ module RXVMMUTop #(
     sv32_pte_t         walk_pte;
     logic              walk_is_megapage;
     logic              walk_translation_error;
+    logic              walk_pmp_violation;
     logic              i_walk_lsu_gated;
+    logic      [ 31:2] walk_pmp_addr;
+    logic      [ 31:2] dtlb_pmp_addr;
 
     RXVTLB #(
         .num_entries(num_d_entries)
@@ -68,6 +78,7 @@ module RXVMMUTop #(
         .valid                 (d_valid),
         .grant                 (d_walk_grant),
         .translation           (d_translation),
+        .access_fault          (d_access_fault),
         .busy                  (d_busy),
         .tlb_op                (tlb_op),
         .inv_asid              (inv_asid),
@@ -78,6 +89,9 @@ module RXVMMUTop #(
         .walk_pte              (walk_pte),
         .walk_is_megapage      (walk_is_megapage),
         .walk_translation_error(walk_translation_error),
+        .walk_pmp_violation    (walk_pmp_violation),
+        .phys_addr             (dtlb_pmp_addr),
+        .phys_perms            (d_pmp),
         .enabled               (d_enabled)
     );
 
@@ -91,6 +105,7 @@ module RXVMMUTop #(
         .valid                 (i_valid),
         .grant                 (i_walk_grant),
         .translation           (i_translation),
+        .access_fault          (i_access_fault),
         .busy                  (i_busy),
         .tlb_op                (tlb_op),
         .inv_asid              (inv_asid),
@@ -101,6 +116,9 @@ module RXVMMUTop #(
         .walk_pte              (walk_pte),
         .walk_is_megapage      (walk_is_megapage),
         .walk_translation_error(walk_translation_error),
+        .walk_pmp_violation    (walk_pmp_violation),
+        .phys_addr             (i_pmp_addr),
+        .phys_perms            (i_pmp),
         .enabled               (i_enabled)
     );
 
@@ -114,13 +132,16 @@ module RXVMMUTop #(
         .pte_out          (walk_pte),
         .is_megapage      (walk_is_megapage),
         .translation_error(walk_translation_error),
+        .pmp_violation    (walk_pmp_violation),
         .dcache_address   (dcache_address),
         .dcache_valid     (dcache_valid),
         .dcache_busy      (dcache_busy),
         .dcache_rdata     (dcache_rdata),
         .dcache_phys_in   (dcache_phys_in),
         .dcache_phys_valid(dcache_phys_valid),
-        .dcache_grant     (dcache_grant)
+        .dcache_grant     (dcache_grant),
+        .pmp_addr         (walk_pmp_addr),
+        .pmp              (d_pmp)
     );
 
     StaticArbiter #(
@@ -142,6 +163,8 @@ module RXVMMUTop #(
         walk_valid       = d_walk_grant ? d_walk_valid : i_walk_grant ? i_walk_valid : 1'b0;
         d_walk_busy      = d_walk_grant ? walk_busy : 1'b0;
         i_walk_busy      = i_walk_grant ? walk_busy : 1'b0;
+
+        d_pmp_addr       = d_walk_grant || i_walk_grant ? walk_pmp_addr : dtlb_pmp_addr;
     end
 
 endmodule

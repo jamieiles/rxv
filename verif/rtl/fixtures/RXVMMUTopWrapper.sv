@@ -4,6 +4,7 @@ import RXVMMU::sv32_pte_t;
 import RXVMMU::translation_t;
 import RXVMMU::tlb_inv_op;
 import RXVMMU::asid_bits;
+import RXVMMU::pmp_perms;
 
 module RXVMMUTopWrapper (
     input  logic                         clk,
@@ -28,17 +29,23 @@ module RXVMMUTopWrapper (
     output translation_t                 i_translation,
     input  logic                         dcache_invalidate,
     output logic                         dcache_busy,
-    input  logic                         lsu_busy
+    input  logic                         lsu_busy,
+    output logic                         d_access_fault,
+    output logic                         i_access_fault
 );
 
-    logic        dcache_valid;
-    logic [31:0] dcache_dout;
-    logic [31:2] dcache_address;
-    logic [31:2] dcache_phys_in;
-    logic        dcache_phys_valid;
-    logic        dcache_grant;
+    logic            dcache_valid;
+    logic     [31:0] dcache_dout;
+    logic     [31:2] dcache_address;
+    logic     [31:2] dcache_phys_in;
+    logic            dcache_phys_valid;
+    logic            dcache_grant;
+    pmp_perms        d_pmp;
+    pmp_perms        i_pmp;
 
     always_comb dcache_grant = 1'b1;
+    always_comb d_pmp = 3'b111;
+    always_comb i_pmp = 3'b111;
 
     MemInterface mem_bus ();
 
@@ -70,6 +77,10 @@ module RXVMMUTopWrapper (
 
     RXVMMUTop RXVMMUTop (
         .dcache_rdata(dcache_dout),
+        // verilator lint_off PINCONNECTEMPTY
+        .d_pmp_addr  (),
+        .i_pmp_addr  (),
+        // verilator lint_on PINCONNECTEMPTY
         .*
     );
 

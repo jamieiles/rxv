@@ -4,6 +4,7 @@ import RXVMMU::sv32_pte_t;
 import RXVMMU::translation_t;
 import RXVMMU::tlb_inv_op;
 import RXVMMU::asid_bits;
+import RXVMMU::pmp_perms;
 
 module RXVTLB #(
     parameter int num_entries = 8
@@ -16,6 +17,7 @@ module RXVTLB #(
     input  logic                         valid,
     input  logic                         grant,
     output translation_t                 translation,
+    output logic                         access_fault,
     output logic                         busy,
     input  tlb_inv_op                    tlb_op,
     input  logic         [asid_bits-1:0] inv_asid,
@@ -29,6 +31,11 @@ module RXVTLB #(
     // verilator lint_on UNUSED
     input  logic                         walk_is_megapage,
     input  logic                         walk_translation_error,
+    input  logic                         walk_pmp_violation,
+    output logic         [         31:2] phys_addr,
+    //verilator lint_off UNUSED
+    input  pmp_perms                     phys_perms,
+    //verilator lint_on UNUSED
     // Global control
     input  logic                         enabled
 );
@@ -129,7 +136,8 @@ module RXVTLB #(
                     // verilog_format: on
                 endcase
 
-                if (state == STATE_FILL && way == lru_out && !walk_translation_error && walk_pte.valid) begin
+                if (state == STATE_FILL && way == lru_out && !walk_translation_error &&
+                    !walk_pmp_violation && walk_pte.valid) begin
                     // FIXME: handle 34-bit PA
                     entry_next.translation.pa          = 20'({walk_pte.ppn1, walk_pte.ppn0});
                     entry_next.translation.dirty       = walk_pte.dirty;
@@ -141,6 +149,7 @@ module RXVTLB #(
                     entry_next.translation.read        = walk_pte.read;
                     entry_next.translation.valid       = walk_pte.valid;
                     entry_next.translation.asid        = active_asid;
+                    entry_next.translation.pmp         = phys_perms;
                     entry_next.va                      = walk_va;
                     entry_next.is_megapage             = walk_is_megapage;
                 end
@@ -172,6 +181,10 @@ module RXVTLB #(
 `endif  // verilator
 
     always_comb begin
+        phys_addr = enabled ? 30'({walk_pte.ppn1, walk_pte.ppn0, 10'b0}) : {va, 10'b0};
+    end
+
+    always_comb begin
         bypass_translation.pa          = va;
         bypass_translation.dirty       = 1'b1;
         bypass_translation.accessed    = 1'b1;
@@ -182,6 +195,7 @@ module RXVTLB #(
         bypass_translation.read        = 1'b1;
         bypass_translation.valid       = 1'b1;
         bypass_translation.asid        = 'b0;
+        bypass_translation.pmp         = phys_perms;
     end
 
     always_comb begin
@@ -265,6 +279,14 @@ module RXVTLB #(
         .en   (translation_update),
         .d    (translation_next),
         .q    (translation)
+    );
+
+    RXVDFF access_fault_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (walk_pmp_violation),
+        .q    (access_fault)
     );
 
 endmodule

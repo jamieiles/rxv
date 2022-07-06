@@ -21,6 +21,7 @@ import RXVCSR::privilege_t;
 import RXVMMU::translation_t;
 import RXVMMU::tlb_inv_op;
 import RXVMMU::asid_bits;
+import RXVMMU::pmp_perms;
 
 module RXVCore #(
     parameter int          icache_nr_lines        = 16,
@@ -63,6 +64,7 @@ module RXVCore #(
     rxv_prediction                     fetch_prediction;
     logic                              fetch_idle;
     translation_t                      fetch_translation;
+    logic                              fetch_access_fault;
     logic                              fetch_tlb_busy;
     logic                              fetch_tlb_valid;
     logic          [             31:2] irq_epc;
@@ -82,6 +84,7 @@ module RXVCore #(
     logic                              decode_fe_stall;
     logic                              decode_valid;
     logic                              decode_page_fault;
+    logic                              decode_pmp_fault;
     logic          [             31:2] decode_pc;
     logic          [             31:2] decode_next_pc;
     rxv_prediction                     decode_prediction;
@@ -179,6 +182,7 @@ module RXVCore #(
     logic                              lsu_dcache_invalidate;
     logic                              lsu_dcache_clean;
     translation_t                      lsu_translation;
+    logic                              lsu_access_fault;
     logic                              lsu_tlb_busy;
     tlb_inv_op                         lsu_tlb_inv_op;
     logic          [    asid_bits-1:0] lsu_tlb_inv_asid;
@@ -274,6 +278,16 @@ module RXVCore #(
     logic          [    asid_bits-1:0] active_asid;
     logic                              i_tlb_enabled;
     logic                              d_tlb_enabled;
+    logic                              pmp_update_cfg;
+    logic          [              1:0] pmp_update_addr_idx;
+    logic                              pmp_update_addr;
+    logic          [             31:0] pmp_cfg_read_data;
+    logic          [              1:0] pmp_address_read_idx;
+    logic          [             31:0] pmp_address_read_data;
+    logic          [             31:2] pmp_data_addr;
+    pmp_perms                          pmp_data_perms;
+    logic          [             31:2] pmp_instr_addr;
+    pmp_perms                          pmp_instr_perms;
 
 `ifdef RXV_TRACE
     logic [31:12] decode_phys;
@@ -340,6 +354,7 @@ module RXVCore #(
         .icache_phys_valid     (icache_phys_valid),
         .fetch_tlb_valid       (fetch_tlb_valid),
         .fetch_translation     (fetch_translation),
+        .fetch_access_fault    (fetch_access_fault),
         .fetch_tlb_busy        (fetch_tlb_busy),
         .branch_predict_address(fetch_predict_address),
         .prediction            (fetch_prediction),
@@ -348,6 +363,7 @@ module RXVCore #(
         .decode_fe_stall       (decode_fe_stall),
         .decode_valid          (decode_valid),
         .decode_page_fault     (decode_page_fault),
+        .decode_pmp_fault      (decode_pmp_fault),
         .decode_pc             (decode_pc),
 `ifdef RXV_TRACE
         .decode_phys           (decode_phys),
@@ -367,6 +383,7 @@ module RXVCore #(
         .current_privilege          (current_privilege),
         .decode_valid               (decode_valid),
         .decode_page_fault          (decode_page_fault),
+        .decode_pmp_fault           (decode_pmp_fault),
         .decode_pc                  (decode_pc),
 `ifdef RXV_TRACE
         .decode_phys                (decode_phys),
@@ -558,6 +575,7 @@ module RXVCore #(
         .dcache_phys_valid   (lsu_dcache_phys_valid),
         .dcache_device_memory(dcache_device_memory),
         .lsu_translation     (lsu_translation),
+        .lsu_access_fault    (lsu_access_fault),
         .lsu_tlb_busy        (lsu_tlb_busy),
         .lsu_tlb_inv_op      (lsu_tlb_inv_op),
         .lsu_tlb_inv_asid    (lsu_tlb_inv_asid),
@@ -630,6 +648,12 @@ module RXVCore #(
         .pmu_cycles           (pmu_cycles),
         .pmu_instret          (pmu_instret),
         .current_privilege    (current_privilege),
+        .pmp_addr_idx         (pmp_address_read_idx),
+        .pmp_addr             (pmp_address_read_data),
+        .pmp_cfg              (pmp_cfg_read_data),
+        .pmp_update_cfg       (pmp_update_cfg),
+        .pmp_update_addr      (pmp_update_addr),
+        .pmp_update_addr_idx  (pmp_update_addr_idx),
         .translation_base     (translation_base),
         .active_asid          (active_asid),
         .i_tlb_enabled        (i_tlb_enabled),
@@ -723,6 +747,22 @@ module RXVCore #(
         .dcache_clean         (dcache_clean)
     );
 
+    RXVPMP RXVPMP (
+        .clk              (clk),
+        .reset            (reset),
+        .update_cfg       (pmp_update_cfg),
+        .update_addr_idx  (pmp_update_addr_idx),
+        .update_data      (exec_csr_wr_data),
+        .update_addr      (pmp_update_addr),
+        .cfg_read_data    (pmp_cfg_read_data),
+        .address_read_idx (pmp_address_read_idx),
+        .address_read_data(pmp_address_read_data),
+        .data_addr        (pmp_data_addr),
+        .data_perms       (pmp_data_perms),
+        .instr_addr       (pmp_instr_addr),
+        .instr_perms      (pmp_instr_perms)
+    );
+
     RXVMMUTop #(
         .num_d_entries(num_dtlb_entries),
         .num_i_entries(num_itlb_entries)
@@ -735,6 +775,7 @@ module RXVCore #(
         .d_enabled        (d_tlb_enabled),
         .d_busy           (lsu_tlb_busy),
         .d_translation    (lsu_translation),
+        .d_access_fault   (lsu_access_fault),
         .active_asid      (active_asid),
         .tlb_op           (lsu_tlb_inv_op),
         .inv_asid         (lsu_tlb_inv_asid),
@@ -744,6 +785,7 @@ module RXVCore #(
         .i_enabled        (i_tlb_enabled),
         .i_busy           (fetch_tlb_busy),
         .i_translation    (fetch_translation),
+        .i_access_fault   (fetch_access_fault),
         .dcache_address   (mmu_dcache_address),
         .dcache_valid     (mmu_dcache_valid),
         .dcache_busy      (mmu_dcache_busy),
@@ -751,7 +793,11 @@ module RXVCore #(
         .dcache_phys_in   (mmu_dcache_phys_in),
         .dcache_phys_valid(mmu_dcache_phys_valid),
         .dcache_grant     (mmu_dcache_grant),
-        .lsu_busy         (lsu_busy)
+        .lsu_busy         (lsu_busy),
+        .d_pmp_addr       (pmp_data_addr),
+        .d_pmp            (pmp_data_perms),
+        .i_pmp_addr       (pmp_instr_addr),
+        .i_pmp            (pmp_instr_perms)
     );
 
     RXVCommitBuffer RXVCommitBuffer (

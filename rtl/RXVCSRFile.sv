@@ -493,11 +493,12 @@ module RXVCSRFile #(
             RXVCSR::CSR_SATP:
                 valid_csr_out = current_privilege == RXVCSR::PRIV_M ||
                     (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
-`ifdef verilator
-            RXVCSR::CSR_RXV_EMUCTL: valid_csr_out = 1'b1;
-`endif
             default: valid_csr_out = 1'b0;
         endcase
+
+`ifdef verilator
+        if (rd_addr == RXVCSR::CSR_RXV_EMUCTL) valid_csr_out = 1'b1;
+`endif
         // verilog_format: on
 
         if (current_privilege == RXVCSR::PRIV_S && rd_addr[9:8] == 2'b11) valid_csr_out = 1'b0;

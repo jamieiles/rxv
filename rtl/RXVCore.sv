@@ -284,7 +284,9 @@ module RXVCore #(
         .nr_ways        (icache_nr_ways),
         .line_size_bytes(icache_line_size_bytes)
     ) RXVICache (
+`ifdef USE_POWER_PINS
         `POWER_PIN_CONNECT
+`endif
         .clk       (clk),
         .reset     (reset),
         .bus       (instruction_bus),
@@ -301,7 +303,9 @@ module RXVCore #(
         .num_entries(btb_num_entries),
         .tag_bits   (btb_tag_bits)
     ) RXVBranchPredictor (
+`ifdef USE_POWER_PINS
         `POWER_PIN_CONNECT
+`endif
         .clk                       (clk),
         .reset                     (reset),
         .fetch_address             (fetch_predict_address),
@@ -664,7 +668,9 @@ module RXVCore #(
         .nr_ways        (dcache_nr_ways),
         .line_size_bytes(dcache_line_size_bytes)
     ) RXVDCache (
+`ifdef USE_POWER_PINS
         `POWER_PIN_CONNECT
+`endif
         .clk          (clk),
         .reset        (reset),
         .bus          (data_bus),

@@ -42,7 +42,7 @@ module RXVPMP (
         input pmp_entry_t pmp;
         // verilator lint_on UNUSED
 
-        pmp_mask = 30'h3ff;  // << 31;
+        pmp_mask = 30'hfff;
         for (int i = 12; i < 32; ++i) begin
             pmp_mask[i] = 1;
             if (!pmp.addr[i]) break;

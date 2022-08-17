@@ -128,11 +128,11 @@ module RXVPTWalker (
         unique case (state)
             STATE_LEVEL1: begin
                 translation_error_next = !pte_in.valid || |pte_in.ppn0;
-                pmp_violation_next     = dcache_grant && !pmp.read;
+                pmp_violation_next     = dcache_grant && !pmp.read && !translation_error_next;
             end
             STATE_LEVEL0: begin
                 translation_error_next = !pte_in.valid;
-                pmp_violation_next     = dcache_grant && !pmp.read;
+                pmp_violation_next     = dcache_grant && !pmp.read && !translation_error_next;
             end
             default: begin
                 translation_error_next = 1'b0;

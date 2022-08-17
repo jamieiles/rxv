@@ -1629,7 +1629,8 @@ TEST_F(RXVCoreEmulWrapperTest, PMPMMUDeny)
 
     run_until(0x80000064);
 
-    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE), INSTR_ACCESS_FAULT);
+    EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MCAUSE),
+              INSTRUCTION_PAGE_FAULT);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x80000058);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000058);
 }

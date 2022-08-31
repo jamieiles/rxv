@@ -195,7 +195,7 @@ module RXVTLB #(
         bypass_translation.read        = 1'b1;
         bypass_translation.valid       = 1'b1;
         bypass_translation.asid        = 'b0;
-        bypass_translation.pmp         = phys_perms;
+        bypass_translation.pmp         = access_fault ? pmp_perms'('b0) : phys_perms;
     end
 
     always_comb begin

@@ -63,6 +63,7 @@ module RXVTLB #(
     logic                              walk_va_update;
     logic                              lru_update;
     logic                              walk_valid_next;
+    logic                              access_fault_next;
     translation_t                      translation_next;
     translation_t                      bypass_translation;
     state_t                            state;
@@ -199,6 +200,10 @@ module RXVTLB #(
     end
 
     always_comb begin
+        access_fault_next = grant && !enabled && walk_pmp_violation;
+    end
+
+    always_comb begin
         integer i;
 
         hit = ((state == STATE_RESTART || (state == STATE_READY && valid)) && |hits) || (!enabled && valid);
@@ -285,7 +290,7 @@ module RXVTLB #(
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (walk_pmp_violation),
+        .d    (access_fault_next),
         .q    (access_fault)
     );
 

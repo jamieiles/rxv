@@ -143,7 +143,7 @@ module RXVPMP (
         pmp_entry_t pmp;
         // verilator lint_on UNUSED
         pmp               = pmps[address_read_idx];
-        address_read_data = {2'b0, pmp.addr, 10'h3ff};
+        address_read_data = {2'b0, pmp.addr, 10'b0};
     end
 
 endmodule

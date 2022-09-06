@@ -39,12 +39,17 @@ static void jump_payload(void)
 {
     asm volatile(
         "fence.i\n\t"
-        "jr %0" ::"r"(entrypoint));
+        "li a0, 0\n\t"
+        "addi a1, %1, 0\n\t"
+        "addi s0, %0, 0\n\t"
+        "jr s0" ::"r"(entrypoint),
+        "r"(0x80200000));
 }
 
 static const struct boot_file boot_files[] = {
     {.name = u"OPENSBI.BIN", .load_address = 0x80000000, .required = 1},
     {.name = u"IMAGE.BIN", .load_address = 0x80400000, .required = 0},
+    {.name = u"ARTY.DTB", .load_address = 0x80200000, .required = 1},
     {}};
 
 static int load_one_file(struct fat_superblock *sb,

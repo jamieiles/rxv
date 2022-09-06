@@ -10,6 +10,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../verif/rtl)
 include_directories(include)
 include_directories(${RXVCORE_INCLUDE_DIRECTORIES})
 
+add_subdirectory(bootrom)
+
 add_executable(rxv-simulator
                Simulator.cpp
                ComplianceTest.h

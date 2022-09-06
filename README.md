@@ -65,9 +65,11 @@ and uses the generic platform so does not require any additional patches.
 
 For example:
 
-    ./simulator/rxv-simulator --simulator rtl --elf fw_jump.elf \
+    ./simulator/rxv-simulator --simulator rtl \
+        --binary fw_jump.bin@0x84000000 \
         --binary linux/arch/riscv/boot/Image@0x80400000 \
-        --binary fs.img@0x88000000
+        --binary platform/rxv-emul.dtb@0x80200000 \
+	--elf simulator/bootrom/sim-bootrom
 
 will load the OpenSBI ELF file and then copy the Linux kernel and root
 filesystem to 0x80400000 and 0x88000000 respectively before setting the PC to

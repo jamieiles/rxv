@@ -70,6 +70,7 @@ module RXVTLB #(
     state_t                            next_state;
     logic                              translation_update;
     logic         [$bits(state_t)-1:0] state_q;
+    logic                              multihit;
 
     TLBPLRU #(
         .width(num_entries)
@@ -205,11 +206,16 @@ module RXVTLB #(
 
     always_comb begin
         integer i;
+        logic   hit_processed;
 
+        multihit = 1'b0;
+        hit_processed = 1'b0;
         hit = ((state == STATE_RESTART || (state == STATE_READY && valid)) && |hits) || (!enabled && valid);
         hit_index = 'b0;
         translation_next = valid ? 'b0 : translation;
         for (i = 0; i < num_entries; ++i) begin
+            if (hit_processed && hits[i]) multihit = 1'b1;
+            if (hits[i]) hit_processed = 1'b1;
             hit_index |= {way_bits{hits[i]}} & way_bits'(i);
             translation_next |= {$bits(translation_next) {hits[i]}} & add_offset(all_entries[i]);
         end
@@ -218,6 +224,12 @@ module RXVTLB #(
 
         translation_update = hit | valid;
     end
+
+    RXVAssert no_multihit (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!multihit)
+    );
 
     always_comb begin
         lru_update = hit && (state == STATE_READY || state == STATE_RESTART);

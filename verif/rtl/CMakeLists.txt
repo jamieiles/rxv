@@ -60,12 +60,13 @@ add_executable(rtl-unittest
                TestRXVDCache.cpp
                TestRXVPTWalker.cpp
                TestRXVTLB.cpp
+               TestRXVPMP.cpp
                TestRXVMMUTop.cpp
                TestRXVICache.cpp
                TestRXVCoreEmulWrapper.cpp
                TestStaticArbiter.cpp)
 target_link_libraries(rtl-unittest
-                      PRIVATE gtest gmock RXVCoreEmul)
+                      PRIVATE gtest gmock RXVCoreEmul fmt)
 add_test(rtl-unittest rtl-unittest)
 
 verilate(rtl-unittest
@@ -389,6 +390,20 @@ verilate(rtl-unittest
          INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
          TOP_MODULE StaticArbiter
          PREFIX VStaticArbiter
+         TRACE_FST TRACE_STRUCTS)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMP.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE RXVPMP
+         PREFIX VRXVPMP
          TRACE_FST TRACE_STRUCTS)
 
 add_library(RXVCoreEmul SHARED)

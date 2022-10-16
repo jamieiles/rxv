@@ -17,6 +17,7 @@ SKIP_TESTS = {
 def run_tests(runner, sim, test_tree):
     failures = []
     for root, dirs, files in os.walk(test_tree):
+        os.makedirs(os.path.join(root, sim), exist_ok=True)
         for f in files:
             if not re.match(TEST_RE[sim], f):
                 continue
@@ -26,8 +27,8 @@ def run_tests(runner, sim, test_tree):
                 print(f'test: run {f}', file=sys.stderr)
                 subprocess.check_call(
                     [runner, '--compliance', sim, os.path.join(root, f),
-                     '--waves', os.path.join(root, f) + '.fst',
-                     '--trace', os.path.join(root, f) + '.trace'])
+                     '--waves', os.path.join(root, sim, f) + '.fst',
+                     '--trace', os.path.join(root, sim, f) + '.trace'])
             except subprocess.CalledProcessError:
                 print(f'{f} failed', file=sys.stderr)
                 failures.append(f)

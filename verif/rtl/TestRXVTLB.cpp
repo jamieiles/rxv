@@ -15,6 +15,8 @@ static inline uint32_t vpn1(uint32_t va)
     return (va >> 22) & 0x3ff;
 }
 
+static const uint32_t page_mask = ~((1 << 12) - 1);
+
 class TLBTestbench
     : public VerilogTestbench<VRXVTLBWrapper>
     , public ::testing::Test
@@ -172,6 +174,23 @@ TEST_F(TLBTestbench, MegaPage)
     auto t1 = translate(0xc0024000);
 
     EXPECT_EQ(t1.pa, 0x80024000);
+}
+
+TEST_F(TLBTestbench, MegaPageBoundary)
+{
+    enable();
+
+    set_megapage_at(0xc0000000, 0x80000000, pte_read | pte_write | pte_user);
+
+    const auto mb4 = 4 * 1024 * 1024;
+    auto t1 = translate(0xc0000000 + mb4 - 4);
+
+    EXPECT_EQ(t1.pa, (0x80000000 + mb4 - 4) & page_mask);
+    EXPECT_TRUE(t1.valid);
+
+    t1 = translate(0xc0000000 + mb4);
+
+    EXPECT_FALSE(t1.valid);
 }
 
 TEST_F(TLBTestbench, CachedTranslation)

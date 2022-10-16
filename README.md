@@ -42,6 +42,22 @@ TLB/cache misses or accesses to device-memory cause newer instructions to be
 killed and reissued once the LSU is no longer busy to prevent architecturally
 visible accesses from starting in the shadow of an exception.
 
+## Extensions
+
+Model specific CSRs are:
+
+  - 0x05C0: STPVAL - physical address associated with an access/page fault
+  - 0x05C1: STPERMS - permissions associated with an access/page fault:
+    - [8] page walk PMP access violation
+    - [7] page executable
+    - [6] page writable
+    - [5] page readable
+    - [4] page user accessible
+    - [3] page global
+    - [2] PMP executable
+    - [1] PMP writable
+    - [0] PMP readable
+
 ## Simulator
 
 The simulator (rxv-simulator) includes a software ISA simulation as a reference

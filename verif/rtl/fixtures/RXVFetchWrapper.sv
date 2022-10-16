@@ -4,6 +4,7 @@ import RXVMMU::translation_t;
 import RXVMMU::asid_bits;
 import RXVCSR::privilege_t;
 import RXVCSR::mstatus_t;
+import RXVCSR::stperms_t;
 
 module RXVFetchWrapper #(
     parameter logic [31:0] reset_address = 32'h80000000
@@ -64,6 +65,7 @@ module RXVFetchWrapper #(
     output logic                       decode_predict_taken,
     output logic       [          1:0] decode_predict_strength,
     output logic       [         31:2] decode_prediction,
+    output logic       [          8:0] decode_perms,
     // Exec branch resolution
     input  logic                       exec_resteer,
     input  logic       [         31:2] exec_resteer_tgt,

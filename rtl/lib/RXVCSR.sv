@@ -1,5 +1,7 @@
 package RXVCSR;
 
+    import RXVMMU::asid_bits;
+
     typedef enum logic [11:0] {
         CSR_MVENDORID  = 12'hF11,
         CSR_MARCHID    = 12'hF12,
@@ -17,6 +19,8 @@ package RXVCSR;
         CSR_TDATA1     = 12'h7A1,
         CSR_TDATA2     = 12'h7A2,
         CSR_TDATA3     = 12'h7A3,
+        CSR_STPVAL     = 12'h5C0,
+        CSR_STPERMS    = 12'h5C1,
         CSR_MSTATUS    = 12'h300,
         CSR_MISA       = 12'h301,
         CSR_MEDELEG    = 12'h302,
@@ -82,11 +86,25 @@ package RXVCSR;
     } privilege_t  /* verilator public */;
 
     typedef struct packed {
+        logic pmp_read;
+        logic pmp_write;
+        logic pmp_exec;
+        logic page_global;
+        logic page_user;
+        logic page_read;
+        logic page_write;
+        logic page_exec;
+        logic walk_violation;
+    } stperms_t;
+
+    typedef struct packed {
         logic [31:2] pc;
         logic [31:0] val;
+        logic [31:0] pval;
         logic [3:0] cause;
         logic valid;
         logic irq;
+        stperms_t perms;
     } RXVException;
 
     // verilator lint_off UNUSED
@@ -517,6 +535,59 @@ package RXVCSR;
         end
     endfunction
 
+    typedef struct packed {logic [31:0] pval;} stpval_t;
+
+    function stpval_t pack_stpval;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_stpval.pval = v[31:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_stpval;
+        input stpval_t v;
+        begin
+            unpack_stpval = v.pval;
+        end
+    endfunction
+
+    function stperms_t pack_stperms;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_stperms.pmp_read       = v[0];
+            pack_stperms.pmp_write      = v[1];
+            pack_stperms.pmp_exec       = v[2];
+            pack_stperms.page_global    = v[3];
+            pack_stperms.page_user      = v[4];
+            pack_stperms.page_read      = v[5];
+            pack_stperms.page_write     = v[6];
+            pack_stperms.page_exec      = v[7];
+            pack_stperms.walk_violation = v[8];
+        end
+    endfunction
+
+    function logic [31:0] unpack_stperms;
+        input stperms_t v;
+        begin
+            unpack_stperms = {
+                23'b0,
+                v.walk_violation,
+                v.page_exec,
+                v.page_write,
+                v.page_read,
+                v.page_user,
+                v.page_global,
+                v.pmp_exec,
+                v.pmp_write,
+                v.pmp_read
+            };
+        end
+    endfunction
+
     typedef struct packed {
         logic instr_misalign;
         logic instr_access_fault;
@@ -580,16 +651,18 @@ package RXVCSR;
 
     typedef struct packed {
         logic mode;
-        logic [8:0] asid;
+        logic [asid_bits-1:0] asid;
         logic [21:0] ppn;
     } satp_t;
 
     function satp_t pack_satp;
+        // verilator lint_off UNUSED
         input logic [31:0] v;
+        // verilator lint_on UNUSED
 
         begin
             pack_satp.mode = v[31];
-            pack_satp.asid = v[30:22];
+            pack_satp.asid = v[22+:asid_bits];
             pack_satp.ppn  = v[21:0];
         end
     endfunction
@@ -597,7 +670,7 @@ package RXVCSR;
     function logic [31:0] unpack_satp;
         input satp_t v;
         begin
-            unpack_satp = {v.mode, v.asid, v.ppn};
+            unpack_satp = {v.mode, {(9 - asid_bits) {1'b0}}, v.asid, v.ppn};
         end
     endfunction
 

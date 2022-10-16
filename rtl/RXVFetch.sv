@@ -4,6 +4,7 @@ import RXVMMU::translation_t;
 import RXVCSR::privilege_t;
 import RXVCSR::mstatus_t;
 import RXVCSR::effective_privilege;
+import RXVCSR::stperms_t;
 
 module RXVFetch #(
     parameter logic [31:0] reset_address = 32'h80000000
@@ -53,6 +54,7 @@ module RXVFetch #(
     output logic          [ 31:2] decode_next_pc,
     output logic          [ 31:0] decode_instr,
     output rxv_prediction         decode_prediction,
+    output stperms_t              decode_perms,
     // Exec branch resolution
     input  logic                  exec_resteer,
     input  logic          [ 31:2] exec_resteer_tgt,
@@ -68,9 +70,10 @@ module RXVFetch #(
         logic page_fault;
         logic pmp_fault;
         rxv_prediction prediction;
-`ifdef RXV_TRACE
+        // verilator lint_off UNUSED
         logic [31:12] phys;
-`endif  // RXV_TRACE
+        // verilator lint_on UNUSED
+        stperms_t perms;
     } fetch_packet;
 
     /*
@@ -105,7 +108,9 @@ module RXVFetch #(
     logic          [31:2] resteer_target;
     logic          [31:2] resteer_target_next;
     fetch_packet          prefetch_packet_in;
+    // verilator lint_off UNUSED
     fetch_packet          prefetch_packet_out;
+    // verilator lint_on UNUSED
     logic                 prefetch_rd_en;
     logic                 prefetch_empty;
     logic                 prefetch_full;
@@ -195,6 +200,7 @@ module RXVFetch #(
         decode_next_pc    = prefetch_packet_out.next_pc;
         decode_instr      = prefetch_packet_out.instr;
         decode_prediction = prefetch_packet_out.prediction;
+        decode_perms      = prefetch_packet_out.perms;
         decode_page_fault = decode_valid & prefetch_packet_out.page_fault;
         decode_pmp_fault  = decode_valid & prefetch_packet_out.pmp_fault;
 `ifdef RXV_TRACE
@@ -219,15 +225,22 @@ module RXVFetch #(
     end
 
     always_comb begin
-        prefetch_packet_in.pc         = fetched_pc;
-        prefetch_packet_in.next_pc    = next_seq_pc_reg;
-        prefetch_packet_in.instr      = icache_instr;
-        prefetch_packet_in.prediction = prediction_reg;
-        prefetch_packet_in.page_fault = page_fault;
-        prefetch_packet_in.pmp_fault  = pmp_fault;
-`ifdef RXV_TRACE
-        prefetch_packet_in.phys = icache_phys[31:12];
-`endif  // RXV_TRACE
+        prefetch_packet_in.pc                   = fetched_pc;
+        prefetch_packet_in.next_pc              = next_seq_pc_reg;
+        prefetch_packet_in.instr                = icache_instr;
+        prefetch_packet_in.prediction           = prediction_reg;
+        prefetch_packet_in.page_fault           = page_fault;
+        prefetch_packet_in.pmp_fault            = pmp_fault;
+        prefetch_packet_in.phys                 = icache_phys[31:12];
+        prefetch_packet_in.perms.pmp_read       = fetch_translation.pmp.read;
+        prefetch_packet_in.perms.pmp_write      = fetch_translation.pmp.write;
+        prefetch_packet_in.perms.pmp_exec       = fetch_translation.pmp.exec;
+        prefetch_packet_in.perms.page_global    = fetch_translation.page_global;
+        prefetch_packet_in.perms.page_user      = fetch_translation.user;
+        prefetch_packet_in.perms.page_read      = fetch_translation.read;
+        prefetch_packet_in.perms.page_write     = fetch_translation.write;
+        prefetch_packet_in.perms.page_exec      = fetch_translation.exec;
+        prefetch_packet_in.perms.walk_violation = fetch_access_fault;
     end
 
     always_comb begin

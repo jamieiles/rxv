@@ -15,6 +15,8 @@ import RXVCSR::mie_t;
 import RXVCSR::mip_t;
 import RXVCSR::medeleg_t;
 import RXVCSR::mideleg_t;
+import RXVCSR::stpval_t;
+import RXVCSR::stperms_t;
 import RXVCSR::pack_mstatus;
 import RXVCSR::unpack_mstatus;
 import RXVCSR::pack_sstatus;
@@ -49,6 +51,10 @@ import RXVCSR::pack_mideleg;
 import RXVCSR::unpack_mideleg;
 import RXVCSR::pack_satp;
 import RXVCSR::unpack_satp;
+import RXVCSR::pack_stpval;
+import RXVCSR::unpack_stpval;
+import RXVCSR::pack_stperms;
+import RXVCSR::unpack_stperms;
 import RXVCSR::RXVException;
 import RXVCSR::MINT_id;
 import RXVCSR::mtvec_dest;
@@ -157,6 +163,10 @@ module RXVCSRFile #(
     logic                                         mtval_wren;
     mtval_t                                       stval_reg;
     logic                                         stval_wren;
+    stpval_t                                      stpval_reg;
+    logic                                         stpval_wren;
+    stperms_t                                     stperms_reg;
+    logic                                         stperms_wren;
     mie_t                                         mie_reg;
     logic                                         mie_wren;
     logic                                         sie_wren;
@@ -175,6 +185,8 @@ module RXVCSRFile #(
     sepc_t                                        sepc_next;
     mtval_t                                       mtval_next;
     mtval_t                                       stval_next;
+    stpval_t                                      stpval_next;
+    stperms_t                                     stperms_next;
     mcause_t                                      mcause_next;
     scause_t                                      scause_next;
     mstatus_t                                     mstatus_next;
@@ -197,6 +209,7 @@ module RXVCSRFile #(
     privilege_t                                   next_privilege;
     privilege_t                                   exception_target_level;
     logic                                         exception_has_val;
+    logic                                         exception_has_pval;
 
     logic        [                          31:0] active_s_irqs;
     logic        [                          31:0] active_m_irqs;
@@ -248,6 +261,7 @@ module RXVCSRFile #(
             (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.sie && ~|active_m_irqs))
             take_irq = 1'b0;
 
+        irq_exception       = RXVException'(1'b0);
         irq_exception.pc    = irq_epc;
         irq_exception.val   = 32'b0;
         irq_exception.valid = take_irq;
@@ -299,6 +313,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_SCAUSE: rd_data_next = unpack_scause(scause_reg);
             RXVCSR::CSR_MTVAL: rd_data_next = unpack_mtval(mtval_reg);
             RXVCSR::CSR_STVAL: rd_data_next = unpack_stval(stval_reg);
+            RXVCSR::CSR_STPVAL: rd_data_next = unpack_stpval(stpval_reg);
+            RXVCSR::CSR_STPERMS: rd_data_next = unpack_stperms(stperms_reg);
             RXVCSR::CSR_MIE: rd_data_next = unpack_mie(mie_reg);
             RXVCSR::CSR_SIE: rd_data_next = unpack_sie(mie_reg);
             RXVCSR::CSR_MIP: rd_data_next = unpack_mip(mip_reg);
@@ -328,6 +344,16 @@ module RXVCSRFile #(
             RXVCSR::CAUSE_U_ECALL, RXVCSR::CAUSE_S_ECALL, RXVCSR::CAUSE_M_ECALL:
             exception_has_val = 1'b0;
             default: exception_has_val = 1'b1;
+        endcase
+    end
+
+    always_comb begin
+        unique case (exception.cause)
+            RXVCSR::CAUSE_INSTR_ACCESS_FAULT, RXVCSR::CAUSE_INSTR_PAGE_FAULT,
+            RXVCSR::CAUSE_LOAD_ACCESS_FAULT, RXVCSR::CAUSE_LOAD_PAGE_FAULT,
+            RXVCSR::CAUSE_STORE_ACCESS_FAULT, RXVCSR::CAUSE_STORE_PAGE_FAULT:
+            exception_has_pval = 1'b1;
+            default: exception_has_pval = 1'b0;
         endcase
     end
 
@@ -364,6 +390,12 @@ module RXVCSRFile #(
         stval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
                       !take_irq && exception_has_val) ||
                      (wr_en && wr_addr == RXVCSR::CSR_STVAL);
+        stpval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
+                     !take_irq && exception_has_pval) ||
+                     (wr_en && wr_addr == RXVCSR::CSR_STPVAL);
+        stperms_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
+                     !take_irq && exception_has_pval) ||
+                     (wr_en && wr_addr == RXVCSR::CSR_STPERMS);
         pmp_update_cfg = wr_en && wr_addr == RXVCSR::CSR_PMPCFG0;
         pmp_update_addr = wr_en && (wr_addr == RXVCSR::CSR_PMPADDR0 ||
                                     wr_addr == RXVCSR::CSR_PMPADDR1 ||
@@ -415,6 +447,27 @@ module RXVCSRFile #(
         stval_next = pack_stval(wr_data);
         if (exception_write && exception_target_level == RXVCSR::PRIV_S)
             stval_next.val = exception.val;
+    end
+
+    always_comb begin
+        stpval_next = pack_stpval(wr_data);
+        if (exception_write && exception_target_level == RXVCSR::PRIV_S)
+            stpval_next.pval = exception.pval;
+    end
+
+    always_comb begin
+        stperms_next = pack_stperms(wr_data);
+        if (exception_write && exception_target_level == RXVCSR::PRIV_S) begin
+            stperms_next.pmp_read       = exception.perms.pmp_read;
+            stperms_next.pmp_write      = exception.perms.pmp_write;
+            stperms_next.pmp_exec       = exception.perms.pmp_exec;
+            stperms_next.page_global    = exception.perms.page_global;
+            stperms_next.page_user      = exception.perms.page_user;
+            stperms_next.page_read      = exception.perms.page_read;
+            stperms_next.page_write     = exception.perms.page_write;
+            stperms_next.page_exec      = exception.perms.page_exec;
+            stperms_next.walk_violation = exception.perms.walk_violation;
+        end
     end
 
     always_comb begin
@@ -507,7 +560,8 @@ module RXVCSRFile #(
             // Supervisor
             RXVCSR::CSR_SSTATUS, RXVCSR::CSR_SEDELEG, RXVCSR::CSR_SIDELEG, RXVCSR::CSR_SIE,
             RXVCSR::CSR_SIP, RXVCSR::CSR_STVEC, RXVCSR::CSR_SCOUNTEREN, RXVCSR::CSR_SSCRATCH,
-            RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL,
+            RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL, RXVCSR::CSR_STPVAL,
+            RXVCSR::CSR_STPERMS,
             // User
             RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH:
                 valid_csr_out = 1'b1;
@@ -564,7 +618,7 @@ module RXVCSRFile #(
 
     always_comb begin
         translation_base = satp_reg.ppn[19:0];
-        active_asid = satp_reg.asid;
+        active_asid = satp_reg.asid[asid_bits-1:0];
         d_tlb_enabled = satp_reg.mode &&
             effective_privilege(mstatus_reg, current_privilege) != RXVCSR::PRIV_M;
         i_tlb_enabled = satp_reg.mode && current_privilege != RXVCSR::PRIV_M;
@@ -623,6 +677,9 @@ module RXVCSRFile #(
         if (scause_wren) trace_write_csr(trace_id, RXVCSR::CSR_SCAUSE, unpack_scause(scause_next));
         if (mtval_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVAL, unpack_mtval(mtval_next));
         if (stval_wren) trace_write_csr(trace_id, RXVCSR::CSR_STVAL, unpack_stval(stval_next));
+        if (stpval_wren) trace_write_csr(trace_id, RXVCSR::CSR_STPVAL, unpack_stpval(stpval_next));
+        if (stperms_wren)
+            trace_write_csr(trace_id, RXVCSR::CSR_STPERMS, unpack_stperms(stperms_next));
         if (mie_wren) trace_write_csr(trace_id, RXVCSR::CSR_MIE, unpack_mie(mie_next));
         if (mip_wren) trace_write_csr(trace_id, RXVCSR::CSR_MIP, unpack_mie(mip_next));
         if (sie_wren) trace_write_csr(trace_id, RXVCSR::CSR_SIE, unpack_sie(mie_next));
@@ -766,6 +823,26 @@ module RXVCSRFile #(
         .en   (stval_wren),
         .d    (stval_next),
         .q    (stval_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(stpval_reg))
+    ) stpval_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (stpval_wren),
+        .d    (stpval_next),
+        .q    (stpval_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(stperms_reg))
+    ) stperms_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (stperms_wren),
+        .d    (stperms_next),
+        .q    (stperms_reg)
     );
 
     RXVDFF #(

@@ -35,6 +35,7 @@ ys_formal(TOP RXVIntExec
           DEFINES "FORMAL_RXVINTEXEC"
           INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+          SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
           SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
@@ -342,8 +343,8 @@ verilate(rtl-unittest
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVLSUWrapper.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFFPipe.sv
@@ -416,8 +417,8 @@ verilate(RXVCoreEmul
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/MtimeTransactor.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/StaticArbiter.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv

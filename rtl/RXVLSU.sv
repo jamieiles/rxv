@@ -6,6 +6,7 @@ import RXVTypes::commit_width;
 import RXVCSR::RXVException;
 import RXVCSR::mstatus_t;
 import RXVCSR::privilege_t;
+import RXVCSR::stperms_t;
 import RXVCSR::effective_privilege;
 import RXVTrace::trace_write_mem;
 import RXVTrace::trace_read_mem;
@@ -465,6 +466,8 @@ module RXVLSU #(
     end
 
     always_comb begin
+        lsu_exception_next = RXVException'(1'b0);
+
         lsu_exception_next.pc = page_fault || pmp_fault || is_invalid_amo ? op_stage1.pc : exec_pc;
         lsu_exception_next.val = is_invalid_amo || page_fault || pmp_fault ? op_stage1.address : address;
 
@@ -482,6 +485,16 @@ module RXVLSU #(
 
         lsu_exception_next.valid = ((is_load | is_store) & valid & is_unaligned) | is_invalid_amo | page_fault | pmp_fault;
         lsu_exception_next.irq = 1'b0;
+
+        lsu_exception_next.perms.pmp_read       = lsu_translation.pmp.read;
+        lsu_exception_next.perms.pmp_write      = lsu_translation.pmp.write;
+        lsu_exception_next.perms.pmp_exec       = lsu_translation.pmp.exec;
+        lsu_exception_next.perms.page_global    = lsu_translation.page_global;
+        lsu_exception_next.perms.page_user      = lsu_translation.user;
+        lsu_exception_next.perms.page_read      = lsu_translation.read;
+        lsu_exception_next.perms.page_write     = lsu_translation.write;
+        lsu_exception_next.perms.page_exec      = lsu_translation.exec;
+        lsu_exception_next.perms.walk_violation = lsu_access_fault;
 
         lsu_except_id_next = is_invalid_amo || page_fault || pmp_fault ? op_stage1.id : exec_id;
     end

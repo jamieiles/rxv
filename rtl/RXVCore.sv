@@ -18,6 +18,7 @@ import RXVCSR::mtvec_t;
 import RXVCSR::mcause_t;
 import RXVCSR::mstatus_t;
 import RXVCSR::privilege_t;
+import RXVCSR::stperms_t;
 import RXVMMU::translation_t;
 import RXVMMU::tlb_inv_op;
 import RXVMMU::asid_bits;
@@ -86,6 +87,7 @@ module RXVCore #(
     logic                              decode_page_fault;
     logic                              decode_pmp_fault;
     logic          [             31:2] decode_pc;
+    stperms_t                          decode_perms;
     logic          [             31:2] decode_next_pc;
     rxv_prediction                     decode_prediction;
     logic          [             31:0] decode_instr;
@@ -365,6 +367,7 @@ module RXVCore #(
         .decode_page_fault     (decode_page_fault),
         .decode_pmp_fault      (decode_pmp_fault),
         .decode_pc             (decode_pc),
+        .decode_perms          (decode_perms),
 `ifdef RXV_TRACE
         .decode_phys           (decode_phys),
 `endif  // RXV_TRACE
@@ -385,6 +388,7 @@ module RXVCore #(
         .decode_page_fault          (decode_page_fault),
         .decode_pmp_fault           (decode_pmp_fault),
         .decode_pc                  (decode_pc),
+        .decode_perms               (decode_perms),
 `ifdef RXV_TRACE
         .decode_phys                (decode_phys),
 `endif  // RXV_TRACE

@@ -22,6 +22,7 @@ import RXVCSR::RXVException;
 import RXVCSR::CAUSE_id;
 import RXVCSR::privilege_t;
 import RXVCSR::mstatus_t;
+import RXVCSR::stperms_t;
 
 module RXVDecode (
     input  logic                              clk,
@@ -32,6 +33,7 @@ module RXVDecode (
     input  logic                              decode_page_fault,
     input  logic                              decode_pmp_fault,
     input  logic          [             31:2] decode_pc,
+    input  stperms_t                          decode_perms,
 `ifdef RXV_TRACE
     input  logic          [            31:12] decode_phys,
 `endif  // RXV_TRACE
@@ -1002,6 +1004,7 @@ module RXVDecode (
     end
 
     always_comb begin
+        decode_exception_next = RXVException'(1'b0);
         decode_exception_next.pc = decode_pc;
         decode_exception_next.val = illegal_instruction ? decode_instr : {decode_pc, 2'b0};
         decode_exception_next.cause = illegal_instruction ? RXVCSR::CAUSE_ILLEGAL_INSTR :
@@ -1009,6 +1012,7 @@ module RXVDecode (
         decode_exception_next.valid = ~kill_valid & ~exec_resteer & ~commit_buffer_full &
             decode_valid & (illegal_instruction | decode_page_fault | decode_pmp_fault);
         decode_exception_next.irq = 1'b0;
+        decode_exception_next.perms = decode_perms;
     end
 
     always_comb begin

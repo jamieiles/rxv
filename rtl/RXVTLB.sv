@@ -70,6 +70,8 @@ module RXVTLB #(
     state_t                            next_state;
     logic                              translation_update;
     logic         [$bits(state_t)-1:0] state_q;
+    logic         [     asid_bits-1:0] fill_asid;
+    logic         [     asid_bits-1:0] fill_asid_next;
     logic                              multihit;
 
     TLBPLRU #(
@@ -150,7 +152,7 @@ module RXVTLB #(
                     entry_next.translation.write       = walk_pte.write;
                     entry_next.translation.read        = walk_pte.read;
                     entry_next.translation.valid       = walk_pte.valid;
-                    entry_next.translation.asid        = active_asid;
+                    entry_next.translation.asid        = fill_asid;
                     entry_next.translation.pmp         = phys_perms;
                     entry_next.va                      = walk_va;
                     entry_next.is_megapage             = walk_is_megapage;
@@ -248,6 +250,11 @@ module RXVTLB #(
     end
 
     always_comb begin
+        fill_asid_next = fill_asid;
+        if (state == STATE_READY && valid) fill_asid_next = active_asid;
+    end
+
+    always_comb begin
         busy = state != STATE_READY;
     end
 
@@ -304,6 +311,16 @@ module RXVTLB #(
         .en   (1'b1),
         .d    (access_fault_next),
         .q    (access_fault)
+    );
+
+    RXVDFF #(
+        .width($bits(fill_asid))
+    ) fill_asid_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (fill_asid_next),
+        .q    (fill_asid)
     );
 
 endmodule

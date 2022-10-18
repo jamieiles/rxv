@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 
 #include <boost/program_options.hpp>
+#include <boost/algorithm/string.hpp>
 
 #include <elfio/elfio.hpp>
 
@@ -218,12 +219,47 @@ static bool is_interesting_symbol(const std::string &name, unsigned char type)
     return true;
 }
 
+static uint32_t elf_vbase(ELFIO::elfio &elf)
+{
+    ELFIO::Elf32_Addr base = ~0;
+    for (int i = 0; i < elf.segments.size(); ++i) {
+        auto addr = elf.segments[i]->get_virtual_address();
+        if (addr < base)
+            base = addr;
+    }
+
+    return base;
+}
+
+static uint32_t load_addr(ELFIO::elfio &elf, const std::string &filename)
+{
+    std::vector<std::string> strs;
+    boost::split(strs, filename, boost::is_any_of("@"));
+    if (strs.size() == 2)
+        return strtoul(strs[1].c_str(), NULL, 0);
+
+    return elf_vbase(elf);
+}
+
+static std::string parse_filename(const std::string &filename)
+{
+    std::vector<std::string> strs;
+    boost::split(strs, filename, boost::is_any_of("@"));
+    if (strs.size() == 2)
+        return strs[0];
+
+    return filename;
+}
+
 static void load_symbols(RXV::Trace::Privilege level,
-                         const std::string &filename)
+                         const std::string &raw_filename)
 {
     ELFIO::elfio reader;
+    auto filename = parse_filename(raw_filename);
 
     reader.load(filename);
+
+    auto offset = load_addr(reader, raw_filename) - elf_vbase(reader);
 
     ELFIO::Elf_Half sec_num = reader.sections.size();
     for (int i = 0; i < sec_num; ++i) {
@@ -246,6 +282,8 @@ static void load_symbols(RXV::Trace::Privilege level,
 
             if (!is_interesting_symbol(name, type))
                 continue;
+
+            value += offset;
 
             symbols[level][value] =
                 Symbol{name, static_cast<uint32_t>(value),

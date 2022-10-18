@@ -103,10 +103,10 @@ static const struct CSRDef csr_defs[] = {
     { "sip",        0xffffffff, 0x00000000, SIP },
     { "satp",       0xffffffff, 0x00000000, SATP },
     // Performance counters
-    { "mcycle",     0x00000000, 0x00000000, MCYCLE },
-    { "mcycleh",    0x00000000, 0x00000000, MCYCLEH },
-    { "minstret",   0x00000000, 0x00000000, MINSTRET },
-    { "minstreth",  0x00000000, 0x00000000, MINSTRETH },
+    { "mcycle",     0xffffffff, 0x00000000, MCYCLE },
+    { "mcycleh",    0xffffffff, 0x00000000, MCYCLEH },
+    { "minstret",   0xffffffff, 0x00000000, MINSTRET },
+    { "minstreth",  0xffffffff, 0x00000000, MINSTRETH },
     // Time counters
     { "ucycle",     0x00000000, 0x00000000, UCYCLE },
     { "ucycleh",    0x00000000, 0x00000000, UCYCLEH },
@@ -355,6 +355,14 @@ void RXVSim::do_write_csr(int r, uint32_t v)
         csrs[PMPADDR3].val = v;
         set_pmp_addr(3, v);
         break;
+    case MINSTRET:
+        insns_retired &= 0xffffffff00000000LU;
+        insns_retired |= v;
+        break;
+    case MINSTRETH:
+        insns_retired &= 0xffffffffLU;
+        insns_retired |= static_cast<uint64_t>(v) << 32;
+        break;
     case RXV_EMUCTL:
         std::cerr << "rxvemu: received simulation exit CSR write (" << std::hex
                   << v << ")" << std::endl;
@@ -375,7 +383,9 @@ uint32_t RXVSim::read_csr(int r)
     case UCYCLE: return get_cycle();
     case MCYCLEH:
     case UCYCLEH: return get_cycle() >> 32;
+    case MINSTRET:
     case UINSTRET: return insns_retired;
+    case MINSTRETH:
     case UINSTRETH: return insns_retired >> 32;
     case UTIME: return mtime.time;
     case UTIMEH: return mtime.time >> 32;

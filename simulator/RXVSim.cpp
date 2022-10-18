@@ -62,6 +62,8 @@ enum CSRID {
     SIP         = 0x0144,
     SATP        = 0x0180,
     RXV_EMUCTL  = 0x0800,
+    STPVAL      = 0x05c0,
+    STPERMS     = 0x05c1
 };
 
 constexpr uint32_t supported_extensions =
@@ -126,6 +128,9 @@ static const struct CSRDef csr_defs[] = {
     { "pmpaddr1",   0x3fffffff, 0x00000000, PMPADDR1 },
     { "pmpaddr2",   0x3fffffff, 0x00000000, PMPADDR2 },
     { "pmpaddr3",   0x3fffffff, 0x00000000, PMPADDR3 },
+    // RXV Extensions
+    { "stpval",     0xffffffff, 0x00000000, STPVAL },
+    { "stperms",    0xffffffff, 0x00000000, STPERMS },
     {}
 };
 // clang-format on

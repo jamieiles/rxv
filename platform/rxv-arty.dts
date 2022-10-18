@@ -37,16 +37,16 @@
 			riscv,isa = "rv32ima,sstc";
 			mmu-type = "riscv,sv32";
 			d-cache-block-size = <32>;
-			d-cache-sets = <256>;
-			d-cache-size = <32768>;
+			d-cache-sets = <128>;
+			d-cache-size = <16384>;
 			i-cache-block-size = <32>;
-			i-cache-sets = <256>;
-			i-cache-size = <32768>;
+			i-cache-sets = <128>;
+			i-cache-size = <16384>;
 			tlb-split;
-			i-tlb-size = <16>;
+			i-tlb-size = <8>;
 			i-tlb-sets = <1>;
 			d-tlb-size = <8>;
-			d-tlb-sets = <16>;
+			d-tlb-sets = <8>;
 
 			cpu0_intc: interrupt-controller {
 				#interrupt-cells = <1>;

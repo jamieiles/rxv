@@ -35,14 +35,14 @@ module RXVCommitter (
     input  logic        exception_pending,
     output logic        exception_resteer,
     output logic        exception_cleanup,
-    output logic        exception_priv_change
+    output logic        exception_priv_change,
+    output logic        exception_busy_wait
 );
 
     logic commit_ready;
     logic exception_resteer_next;
     logic exception_cleanup_next;
     logic killed;
-    logic exception_busy_wait;
 
     always_comb begin
         killed = commit_killed | exception_cleanup;

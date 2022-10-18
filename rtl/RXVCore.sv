@@ -251,6 +251,7 @@ module RXVCore #(
     logic                              retired;
     logic                              exception_cleanup;
     logic                              exception_priv_change;
+    logic                              exception_busy_wait;
     logic                              exception_resteer;
     logic          [             31:2] exception_resteer_tgt;
 
@@ -995,9 +996,9 @@ module RXVCore #(
                 end
 
                 if (((commit_valid && !commit_killed_out) || (commit_valid && commit_excepted_out))) begin
-                    if (commit_excepted_out && !exception_cleanup)
+                    if (commit_excepted_out && !exception_cleanup && !exception_busy_wait)
                         trace_exception(32'(commit_out.parent_id));
-                    if (commit_out.last || (commit_excepted_out && !exception_cleanup))
+                    if (commit_out.last || (commit_excepted_out && !exception_cleanup && !exception_busy_wait))
                         trace_end_instruction(32'(commit_out.parent_id));
                 end
             end
@@ -1010,9 +1011,9 @@ module RXVCore #(
                 end
 
                 if (((commit_valid && !commit_killed_out) || (commit_valid && commit_excepted_out))) begin
-                    if (commit_excepted_out && !exception_cleanup)
+                    if (commit_excepted_out && !exception_cleanup && !exception_busy_wait)
                         trace_exception(32'(commit_out.parent_id));
-                    if (commit_out.last || (commit_excepted_out && !exception_cleanup))
+                    if (commit_out.last || (commit_excepted_out && !exception_cleanup && !exception_busy_wait))
                         trace_end_instruction(32'(commit_out.parent_id));
                 end
             end

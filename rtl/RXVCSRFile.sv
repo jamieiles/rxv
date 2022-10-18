@@ -323,6 +323,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_SATP: rd_data_next = unpack_satp(satp_reg);
             RXVCSR::CSR_UCYCLE: rd_data_next = pmu_cycles[31:0];
             RXVCSR::CSR_UCYCLEH: rd_data_next = pmu_cycles[63:32];
+            RXVCSR::CSR_UINSTRET: rd_data_next = pmu_instret[31:0];
+            RXVCSR::CSR_UINSTRETH: rd_data_next = pmu_instret[63:32];
             RXVCSR::CSR_MCYCLE: rd_data_next = pmu_cycles[31:0];
             RXVCSR::CSR_MCYCLEH: rd_data_next = pmu_cycles[63:32];
             RXVCSR::CSR_MINSTRET: rd_data_next = pmu_instret[31:0];
@@ -563,7 +565,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL, RXVCSR::CSR_STPVAL,
             RXVCSR::CSR_STPERMS,
             // User
-            RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH:
+            RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH,
+            RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH:
                 valid_csr_out = 1'b1;
             // SATP special case for TVM
             RXVCSR::CSR_SATP:

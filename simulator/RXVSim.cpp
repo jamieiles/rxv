@@ -20,8 +20,10 @@ enum CSRID {
     MHARTID     = 0x0F14,
     UCYCLE      = 0x0C00,
     UTIME       = 0x0C01,
+    UINSTRET    = 0x0C02,
     UCYCLEH     = 0x0C80,
     UTIMEH      = 0x0C81,
+    UINSTRETH   = 0x0C82,
     MCYCLE      = 0x0B00,
     MCYCLEH     = 0x0B80,
     MINSTRET    = 0x0B02,
@@ -110,6 +112,8 @@ static const struct CSRDef csr_defs[] = {
     { "ucycleh",    0x00000000, 0x00000000, UCYCLEH },
     { "utime",      0x00000000, 0x00000000, UTIME },
     { "utimeh",     0x00000000, 0x00000000, UTIMEH },
+    { "uinstret",   0x00000000, 0x00000000, UINSTRET },
+    { "uinstreth",   0x00000000, 0x00000000, UINSTRETH },
     // Debug
     { "tselect",    0x00000000, 0x00000000, TSELECT },
     { "tdata1",     0x00000000, 0x00000000, TDATA1 },
@@ -229,6 +233,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , tracer(trace_name)
     , cur_cycle(0)
     , num_irqs(0)
+    , insns_retired(0)
     , finished(false)
 {
     status.set(M, 0);
@@ -370,6 +375,8 @@ uint32_t RXVSim::read_csr(int r)
     case UCYCLE: return get_cycle();
     case MCYCLEH:
     case UCYCLEH: return get_cycle() >> 32;
+    case UINSTRET: return insns_retired;
+    case UINSTRETH: return insns_retired >> 32;
     case UTIME: return mtime.time;
     case UTIMEH: return mtime.time >> 32;
     case SSTATUS: return status.value(S);
@@ -1295,6 +1302,7 @@ bool RXVSim::step()
     privilege_level = new_privilege_level;
 
     ++cur_cycle;
+    ++insns_retired;
 
     return !finished;
 }

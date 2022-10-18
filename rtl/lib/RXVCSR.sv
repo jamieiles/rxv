@@ -3,58 +3,59 @@ package RXVCSR;
     import RXVMMU::asid_bits;
 
     typedef enum logic [11:0] {
-        CSR_MVENDORID  = 12'hF11,
-        CSR_MARCHID    = 12'hF12,
-        CSR_MIMPID     = 12'hF13,
-        CSR_MHARTID    = 12'hF14,
-        CSR_UCYCLE     = 12'hC00,
-        CSR_UTIME      = 12'hC01,
-        CSR_UINSTRET   = 12'hC02,
-        CSR_UCYCLEH    = 12'hC80,
-        CSR_UTIMEH     = 12'hC81,
-        CSR_UINSTRETH  = 12'hC82,
-        CSR_MCYCLE     = 12'hB00,
-        CSR_MCYCLEH    = 12'hB80,
-        CSR_MINSTRET   = 12'hB02,
-        CSR_MINSTRETH  = 12'hB82,
-        CSR_TSELECT    = 12'h7A0,
-        CSR_TDATA1     = 12'h7A1,
-        CSR_TDATA2     = 12'h7A2,
-        CSR_TDATA3     = 12'h7A3,
-        CSR_STPVAL     = 12'h5C0,
-        CSR_STPERMS    = 12'h5C1,
-        CSR_MSTATUS    = 12'h300,
-        CSR_MISA       = 12'h301,
-        CSR_MEDELEG    = 12'h302,
-        CSR_MIDELEG    = 12'h303,
-        CSR_MIE        = 12'h304,
-        CSR_MTVEC      = 12'h305,
-        CSR_MCOUNTEREN = 12'h306,
-        CSR_MSCRATCH   = 12'h340,
-        CSR_MEPC       = 12'h341,
-        CSR_MCAUSE     = 12'h342,
-        CSR_MTVAL      = 12'h343,
-        CSR_MIP        = 12'h344,
-        CSR_PMPCFG0    = 12'h3a0,
-        CSR_PMPADDR0   = 12'h3b0,
-        CSR_PMPADDR1   = 12'h3b1,
-        CSR_PMPADDR2   = 12'h3b2,
-        CSR_PMPADDR3   = 12'h3b3,
-        CSR_SSTATUS    = 12'h100,
-        CSR_SEDELEG    = 12'h102,
-        CSR_SIDELEG    = 12'h103,
-        CSR_SIE        = 12'h104,
-        CSR_STVEC      = 12'h105,
-        CSR_SCOUNTEREN = 12'h106,
-        CSR_SSCRATCH   = 12'h140,
-        CSR_SEPC       = 12'h141,
-        CSR_SCAUSE     = 12'h142,
-        CSR_STVAL      = 12'h143,
-        CSR_SIP        = 12'h144,
-        CSR_STIMECMP   = 12'h14d,
-        CSR_STIMECMPH  = 12'h15d,
-        CSR_SATP       = 12'h180,
-        CSR_RXV_EMUCTL = 12'h800
+        CSR_MVENDORID     = 12'hF11,
+        CSR_MARCHID       = 12'hF12,
+        CSR_MIMPID        = 12'hF13,
+        CSR_MHARTID       = 12'hF14,
+        CSR_UCYCLE        = 12'hC00,
+        CSR_UTIME         = 12'hC01,
+        CSR_UINSTRET      = 12'hC02,
+        CSR_UCYCLEH       = 12'hC80,
+        CSR_UTIMEH        = 12'hC81,
+        CSR_UINSTRETH     = 12'hC82,
+        CSR_MCYCLE        = 12'hB00,
+        CSR_MCYCLEH       = 12'hB80,
+        CSR_MINSTRET      = 12'hB02,
+        CSR_MINSTRETH     = 12'hB82,
+        CSR_TSELECT       = 12'h7A0,
+        CSR_TDATA1        = 12'h7A1,
+        CSR_TDATA2        = 12'h7A2,
+        CSR_TDATA3        = 12'h7A3,
+        CSR_STPVAL        = 12'h5C0,
+        CSR_STPERMS       = 12'h5C1,
+        CSR_MSTATUS       = 12'h300,
+        CSR_MISA          = 12'h301,
+        CSR_MEDELEG       = 12'h302,
+        CSR_MIDELEG       = 12'h303,
+        CSR_MIE           = 12'h304,
+        CSR_MTVEC         = 12'h305,
+        CSR_MCOUNTEREN    = 12'h306,
+        CSR_MCOUNTINHIBIT = 12'h320,
+        CSR_MSCRATCH      = 12'h340,
+        CSR_MEPC          = 12'h341,
+        CSR_MCAUSE        = 12'h342,
+        CSR_MTVAL         = 12'h343,
+        CSR_MIP           = 12'h344,
+        CSR_PMPCFG0       = 12'h3a0,
+        CSR_PMPADDR0      = 12'h3b0,
+        CSR_PMPADDR1      = 12'h3b1,
+        CSR_PMPADDR2      = 12'h3b2,
+        CSR_PMPADDR3      = 12'h3b3,
+        CSR_SSTATUS       = 12'h100,
+        CSR_SEDELEG       = 12'h102,
+        CSR_SIDELEG       = 12'h103,
+        CSR_SIE           = 12'h104,
+        CSR_STVEC         = 12'h105,
+        CSR_SCOUNTEREN    = 12'h106,
+        CSR_SSCRATCH      = 12'h140,
+        CSR_SEPC          = 12'h141,
+        CSR_SCAUSE        = 12'h142,
+        CSR_STVAL         = 12'h143,
+        CSR_SIP           = 12'h144,
+        CSR_STIMECMP      = 12'h14d,
+        CSR_STIMECMPH     = 12'h15d,
+        CSR_SATP          = 12'h180,
+        CSR_RXV_EMUCTL    = 12'h800
     } RXVCSR_id;
 
     typedef enum logic [3:0] {
@@ -699,6 +700,52 @@ package RXVCSR;
         input mideleg_t v;
         begin
             unpack_mideleg = {22'b0, v.s_ext, 3'b0, v.s_timer, 3'b0, v.s_sw, 1'b0};
+        end
+    endfunction
+
+    typedef struct packed {
+        logic ir;
+        logic tm;
+        logic cy;
+    } mcounteren_t;
+
+    function mcounteren_t pack_mcounteren;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mcounteren.ir = v[2];
+            pack_mcounteren.tm = v[1];
+            pack_mcounteren.cy = v[0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mcounteren;
+        input mcounteren_t v;
+        begin
+            unpack_mcounteren = {29'b0, v.ir, v.tm, v.cy};
+        end
+    endfunction
+
+    typedef struct packed {
+        logic ir;
+        logic cy;
+    } mcountinhibit_t;
+
+    function mcountinhibit_t pack_mcountinhibit;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mcountinhibit.ir = v[2];
+            pack_mcountinhibit.cy = v[0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mcountinhibit;
+        input mcountinhibit_t v;
+        begin
+            unpack_mcountinhibit = {29'b0, v.ir, 1'b0, v.cy};
         end
     endfunction
 

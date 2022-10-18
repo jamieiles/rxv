@@ -727,6 +727,7 @@ private:
     SimTracer tracer;
     uint64_t cur_cycle;
     uint64_t num_irqs;
+    uint64_t pmu_cycles;
     uint64_t insns_retired;
     bool finished;
     PMP pmps[4];

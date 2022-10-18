@@ -260,8 +260,10 @@ module RXVCore #(
 
     logic                              pmu_cyclesh_wren;
     logic                              pmu_cyclesl_wren;
+    logic                              pmu_cycles_inhibit;
     logic                              pmu_instreth_wren;
     logic                              pmu_instretl_wren;
+    logic                              pmu_instret_inhibit;
     logic          [             63:0] pmu_cycles;
     logic          [             63:0] pmu_instret;
 
@@ -647,8 +649,10 @@ module RXVCore #(
         .ext_irq              (ext_irq),
         .cyclesh_wren         (pmu_cyclesh_wren),
         .cyclesl_wren         (pmu_cyclesl_wren),
+        .pmu_cycles_inhibit   (pmu_cycles_inhibit),
         .instreth_wren        (pmu_instreth_wren),
         .instretl_wren        (pmu_instretl_wren),
+        .pmu_instret_inhibit  (pmu_instret_inhibit),
         .pmu_cycles           (pmu_cycles),
         .pmu_instret          (pmu_instret),
         .current_privilege    (current_privilege),
@@ -882,20 +886,23 @@ module RXVCore #(
         .exception_pending     (exception_pending),
         .exception_resteer     (exception_resteer),
         .exception_cleanup     (exception_cleanup),
-        .exception_priv_change (exception_priv_change)
+        .exception_priv_change (exception_priv_change),
+        .exception_busy_wait   (exception_busy_wait)
     );
 
     RXVPMU RXVPMU (
-        .clk          (clk),
-        .reset        (reset),
-        .retire_valid (retired),
-        .cyclesh_wren (pmu_cyclesh_wren),
-        .cyclesl_wren (pmu_cyclesl_wren),
-        .instreth_wren(pmu_instreth_wren),
-        .instretl_wren(pmu_instretl_wren),
-        .csr_wrval    (exec_csr_wr_data),
-        .pmu_cycles   (pmu_cycles),
-        .pmu_instret  (pmu_instret)
+        .clk            (clk),
+        .reset          (reset),
+        .retire_valid   (retired),
+        .cyclesh_wren   (pmu_cyclesh_wren),
+        .cyclesl_wren   (pmu_cyclesl_wren),
+        .cycles_inhibit (pmu_cycles_inhibit),
+        .instreth_wren  (pmu_instreth_wren),
+        .instretl_wren  (pmu_instretl_wren),
+        .instret_inhibit(pmu_instret_inhibit),
+        .csr_wrval      (exec_csr_wr_data),
+        .pmu_cycles     (pmu_cycles),
+        .pmu_instret    (pmu_instret)
     );
 
     always_comb begin

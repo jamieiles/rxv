@@ -14,58 +14,59 @@
 
 // clang-format off
 enum CSRID {
-    MVENDORID   = 0x0F11,
-    MARCHID     = 0x0F12,
-    MIMPID      = 0x0F13,
-    MHARTID     = 0x0F14,
-    UCYCLE      = 0x0C00,
-    UTIME       = 0x0C01,
-    UINSTRET    = 0x0C02,
-    UCYCLEH     = 0x0C80,
-    UTIMEH      = 0x0C81,
-    UINSTRETH   = 0x0C82,
-    MCYCLE      = 0x0B00,
-    MCYCLEH     = 0x0B80,
-    MINSTRET    = 0x0B02,
-    MINSTRETH   = 0x0B82,
-    TSELECT     = 0x07A0,
-    TDATA1      = 0x07A1,
-    TDATA2      = 0x07A2,
-    TDATA3      = 0x07A3,
-    MSTATUS     = 0x0300,
-    MISA        = 0x0301,
-    MEDELEG     = 0x0302,
-    MIDELEG     = 0x0303,
-    MIE         = 0x0304,
-    MTVEC       = 0x0305,
-    MCOUNTEREN  = 0x0306,
-    MSCRATCH    = 0x0340,
-    MEPC        = 0x0341,
-    MCAUSE      = 0x0342,
-    MTVAL       = 0x0343,
-    MIP         = 0x0344,
-    PMPCFG0     = 0x03A0,
-    PMPADDR0    = 0x03B0,
-    PMPADDR1    = 0x03B1,
-    PMPADDR2    = 0x03B2,
-    PMPADDR3    = 0x03B3,
-    SSTATUS     = 0x0100,
-    SEDELEG     = 0x0102,
-    SIDELEG     = 0x0103,
-    SIE         = 0x0104,
-    STVEC       = 0x0105,
-    SCOUNTEREN  = 0x0106,
-    SSCRATCH    = 0x0140,
-    SEPC        = 0x0141,
-    SCAUSE      = 0x0142,
-    STVAL       = 0x0143,
-    SIP         = 0x0144,
-    STIMECMP    = 0x014d,
-    STIMECMPH   = 0x015d,
-    SATP        = 0x0180,
-    RXV_EMUCTL  = 0x0800,
-    STPVAL      = 0x05c0,
-    STPERMS     = 0x05c1
+    MVENDORID     = 0x0F11,
+    MARCHID       = 0x0F12,
+    MIMPID        = 0x0F13,
+    MHARTID       = 0x0F14,
+    UCYCLE        = 0x0C00,
+    UTIME         = 0x0C01,
+    UINSTRET      = 0x0C02,
+    UCYCLEH       = 0x0C80,
+    UTIMEH        = 0x0C81,
+    UINSTRETH     = 0x0C82,
+    MCYCLE        = 0x0B00,
+    MCYCLEH       = 0x0B80,
+    MINSTRET      = 0x0B02,
+    MINSTRETH     = 0x0B82,
+    TSELECT       = 0x07A0,
+    TDATA1        = 0x07A1,
+    TDATA2        = 0x07A2,
+    TDATA3        = 0x07A3,
+    MSTATUS       = 0x0300,
+    MISA          = 0x0301,
+    MEDELEG       = 0x0302,
+    MIDELEG       = 0x0303,
+    MIE           = 0x0304,
+    MTVEC         = 0x0305,
+    MCOUNTEREN    = 0x0306,
+    MCOUNTINHIBIT = 0x0320,
+    MSCRATCH      = 0x0340,
+    MEPC          = 0x0341,
+    MCAUSE        = 0x0342,
+    MTVAL         = 0x0343,
+    MIP           = 0x0344,
+    PMPCFG0       = 0x03A0,
+    PMPADDR0      = 0x03B0,
+    PMPADDR1      = 0x03B1,
+    PMPADDR2      = 0x03B2,
+    PMPADDR3      = 0x03B3,
+    SSTATUS       = 0x0100,
+    SEDELEG       = 0x0102,
+    SIDELEG       = 0x0103,
+    SIE           = 0x0104,
+    STVEC         = 0x0105,
+    SCOUNTEREN    = 0x0106,
+    SSCRATCH      = 0x0140,
+    SEPC          = 0x0141,
+    SCAUSE        = 0x0142,
+    STVAL         = 0x0143,
+    SIP           = 0x0144,
+    STIMECMP      = 0x014d,
+    STIMECMPH     = 0x015d,
+    SATP          = 0x0180,
+    RXV_EMUCTL    = 0x0800,
+    STPVAL        = 0x05c0,
+    STPERMS       = 0x05c1
 };
 
 constexpr uint32_t supported_extensions =
@@ -78,63 +79,64 @@ constexpr uint32_t supported_extensions =
 
 static const struct CSRDef csr_defs[] = {
     // Machine information registers
-    { "mvendorid",  0x00000000, 0x00000000, MVENDORID },
-    { "marchid",    0x00000000, 0x00000000, MARCHID },
-    { "mimpid",     0x00000000, 0x00000000, MIMPID },
-    { "mhartid",    0x00000000, 0x00000000, MHARTID },
+    { "mvendorid",     0x00000000, 0x00000000, MVENDORID },
+    { "marchid",       0x00000000, 0x00000000, MARCHID },
+    { "mimpid",        0x00000000, 0x00000000, MIMPID },
+    { "mhartid",       0x00000000, 0x00000000, MHARTID },
     // Machine trap setup
-    { "mstatus",    0xffffffff, 3 << 11, MSTATUS },
-    { "misa",       0x00000000, supported_extensions, MISA },
-    { "mie",        0xffffffff, 0x00000000, MIE },
-    { "mtvec",      0xfffffffd, 0x00000000, MTVEC },
-    { "mcounteren", 0x00000000, 0x00000000, MCOUNTEREN },
-    { "mscratch",   0xffffffff, 0x00000000, MSCRATCH },
-    { "mepc",       0xfffffffc, 0x00000000, MEPC },
-    { "mcause",     0xffffffff, 0x00000000, MCAUSE },
-    { "mtval",      0xffffffff, 0x00000000, MTVAL },
-    { "mip",        0xffffffff, 0x00000000, MIP },
-    { "medeleg",    0xffffffff, 0x00000000, MEDELEG },
-    { "mideleg",    0xffffffff, 0x00000000, MIDELEG },
+    { "mstatus",       0xffffffff, 3 << 11, MSTATUS },
+    { "misa",          0x00000000, supported_extensions, MISA },
+    { "mie",           0xffffffff, 0x00000000, MIE },
+    { "mtvec",         0xfffffffd, 0x00000000, MTVEC },
+    { "mcounteren",    0x00000007, 0x00000000, MCOUNTEREN },
+    { "mcountinhibit", 0x00000005, 0x00000000, MCOUNTINHIBIT },
+    { "mscratch",      0xffffffff, 0x00000000, MSCRATCH },
+    { "mepc",          0xfffffffc, 0x00000000, MEPC },
+    { "mcause",        0xffffffff, 0x00000000, MCAUSE },
+    { "mtval",         0xffffffff, 0x00000000, MTVAL },
+    { "mip",           0xffffffff, 0x00000000, MIP },
+    { "medeleg",       0xffffffff, 0x00000000, MEDELEG },
+    { "mideleg",       0xffffffff, 0x00000000, MIDELEG },
     // Supervisor trap setup
-    { "sstatus",    0xffffffff, 0x00000000, SSTATUS },
-    { "sie",        0xffffffff, 0x00000000, SIE },
-    { "stvec",      0xfffffffd, 0x00000000, STVEC },
-    { "scounteren", 0x00000000, 0x00000000, SCOUNTEREN },
-    { "sscratch",   0xffffffff, 0x00000000, SSCRATCH },
-    { "sepc",       0xfffffffc, 0x00000000, SEPC },
-    { "scause",     0xffffffff, 0x00000000, SCAUSE },
-    { "stval",      0xffffffff, 0x00000000, STVAL },
-    { "sip",        0xffffffff, 0x00000000, SIP },
-    { "satp",       0xffffffff, 0x00000000, SATP },
-    { "stimecmp",   0xffffffff, 0x00000000, STIMECMP },
-    { "stimecmph",  0xffffffff, 0x00000000, STIMECMPH },
+    { "sstatus",       0xffffffff, 0x00000000, SSTATUS },
+    { "sie",           0xffffffff, 0x00000000, SIE },
+    { "stvec",         0xfffffffd, 0x00000000, STVEC },
+    { "scounteren",    0x00000000, 0x00000000, SCOUNTEREN },
+    { "sscratch",      0xffffffff, 0x00000000, SSCRATCH },
+    { "sepc",          0xfffffffc, 0x00000000, SEPC },
+    { "scause",        0xffffffff, 0x00000000, SCAUSE },
+    { "stval",         0xffffffff, 0x00000000, STVAL },
+    { "sip",           0xffffffff, 0x00000000, SIP },
+    { "satp",          0xffffffff, 0x00000000, SATP },
+    { "stimecmp",      0xffffffff, 0x00000000, STIMECMP },
+    { "stimecmph",     0xffffffff, 0x00000000, STIMECMPH },
     // Performance counters
-    { "mcycle",     0xffffffff, 0x00000000, MCYCLE },
-    { "mcycleh",    0xffffffff, 0x00000000, MCYCLEH },
-    { "minstret",   0xffffffff, 0x00000000, MINSTRET },
-    { "minstreth",  0xffffffff, 0x00000000, MINSTRETH },
+    { "mcycle",        0xffffffff, 0x00000000, MCYCLE },
+    { "mcycleh",       0xffffffff, 0x00000000, MCYCLEH },
+    { "minstret",      0xffffffff, 0x00000000, MINSTRET },
+    { "minstreth",     0xffffffff, 0x00000000, MINSTRETH },
     // Time counters
-    { "ucycle",     0x00000000, 0x00000000, UCYCLE },
-    { "ucycleh",    0x00000000, 0x00000000, UCYCLEH },
-    { "utime",      0x00000000, 0x00000000, UTIME },
-    { "utimeh",     0x00000000, 0x00000000, UTIMEH },
-    { "uinstret",   0x00000000, 0x00000000, UINSTRET },
-    { "uinstreth",   0x00000000, 0x00000000, UINSTRETH },
+    { "ucycle",        0x00000000, 0x00000000, UCYCLE },
+    { "ucycleh",       0x00000000, 0x00000000, UCYCLEH },
+    { "utime",         0x00000000, 0x00000000, UTIME },
+    { "utimeh",        0x00000000, 0x00000000, UTIMEH },
+    { "uinstret",      0x00000000, 0x00000000, UINSTRET },
+    { "uinstreth",     0x00000000, 0x00000000, UINSTRETH },
     // Debug
-    { "tselect",    0x00000000, 0x00000000, TSELECT },
-    { "tdata1",     0x00000000, 0x00000000, TDATA1 },
-    { "tdata2",     0x00000000, 0x00000000, TDATA2 },
-    { "tdata3",     0x00000000, 0x00000000, TDATA3 },
-    { "rxvemuctl",  0xffffffff, 0x00000000, RXV_EMUCTL },
+    { "tselect",       0x00000000, 0x00000000, TSELECT },
+    { "tdata1",        0x00000000, 0x00000000, TDATA1 },
+    { "tdata2",        0x00000000, 0x00000000, TDATA2 },
+    { "tdata3",        0x00000000, 0x00000000, TDATA3 },
+    { "rxvemuctl",     0xffffffff, 0x00000000, RXV_EMUCTL },
     // PMP
-    { "pmpcfg0",    0x9f9f9f9f, 0x00000000, PMPCFG0 },
-    { "pmpaddr0",   0x3fffffff, 0x00000000, PMPADDR0 },
-    { "pmpaddr1",   0x3fffffff, 0x00000000, PMPADDR1 },
-    { "pmpaddr2",   0x3fffffff, 0x00000000, PMPADDR2 },
-    { "pmpaddr3",   0x3fffffff, 0x00000000, PMPADDR3 },
+    { "pmpcfg0",       0x9f9f9f9f, 0x00000000, PMPCFG0 },
+    { "pmpaddr0",      0x3fffffff, 0x00000000, PMPADDR0 },
+    { "pmpaddr1",      0x3fffffff, 0x00000000, PMPADDR1 },
+    { "pmpaddr2",      0x3fffffff, 0x00000000, PMPADDR2 },
+    { "pmpaddr3",      0x3fffffff, 0x00000000, PMPADDR3 },
     // RXV Extensions
-    { "stpval",     0xffffffff, 0x00000000, STPVAL },
-    { "stperms",    0xffffffff, 0x00000000, STPERMS },
+    { "stpval",        0xffffffff, 0x00000000, STPVAL },
+    { "stperms",       0xffffffff, 0x00000000, STPERMS },
     {}
 };
 // clang-format on
@@ -242,6 +244,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , tracer(trace_name)
     , cur_cycle(0)
     , num_irqs(0)
+    , pmu_cycles(0)
     , insns_retired(0)
     , finished(false)
 {
@@ -389,9 +392,9 @@ uint32_t RXVSim::read_csr(int r)
 
     switch (id) {
     case MCYCLE:
-    case UCYCLE: return get_cycle();
+    case UCYCLE: return pmu_cycles;
     case MCYCLEH:
-    case UCYCLEH: return get_cycle() >> 32;
+    case UCYCLEH: return pmu_cycles >> 32;
     case MINSTRET:
     case UINSTRET: return insns_retired;
     case MINSTRETH:
@@ -581,6 +584,19 @@ bool RXVSim::csr_access_allowed(int r, bool write)
 
     if (r == SATP && status.tvm)
         return false;
+
+    if (privilege_level != M) {
+        auto mcounteren = read_csr(MCOUNTEREN);
+        switch (static_cast<CSRID>(r)) {
+        case UCYCLE:
+        case UCYCLEH: return mcounteren & (1 << 0);
+        case UTIME:
+        case UTIMEH: return mcounteren & (1 << 1);
+        case UINSTRET:
+        case UINSTRETH: return mcounteren & (1 << 2);
+        default: break;
+        }
+    }
 
     return true;
 }
@@ -1337,7 +1353,10 @@ bool RXVSim::step()
     privilege_level = new_privilege_level;
 
     ++cur_cycle;
-    ++insns_retired;
+    if (!(read_csr(MCOUNTINHIBIT) & (1 << 2)))
+        ++insns_retired;
+    if (!(read_csr(MCOUNTINHIBIT) & (1 << 0)))
+        ++pmu_cycles;
 
     return !finished;
 }

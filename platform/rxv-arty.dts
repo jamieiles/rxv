@@ -44,7 +44,7 @@
 			i-cache-size = <16384>;
 			tlb-split;
 			i-tlb-size = <8>;
-			i-tlb-sets = <1>;
+			i-tlb-sets = <8>;
 			d-tlb-size = <8>;
 			d-tlb-sets = <8>;
 

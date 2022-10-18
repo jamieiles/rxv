@@ -872,6 +872,8 @@ module RXVCore #(
         .commit_excepted       (commit_excepted_out),
         .commit_valid          (commit_valid),
         .retired               (retired),
+        .lsu_busy              (lsu_busy),
+        .div_exec_busy         (div_exec_busy),
         .commit_rename_out     (commit_rename_out),
         .commit_rename_valid   (commit_rename_valid),
         .commit_rename_rollback(rename_rollback),

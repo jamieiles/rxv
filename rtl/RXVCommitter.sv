@@ -22,6 +22,8 @@ module RXVCommitter (
     input  logic        commit_excepted,
     output logic        commit_valid,
     output logic        retired,
+    input  logic        lsu_busy,
+    input  logic        div_exec_busy,
     // To rename file
     output renamed_reg  commit_rename_out,
     output logic        commit_rename_valid,
@@ -40,13 +42,20 @@ module RXVCommitter (
     logic exception_resteer_next;
     logic exception_cleanup_next;
     logic killed;
+    logic exception_busy_wait;
 
     always_comb begin
         killed = commit_killed | exception_cleanup;
     end
 
     always_comb begin
-        commit_ready = ~commit_empty & (commit_complete | commit_killed | commit_excepted);
+        exception_busy_wait = lsu_busy | div_exec_busy;
+    end
+
+    always_comb begin
+        commit_ready = ~commit_empty &
+            (commit_complete | commit_killed | commit_excepted) &
+            ~exception_busy_wait;
     end
 
     always_comb begin
@@ -59,11 +68,11 @@ module RXVCommitter (
         commit_rename_rollback = 1'b0;
 
         if (!commit_empty && commit_complete && commit_in.have_rename &&
-            |commit_in.dest_reg.arch && !killed) begin
+            |commit_in.dest_reg.arch && !killed && !exception_busy_wait) begin
             commit_rename_valid = 1'b1;
         end
 
-        if (!commit_empty && commit_excepted) begin
+        if (!commit_empty && commit_excepted && !exception_busy_wait) begin
             commit_rename_rollback = 1'b1;
         end
     end
@@ -90,7 +99,7 @@ module RXVCommitter (
 
     always_comb begin
         exception_cleanup_next = exception_cleanup;
-        if (~commit_empty && commit_excepted) exception_cleanup_next = 1'b1;
+        if (~commit_empty && commit_excepted && !exception_busy_wait) exception_cleanup_next = 1'b1;
         if (commit_empty) exception_cleanup_next = 1'b0;
     end
 

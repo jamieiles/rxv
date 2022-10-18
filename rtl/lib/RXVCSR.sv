@@ -51,6 +51,8 @@ package RXVCSR;
         CSR_SCAUSE     = 12'h142,
         CSR_STVAL      = 12'h143,
         CSR_SIP        = 12'h144,
+        CSR_STIMECMP   = 12'h14d,
+        CSR_STIMECMPH  = 12'h15d,
         CSR_SATP       = 12'h180,
         CSR_RXV_EMUCTL = 12'h800
     } RXVCSR_id;

@@ -19,6 +19,8 @@ enum CSRId : uint16 {
     SCAUSE      = 0x0142,
     STVAL       = 0x0143,
     SIP         = 0x0144,
+    STIMECMP    = 0x014d,
+    STIMECMPH   = 0x015d,
     SATP        = 0x0180,
     MSTATUS     = 0x0300,
     MISA        = 0x0301,

@@ -60,6 +60,8 @@ enum CSRID {
     SCAUSE      = 0x0142,
     STVAL       = 0x0143,
     SIP         = 0x0144,
+    STIMECMP    = 0x014d,
+    STIMECMPH   = 0x015d,
     SATP        = 0x0180,
     RXV_EMUCTL  = 0x0800,
     STPVAL      = 0x05c0,
@@ -104,6 +106,8 @@ static const struct CSRDef csr_defs[] = {
     { "stval",      0xffffffff, 0x00000000, STVAL },
     { "sip",        0xffffffff, 0x00000000, SIP },
     { "satp",       0xffffffff, 0x00000000, SATP },
+    { "stimecmp",   0xffffffff, 0x00000000, STIMECMP },
+    { "stimecmph",  0xffffffff, 0x00000000, STIMECMPH },
     // Performance counters
     { "mcycle",     0xffffffff, 0x00000000, MCYCLE },
     { "mcycleh",    0xffffffff, 0x00000000, MCYCLEH },
@@ -410,6 +414,22 @@ void RXVSim::raise_timer_irq()
 void RXVSim::clear_timer_irq()
 {
     csrs[MIP].val &= ~mip_mtip;
+}
+
+void RXVSim::raise_stimer_irq()
+{
+    csrs[MIP].val |= mip_stip;
+}
+
+void RXVSim::clear_stimer_irq()
+{
+    csrs[MIP].val &= ~mip_stip;
+}
+
+uint64_t RXVSim::get_stimecmp()
+{
+    return (static_cast<uint64_t>(read_csr(STIMECMPH)) << 32) |
+           read_csr(STIMECMP);
 }
 
 void RXVSim::check_interrupts()

@@ -506,14 +506,21 @@ public:
     }
 
     bool step();
+    uint64_t get_stimecmp();
     void raise_timer_irq();
     void clear_timer_irq();
+    void raise_stimer_irq();
+    void clear_stimer_irq();
 
     void timer_tick(void)
     {
         mtime.time++;
         if (mtime.time >= mtime.cmp)
             raise_timer_irq();
+        if (mtime.time >= get_stimecmp())
+            raise_stimer_irq();
+        else
+            clear_stimer_irq();
     }
 
     struct mtime *get_mtime()

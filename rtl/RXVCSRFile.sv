@@ -179,6 +179,10 @@ module RXVCSRFile #(
     logic                                         mideleg_wren;
     satp_t                                        satp_reg;
     logic                                         satp_wren;
+    logic        [                          63:0] stimecmp_reg;
+    logic        [                          63:0] stimecmp_next;
+    logic                                         stimecmp_wren;
+    logic                                         stimecmph_wren;
 
     logic                                         exception_write;
     mepc_t                                        mepc_next;
@@ -216,6 +220,8 @@ module RXVCSRFile #(
 
     logic        [  $bits(current_privilege)-1:0] current_privilege_q;
     logic        [$bits(exception_privilege)-1:0] exception_privilege_q;
+
+    logic                                         stime_irq;
 
     always_comb begin
         current_privilege   = privilege_t'(current_privilege_q);
@@ -289,6 +295,10 @@ module RXVCSRFile #(
         exception_write = exception.valid;
     end
 
+    always_comb begin
+        stime_irq = mtime > stimecmp_reg;
+    end
+
     RXVAssert #(
         .message("no simultaneous exceptions raised")
     ) simultaneous_except (
@@ -335,6 +345,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_UTIME: rd_data_next = mtime[31:0];
             RXVCSR::CSR_UTIMEH: rd_data_next = mtime[63:32];
             RXVCSR::CSR_PMPCFG0: rd_data_next = pmp_cfg;
+            RXVCSR::CSR_STIMECMP: rd_data_next = stimecmp_reg[31:0];
+            RXVCSR::CSR_STIMECMPH: rd_data_next = stimecmp_reg[63:32];
             RXVCSR::CSR_PMPADDR0, RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3:
             rd_data_next = pmp_addr;
             default: rd_data_next = 32'b0;
@@ -405,6 +417,8 @@ module RXVCSRFile #(
                                     wr_addr == RXVCSR::CSR_PMPADDR3);
 
         sscratch_wren = wr_en && wr_addr == RXVCSR::CSR_SSCRATCH;
+        stimecmp_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMP;
+        stimecmph_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMPH;
 
         update_mstatus = mstatus_wren | sstatus_wren;
         update_mie = mie_wren | sie_wren;
@@ -532,6 +546,7 @@ module RXVCSRFile #(
         if (mip_wren) mip_next = pack_mip(wr_data);
         if (sip_wren) mip_next = pack_sip(wr_data, mip_next);
         mip_next.mtip = mtime_irq;
+        mip_next.stip = stime_irq;
         mip_next.seip = ext_irq;
     end
 
@@ -542,6 +557,12 @@ module RXVCSRFile #(
     always_comb begin
         pmp_addr_idx        = rd_addr[1:0];
         pmp_update_addr_idx = wr_addr[1:0];
+    end
+
+    always_comb begin
+        stimecmp_next = stimecmp_reg;
+        if (stimecmp_wren) stimecmp_next[31:0] = wr_data;
+        if (stimecmph_wren) stimecmp_next[63:32] = wr_data;
     end
 
     always_comb begin
@@ -563,7 +584,7 @@ module RXVCSRFile #(
             RXVCSR::CSR_SSTATUS, RXVCSR::CSR_SEDELEG, RXVCSR::CSR_SIDELEG, RXVCSR::CSR_SIE,
             RXVCSR::CSR_SIP, RXVCSR::CSR_STVEC, RXVCSR::CSR_SCOUNTEREN, RXVCSR::CSR_SSCRATCH,
             RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL, RXVCSR::CSR_STPVAL,
-            RXVCSR::CSR_STPERMS,
+            RXVCSR::CSR_STPERMS, RXVCSR::CSR_STIMECMP, RXVCSR::CSR_STIMECMPH,
             // User
             RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH,
             RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH:
@@ -705,6 +726,10 @@ module RXVCSRFile #(
             trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR2, wr_data);
         if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR3)
             trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR3, wr_data);
+        if (wr_en && wr_addr == RXVCSR::CSR_STIMECMP)
+            trace_write_csr(trace_id, RXVCSR::CSR_STIMECMP, wr_data);
+        if (wr_en && wr_addr == RXVCSR::CSR_STIMECMPH)
+            trace_write_csr(trace_id, RXVCSR::CSR_STIMECMPH, wr_data);
     end
 `endif  // verilator
 
@@ -953,6 +978,16 @@ module RXVCSRFile #(
         .en   (exception_write),
         .d    (exception_target_level),
         .q    (exception_privilege_q)
+    );
+
+    RXVDFF #(
+        .width($bits(stimecmp_reg))
+    ) stimecmp_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (stimecmp_next),
+        .q    (stimecmp_reg)
     );
 
 endmodule

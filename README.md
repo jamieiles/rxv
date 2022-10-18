@@ -3,7 +3,10 @@
 © Jamie Iles 2019-2022
 
 The RXV core is an RV32IMAZicsrZifencei core written in SystemVerilog offering
-good performance and synthesizable for a variety of FPGAs.
+good performance and synthesizable for a variety of FPGAs.  Additional
+standard extensions include:
+
+  - SSTC (supervisor timer compare)
 
 ![Linux](documentation/images/rxv-cowsay.gif)
 

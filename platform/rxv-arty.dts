@@ -2,125 +2,147 @@
 /dts-v1/;
 
 / {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	compatible = "jamieiles,rxv-arty";
+    #address-cells = <1>;
+    #size-cells = <1>;
+    compatible = "jamieiles,rxv-arty";
 
-	aliases {
-		serial0 = &uart0;
-	};
+    aliases {
+        serial0 = &uart0;
+    };
 
-	chosen {
-		bootargs = "console=ttyS0,115200 earlycon root=/dev/mmcblk0p2 rw panic_on_warn=1 systemd.unit=multi-user.target";
-		rng-seed = <0xb1 0xdf 0x02 0x6c 0xcf 0xc2 0xb5 0xaa 0xe5 0xba 0xd7 0x58 0xdf 0xcd 0x09 0xe1 0xf9 0x1c 0xef 0x72 0xc9 0xa8 0xb4 0x41 0x17 0xc0 0x7f 0x84 0xf3 0x93 0x74 0xdc 0x93 0x9f 0xf4 0x34 0x95 0xa5 0x32 0x69 0x35 0x56 0x02 0xe1 0x1d 0xdc 0x18 0x19 0x1e 0x26 0xa5 0xa5 0x4f 0xe1 0xbe 0x6f 0xc7 0x36 0x37 0x1b 0xfc 0x02 0x06 0x89 0x78 0x3b 0x0d 0xaf 0x21 0xec 0x46 0x07 0x40 0xa3 0x12 0xb2 0x11 0x2f 0x11 0x86 0xe0 0x9c 0x3b 0x17 0x1d 0xbf 0xdb 0x0b 0xae 0x9a 0x2b 0x99 0x48 0xf2 0xee 0x86 0x6d 0x46 0x48 0xcb 0x1d 0x9e 0xe8 0x35 0xc4 0x5b 0x4b 0xce 0xf8 0x36 0x0d 0xd4 0x31 0xc7 0x62 0x9a 0x79 0x72 0x82 0x69 0x42 0x67 0x28 0x17 0xab 0x69 0xf8 0x52>;
-		stdout-path = "serial0:115200n8";
+    chosen {
+        bootargs = "console=ttyS0,115200 earlycon root=/dev/mmcblk0p2 rw panic_on_warn=1 systemd.unit=multi-user.target";
+        rng-seed = <0xb1 0xdf 0x02 0x6c 0xcf 0xc2 0xb5 0xaa 0xe5 0xba 0xd7 0x58 0xdf 0xcd 0x09 0xe1 0xf9 0x1c 0xef 0x72 0xc9 0xa8 0xb4 0x41 0x17 0xc0 0x7f 0x84 0xf3 0x93 0x74 0xdc 0x93 0x9f 0xf4 0x34 0x95 0xa5 0x32 0x69 0x35 0x56 0x02 0xe1 0x1d 0xdc 0x18 0x19 0x1e 0x26 0xa5 0xa5 0x4f 0xe1 0xbe 0x6f 0xc7 0x36 0x37 0x1b 0xfc 0x02 0x06 0x89 0x78 0x3b 0x0d 0xaf 0x21 0xec 0x46 0x07 0x40 0xa3 0x12 0xb2 0x11 0x2f 0x11 0x86 0xe0 0x9c 0x3b 0x17 0x1d 0xbf 0xdb 0x0b 0xae 0x9a 0x2b 0x99 0x48 0xf2 0xee 0x86 0x6d 0x46 0x48 0xcb 0x1d 0x9e 0xe8 0x35 0xc4 0x5b 0x4b 0xce 0xf8 0x36 0x0d 0xd4 0x31 0xc7 0x62 0x9a 0x79 0x72 0x82 0x69 0x42 0x67 0x28 0x17 0xab 0x69 0xf8 0x52>;
+        stdout-path = "serial0:115200n8";
 
-		opensbi-domains {
-			compatible = "opensbi,domain,config";
+        opensbi-domains {
+            compatible = "opensbi,domain,config";
 
-			mmio0: mmio {
-				compatible = "opensbi,domain,memregion";
-				base = <0xf0000000>;
-				order = <16>;
-			};
-		};
-	};
+            mmio0: mmio {
+                compatible = "opensbi,domain,memregion";
+                base = <0xf0000000>;
+                order = <16>;
+            };
+        };
+    };
 
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		timebase-frequency = <10140625>;
-		cpu0: cpu@0 {
-			device_type = "cpu";
-			compatible = "jamieiles,rxv", "riscv";
-			reg = <0>;
-			riscv,isa = "rv32ima,sstc";
-			mmu-type = "riscv,sv32";
-			d-cache-block-size = <32>;
-			d-cache-sets = <128>;
-			d-cache-size = <16384>;
-			i-cache-block-size = <32>;
-			i-cache-sets = <128>;
-			i-cache-size = <16384>;
-			tlb-split;
-			i-tlb-size = <8>;
-			i-tlb-sets = <8>;
-			d-tlb-size = <8>;
-			d-tlb-sets = <8>;
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        timebase-frequency = <10140625>;
+        cpu0: cpu@0 {
+            device_type = "cpu";
+            compatible = "jamieiles,rxv", "riscv";
+            reg = <0>;
+            riscv,isa = "rv32ima_sstc_sscofpmf";
+            mmu-type = "riscv,sv32";
+            d-cache-block-size = <32>;
+            d-cache-sets = <256>;
+            d-cache-size = <32768>;
+            i-cache-block-size = <32>;
+            i-cache-sets = <256>;
+            i-cache-size = <32768>;
+            tlb-split;
+            i-tlb-size = <16>;
+            i-tlb-sets = <16>;
+            d-tlb-size = <16>;
+            d-tlb-sets = <16>;
 
-			cpu0_intc: interrupt-controller {
-				#interrupt-cells = <1>;
-				#address-cells = <0>;
-				interrupt-controller;
-				compatible = "riscv,cpu-intc";
-			};
-		};
-	};
+            cpu0_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                #address-cells = <0>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+    };
 
-	clint0: clint@f0000000 {
-		compatible = "riscv,clint0";
-		interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7 >;
-		reg = <0xf0000000 0x10000>;
-	};
+    pmu0: pmu {
+        compatible = "riscv,pmu";
+        interrupts-extended = <&cpu0_intc 13>;
+        riscv,event-to-mhpmevent = <0x00001 0x00000000 0x00000001> /* Cycles */,
+                                   <0x00002 0x00000000 0x00000002> /* Instructions Retired */,
+                                   <0x00005 0x00000000 0x00000003> /* Branches */,
+                                   <0x00006 0x00000000 0x00000004> /* Branch Mispredict */,
+                                   <0x00008 0x00000000 0x00000005> /* Frontend Stall */,
+                                   <0x00009 0x00000000 0x00000006> /* Backend Stall */,
+                                   <0x10000 0x00000000 0x00000007> /* L1D Read */,
+                                   <0x10001 0x00000000 0x00000008> /* L1D Read Miss */,
+                                   <0x10002 0x00000000 0x00000009> /* L1D Write */,
+                                   <0x10003 0x00000000 0x0000000a> /* L1D Write Miss */,
+                                   <0x10080 0x00000000 0x0000000b> /* L1I Read */,
+                                   <0x10081 0x00000000 0x0000000c> /* L1I Read Miss */,
+                                   <0x10180 0x00000000 0x0000000d> /* DTLB Read */,
+                                   <0x10181 0x00000000 0x0000000e> /* DTLB Read Miss */,
+                                   <0x10100 0x00000000 0x0000000f> /* DTLB Read */,
+                                   <0x10101 0x00000000 0x00000010> /* ITLB Read Miss */;
+        riscv,event-to-mhpmcounters = <0x00001 0x10181 0xffffff8>;
+    };
 
-	sram: memory@80000000 {
-		device_type = "memory";
-		compatible = "jamieiles,rxv-sdram";
-		reg = <0x80000000 0x10000000>;
-	};
+    clint0: clint@f0000000 {
+        compatible = "riscv,clint0";
+        interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7 >;
+        reg = <0xf0000000 0x10000>;
+    };
 
-	spi0: spi@fffe0000 {
-		compatible = "xlnx,xps-spi-2.00.a";
-		reg = <0xfffe0000 0x10000>;
-		xlnx,num-ss-bits = <0x2>;
-		xlnx,num-transfer-bits = <8>;
-		status = "okay";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupt-parent = <&intc>;
-		// Edge-rising
-		interrupts = <0 1>;
+    sram: memory@80000000 {
+        device_type = "memory";
+        compatible = "jamieiles,rxv-sdram";
+        reg = <0x80000000 0x10000000>;
+    };
 
-		slot@0 {
-			compatible = "mmc-spi-slot";
-			reg = <0>;
-			voltage-ranges = <3300 3300>;
-			spi-max-frequency = <25000000>;
-			broken-cd;
-		};
+    spi0: spi@fffe0000 {
+        compatible = "xlnx,xps-spi-2.00.a";
+        reg = <0xfffe0000 0x10000>;
+        xlnx,num-ss-bits = <0x2>;
+        xlnx,num-transfer-bits = <8>;
+        status = "okay";
+        #address-cells = <1>;
+        #size-cells = <0>;
+        interrupt-parent = <&intc>;
+        // Edge-rising
+        interrupts = <0 1>;
 
-		eth@1 {
-			compatible = "microchip,enc28j60";
-			reg = <1>;
-			interrupt-parent = <&intc>;
-			// Edge-falling
-			interrupts = <2 2>;
-			spi-max-frequency = <25000000>;
-		};
-	};
+        slot@0 {
+            compatible = "mmc-spi-slot";
+            reg = <0>;
+            voltage-ranges = <3300 3300>;
+            spi-max-frequency = <25000000>;
+            broken-cd;
+        };
 
-	intc: interrupt-controller@fffd0000 {
-		#interrupt-cells = <2>;
-		#address-cells = <0>;
-		compatible = "xlnx,xps-intc-1.00.a";
-		interrupt-controller;
-		interrupt-parent = <&cpu0_intc>;
-		interrupts-extended = <&cpu0_intc 9>;
-		reg = <0xfffd0000 0x10000>;
-		xlnx,kind-of-intr = <0x5>;
-		xlnx,num-intr-inputs = <0x3>;
-	};
+        eth@1 {
+            compatible = "microchip,enc28j60";
+            reg = <1>;
+            interrupt-parent = <&intc>;
+            // Edge-falling
+            interrupts = <2 2>;
+            spi-max-frequency = <25000000>;
+        };
+    };
 
-	uart0: serial@ffff1000 {
-		compatible = "ns16550a";
-		reg = <0xffff1000 0x1000>;
-		clock-frequency = <81247969>;
-		reg-shift = <2>;
-		reg-io-width = <4>;
-		interrupt-parent = <&intc>;
-		// Level-high
-		interrupts = <1 4>;
-		status = "okay";
-		current-speed = <115200>;
-	};
+    intc: interrupt-controller@fffd0000 {
+        #interrupt-cells = <2>;
+        #address-cells = <0>;
+        compatible = "xlnx,xps-intc-1.00.a";
+        interrupt-controller;
+        interrupt-parent = <&cpu0_intc>;
+        interrupts-extended = <&cpu0_intc 9>;
+        reg = <0xfffd0000 0x10000>;
+        xlnx,kind-of-intr = <0x5>;
+        xlnx,num-intr-inputs = <0x3>;
+    };
+
+    uart0: serial@ffff1000 {
+        compatible = "ns16550a";
+        reg = <0xffff1000 0x1000>;
+        clock-frequency = <81247969>;
+        reg-shift = <2>;
+        reg-io-width = <4>;
+        interrupt-parent = <&intc>;
+        // Level-high
+        interrupts = <1 4>;
+        status = "okay";
+        current-speed = <115200>;
+    };
 };

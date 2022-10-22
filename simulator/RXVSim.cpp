@@ -14,59 +14,68 @@
 
 // clang-format off
 enum CSRID {
-    MVENDORID     = 0x0F11,
-    MARCHID       = 0x0F12,
-    MIMPID        = 0x0F13,
-    MHARTID       = 0x0F14,
-    UCYCLE        = 0x0C00,
-    UTIME         = 0x0C01,
-    UINSTRET      = 0x0C02,
-    UCYCLEH       = 0x0C80,
-    UTIMEH        = 0x0C81,
-    UINSTRETH     = 0x0C82,
-    MCYCLE        = 0x0B00,
-    MCYCLEH       = 0x0B80,
-    MINSTRET      = 0x0B02,
-    MINSTRETH     = 0x0B82,
-    TSELECT       = 0x07A0,
-    TDATA1        = 0x07A1,
-    TDATA2        = 0x07A2,
-    TDATA3        = 0x07A3,
-    MSTATUS       = 0x0300,
-    MISA          = 0x0301,
-    MEDELEG       = 0x0302,
-    MIDELEG       = 0x0303,
-    MIE           = 0x0304,
-    MTVEC         = 0x0305,
-    MCOUNTEREN    = 0x0306,
-    MCOUNTINHIBIT = 0x0320,
-    MSCRATCH      = 0x0340,
-    MEPC          = 0x0341,
-    MCAUSE        = 0x0342,
-    MTVAL         = 0x0343,
-    MIP           = 0x0344,
-    PMPCFG0       = 0x03A0,
-    PMPADDR0      = 0x03B0,
-    PMPADDR1      = 0x03B1,
-    PMPADDR2      = 0x03B2,
-    PMPADDR3      = 0x03B3,
-    SSTATUS       = 0x0100,
-    SEDELEG       = 0x0102,
-    SIDELEG       = 0x0103,
-    SIE           = 0x0104,
-    STVEC         = 0x0105,
-    SCOUNTEREN    = 0x0106,
-    SSCRATCH      = 0x0140,
-    SEPC          = 0x0141,
-    SCAUSE        = 0x0142,
-    STVAL         = 0x0143,
-    SIP           = 0x0144,
-    STIMECMP      = 0x014d,
-    STIMECMPH     = 0x015d,
-    SATP          = 0x0180,
-    RXV_EMUCTL    = 0x0800,
-    STPVAL        = 0x05c0,
-    STPERMS       = 0x05c1
+    MVENDORID      = 0x0F11,
+    MARCHID        = 0x0F12,
+    MIMPID         = 0x0F13,
+    MHARTID        = 0x0F14,
+    SCOUNTOVF      = 0x0DA0,
+    UCYCLE         = 0x0C00,
+    UTIME          = 0x0C01,
+    UINSTRET       = 0x0C02,
+    UCYCLEH        = 0x0C80,
+    UTIMEH         = 0x0C81,
+    UINSTRETH      = 0x0C82,
+    MCYCLE         = 0x0B00,
+    MCYCLEH        = 0x0B80,
+    MINSTRET       = 0x0B02,
+    MINSTRETH      = 0x0B82,
+    TSELECT        = 0x07A0,
+    TDATA1         = 0x07A1,
+    TDATA2         = 0x07A2,
+    TDATA3         = 0x07A3,
+    MSTATUS        = 0x0300,
+    MISA           = 0x0301,
+    MEDELEG        = 0x0302,
+    MIDELEG        = 0x0303,
+    MIE            = 0x0304,
+    MTVEC          = 0x0305,
+    MCOUNTEREN     = 0x0306,
+    MCOUNTINHIBIT  = 0x0320,
+    MSCRATCH       = 0x0340,
+    MEPC           = 0x0341,
+    MCAUSE         = 0x0342,
+    MTVAL          = 0x0343,
+    MIP            = 0x0344,
+    PMPCFG0        = 0x03A0,
+    PMPADDR0       = 0x03B0,
+    PMPADDR1       = 0x03B1,
+    PMPADDR2       = 0x03B2,
+    PMPADDR3       = 0x03B3,
+    SSTATUS        = 0x0100,
+    SEDELEG        = 0x0102,
+    SIDELEG        = 0x0103,
+    SIE            = 0x0104,
+    STVEC          = 0x0105,
+    SCOUNTEREN     = 0x0106,
+    SSCRATCH       = 0x0140,
+    SEPC           = 0x0141,
+    SCAUSE         = 0x0142,
+    STVAL          = 0x0143,
+    SIP            = 0x0144,
+    STIMECMP       = 0x014d,
+    STIMECMPH      = 0x015d,
+    SATP           = 0x0180,
+    RXV_EMUCTL     = 0x0800,
+    STPVAL         = 0x05c0,
+    STPERMS        = 0x05c1,
+    MHPMEVENT3H    = 0x0723,
+    MHPMEVENT31H   = 0x073f,
+    MHPMEVENT3     = 0x0323,
+    MHPMEVENT31    = 0x033f,
+    MHPMCOUNTER3   = 0x0b03,
+    MHPMCOUNTER31  = 0x0b1f,
+    MHPMCOUNTER3H  = 0x0b83,
+    MHPMCOUNTER31H = 0x0b9f
 };
 
 constexpr uint32_t supported_extensions =
@@ -115,6 +124,7 @@ static const struct CSRDef csr_defs[] = {
     { "mcycleh",       0xffffffff, 0x00000000, MCYCLEH },
     { "minstret",      0xffffffff, 0x00000000, MINSTRET },
     { "minstreth",     0xffffffff, 0x00000000, MINSTRETH },
+    { "scountovf",     0x00000000, 0x00000000, SCOUNTOVF },
     // Time counters
     { "ucycle",        0x00000000, 0x00000000, UCYCLE },
     { "ucycleh",       0x00000000, 0x00000000, UCYCLEH },
@@ -317,9 +327,16 @@ void RXVSim::set_pmp_addr(int pmp_id, uint32_t v)
 
 void RXVSim::do_write_csr(int r, uint32_t v)
 {
-    auto wr_mask = csrs[static_cast<CSRID>(r)].def->wr_mask;
-    auto id = static_cast<CSRID>(r);
+    tracer.trace_write_csr(0, r, v);
 
+    auto id = static_cast<CSRID>(r);
+    if ((id >= MHPMEVENT3H && id <= MHPMEVENT31H) ||
+        (id >= MHPMEVENT3 && id <= MHPMEVENT31) ||
+        (id >= MHPMCOUNTER3H && id <= MHPMCOUNTER31H) ||
+        (id >= MHPMCOUNTER3 && id <= MHPMCOUNTER31))
+        return;
+
+    auto wr_mask = csrs[static_cast<CSRID>(r)].def->wr_mask;
     switch (id) {
     case SSTATUS: status.set(S, v); break;
     case MSTATUS: status.set(M, v); break;
@@ -382,13 +399,17 @@ void RXVSim::do_write_csr(int r, uint32_t v)
         break;
     default: csrs[static_cast<CSRID>(r)].val = v & wr_mask;
     }
-
-    tracer.trace_write_csr(0, r, v);
 }
 
 uint32_t RXVSim::read_csr(int r)
 {
     auto id = static_cast<CSRID>(r);
+
+    if ((id >= MHPMEVENT3H && id <= MHPMEVENT31H) ||
+        (id >= MHPMEVENT3 && id <= MHPMEVENT31) ||
+        (id >= MHPMCOUNTER3H && id <= MHPMCOUNTER31H) ||
+        (id >= MHPMCOUNTER3 && id <= MHPMCOUNTER31))
+        return 0;
 
     switch (id) {
     case MCYCLE:
@@ -572,7 +593,18 @@ void RXVSim::do_exception(enum mcause_type type, uint32_t val)
 
 bool RXVSim::csr_access_allowed(int r, bool write)
 {
-    if (csrs.find(r) == csrs.end())
+    auto csr_id = static_cast<CSRID>(r);
+    bool valid_csr = false;
+
+    if ((csr_id >= MHPMEVENT3H && csr_id <= MHPMEVENT31H) ||
+        (csr_id >= MHPMEVENT3 && csr_id <= MHPMEVENT31) ||
+        (csr_id >= MHPMCOUNTER3H && csr_id <= MHPMCOUNTER31H) ||
+        (csr_id >= MHPMCOUNTER3 && csr_id <= MHPMCOUNTER31))
+        valid_csr = true;
+    if (!valid_csr && csrs.find(r) != csrs.end())
+        valid_csr = true;
+
+    if (!valid_csr)
         return false;
 
     if ((((r >> 10) & 0x3) == 0x3) && write)

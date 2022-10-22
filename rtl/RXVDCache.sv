@@ -30,6 +30,10 @@ module RXVDCache #(
     input  logic                       invalidate,
     input  logic                       clean,
     input  logic                [31:2] phys_in,
+    output logic                       pmu_dcache_wr_access,
+    output logic                       pmu_dcache_wr_miss,
+    output logic                       pmu_dcache_rd_access,
+    output logic                       pmu_dcache_rd_miss,
     //verilator lint_off UNUSED
     input  logic                       phys_valid,
     //verilator lint_on UNUSED
@@ -431,6 +435,15 @@ module RXVDCache #(
                 end
             end
         end
+    end
+
+    always_comb begin
+        pmu_dcache_wr_access = tag_compare_valid && !busy && wren;
+        pmu_dcache_wr_miss   = (state == STATE_MISS ||
+                                (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory)) && wren;
+        pmu_dcache_rd_access = tag_compare_valid && !busy && !wren;
+        pmu_dcache_rd_miss   = (state == STATE_MISS ||
+                                (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory)) && !wren;
     end
 
     RXVAssert device_not_cached (

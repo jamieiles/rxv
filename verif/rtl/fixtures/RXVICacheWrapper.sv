@@ -11,8 +11,10 @@ module RXVICacheWrapper #(
     output logic        busy,
     output logic [31:0] dout,
     input  logic        invalidate,
-    input logic [31:2] phys_in,
-    input logic phys_valid
+    output logic        pmu_icache_access,
+    output logic        pmu_icache_miss,
+    input  logic [31:2] phys_in,
+    input  logic        phys_valid
 );
 
     MemInterface mem_bus ();
@@ -29,16 +31,18 @@ module RXVICacheWrapper #(
         .nr_ways        (nr_ways),
         .line_size_bytes(line_size_bytes)
     ) RXVICache (
-        .clk       (clk),
-        .reset     (reset),
-        .address   (address),
-        .valid     (valid),
-        .busy      (busy),
-        .dout      (dout),
-        .invalidate(invalidate),
-        .bus       (mem_bus.Manager),
-        .phys_in   (phys_in),
-        .phys_valid(phys_valid)
+        .clk              (clk),
+        .reset            (reset),
+        .address          (address),
+        .valid            (valid),
+        .busy             (busy),
+        .dout             (dout),
+        .invalidate       (invalidate),
+        .pmu_icache_access(pmu_icache_access),
+        .pmu_icache_miss  (pmu_icache_miss),
+        .bus              (mem_bus.Manager),
+        .phys_in          (phys_in),
+        .phys_valid       (phys_valid)
     );
 
 endmodule

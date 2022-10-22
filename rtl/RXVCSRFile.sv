@@ -17,8 +17,11 @@ import RXVCSR::medeleg_t;
 import RXVCSR::mideleg_t;
 import RXVCSR::mcounteren_t;
 import RXVCSR::mcountinhibit_t;
+import RXVCSR::mhpmevent_t;
+import RXVCSR::mhpmeventh_t;
 import RXVCSR::stpval_t;
 import RXVCSR::stperms_t;
+import RXVCSR::scountovf_t;
 import RXVCSR::pack_mstatus;
 import RXVCSR::unpack_mstatus;
 import RXVCSR::pack_sstatus;
@@ -55,12 +58,18 @@ import RXVCSR::pack_mcounteren;
 import RXVCSR::unpack_mcounteren;
 import RXVCSR::pack_mcountinhibit;
 import RXVCSR::unpack_mcountinhibit;
+import RXVCSR::pack_mhpmevent;
+import RXVCSR::unpack_mhpmevent;
+import RXVCSR::pack_mhpmeventh;
+import RXVCSR::unpack_mhpmeventh;
 import RXVCSR::pack_satp;
 import RXVCSR::unpack_satp;
 import RXVCSR::pack_stpval;
 import RXVCSR::unpack_stpval;
 import RXVCSR::pack_stperms;
 import RXVCSR::unpack_stperms;
+import RXVCSR::pack_scountovf;
+import RXVCSR::unpack_scountovf;
 import RXVCSR::RXVException;
 import RXVCSR::MINT_id;
 import RXVCSR::mtvec_dest;
@@ -70,71 +79,90 @@ import RXVCSR::effective_privilege;
 import RXVTrace::trace_write_csr;
 import RXVTrace::trace_irq;
 import RXVTypes::commit_width;
+import RXVTypes::pmu_evt_sel;
 import RXVMMU::asid_bits;
 
 module RXVCSRFile #(
-    parameter logic [31:0] vendorid = 0,
-    parameter logic [31:0] archid   = 0,
-    parameter logic [31:0] impid    = 0
+    parameter logic [31:0] vendorid           = 0,
+    parameter logic [31:0] archid             = 0,
+    parameter logic [31:0] impid              = 0,
+    parameter logic [11:0] num_event_counters = 8
 ) (
-    input  logic                           clk,
-    input  logic                           reset,
+    input  logic                                 clk,
+    input  logic                                 reset,
     // Read port
-    input  logic        [            11:0] rd_addr,
-    output logic        [            31:0] rd_data,
+    input  logic        [                  11:0] rd_addr,
+    output logic        [                  31:0] rd_data,
     // Write port
-    input  logic        [commit_width-1:0] writeback_id,
-    input  logic        [            11:0] wr_addr,
-    input  logic        [            31:0] wr_data,
-    input  logic                           wr_en,
+    input  logic        [      commit_width-1:0] writeback_id,
+    input  logic        [                  11:0] wr_addr,
+    input  logic        [                  31:0] wr_data,
+    input  logic                                 wr_en,
     // Decode
-    output logic                           valid_csr_out,
+    output logic                                 valid_csr_out,
     // Exception handling
-    output logic        [            31:2] mepc_out,
-    output logic        [            31:2] sepc_out,
-    output mstatus_t                       mstatus_out,
-    output logic        [            31:2] exception_resteer_tgt,
-    input  RXVException                    exec_exception,
-    input  logic        [commit_width-1:0] exec_except_id,
-    input  logic                           exception_priv_change,
-    input  RXVException                    lsu_exception,
-    input  logic        [commit_width-1:0] lsu_except_id,
-    input  logic                           do_mret,
-    input  logic                           do_sret,
-    output logic                           irq_pending,
-    input  logic                           fetch_idle,
-    input  logic                           commit_empty,
-    input  logic                           exception_pending,
-    input  logic        [            31:2] irq_epc,
-    output logic                           irq_resteer,
-    output logic        [            31:2] irq_resteer_tgt,
+    output logic        [                  31:2] mepc_out,
+    output logic        [                  31:2] sepc_out,
+    output mstatus_t                             mstatus_out,
+    output logic        [                  31:2] exception_resteer_tgt,
+    input  RXVException                          exec_exception,
+    input  logic        [      commit_width-1:0] exec_except_id,
+    input  logic                                 exception_priv_change,
+    input  RXVException                          lsu_exception,
+    input  logic        [      commit_width-1:0] lsu_except_id,
+    input  logic                                 do_mret,
+    input  logic                                 do_sret,
+    output logic                                 irq_pending,
+    input  logic                                 fetch_idle,
+    input  logic                                 commit_empty,
+    input  logic                                 exception_pending,
+    input  logic        [                  31:2] irq_epc,
+    output logic                                 irq_resteer,
+    output logic        [                  31:2] irq_resteer_tgt,
     // Time
-    input  logic        [            63:0] mtime,
-    input  logic                           mtime_irq,
-    input  logic                           ext_irq,
+    input  logic        [                  63:0] mtime,
+    input  logic                                 mtime_irq,
+    input  logic                                 ext_irq,
     // PMU
-    output logic                           cyclesh_wren,
-    output logic                           cyclesl_wren,
-    output logic                           pmu_cycles_inhibit,
-    output logic                           instreth_wren,
-    output logic                           instretl_wren,
-    output logic                           pmu_instret_inhibit,
-    input  logic        [            63:0] pmu_cycles,
-    input  logic        [            63:0] pmu_instret,
-    output privilege_t                     current_privilege,
+    output logic                                 cyclesh_wren,
+    output logic                                 cyclesl_wren,
+    output logic                                 pmu_cycles_inhibit,
+    output logic                                 instreth_wren,
+    output logic                                 instretl_wren,
+    output logic                                 pmu_instret_inhibit,
+    input  logic        [                  63:0] pmu_cycles,
+    input  logic        [                  63:0] pmu_instret,
+    output privilege_t                           current_privilege,
+    output logic                                 m_mode,
+    output logic                                 s_mode,
+    output logic                                 u_mode,
+    output logic        [num_event_counters-1:0] pmu_m_inhibit,
+    output logic        [num_event_counters-1:0] pmu_s_inhibit,
+    output logic        [num_event_counters-1:0] pmu_u_inhibit,
+    output pmu_evt_sel  [num_event_counters-1:0] pmu_event_sel,
+    output logic        [num_event_counters-1:0] pmu_event_inhibit,
+    input  logic        [                  63:0] pmu_count [0:num_event_counters-1],
+    output logic        [num_event_counters-1:0] pmu_count_wren,
+    output logic        [num_event_counters-1:0] pmu_counth_wren,
+    output logic        [                  31:0] pmu_count_wrval,
+    // verilator lint_off UNUSED
+    input  logic        [num_event_counters-1:0] pmu_overflow,
+    // verilator lint_on UNUSED
     // PMP
-    output logic        [             1:0] pmp_addr_idx,
-    input  logic        [            31:0] pmp_addr,
-    input  logic        [            31:0] pmp_cfg,
-    output logic                           pmp_update_cfg,
-    output logic                           pmp_update_addr,
-    output logic        [             1:0] pmp_update_addr_idx,
+    output logic        [                   1:0] pmp_addr_idx,
+    input  logic        [                  31:0] pmp_addr,
+    input  logic        [                  31:0] pmp_cfg,
+    output logic                                 pmp_update_cfg,
+    output logic                                 pmp_update_addr,
+    output logic        [                   1:0] pmp_update_addr_idx,
     // MMU
-    output logic        [           31:12] translation_base,
-    output logic        [   asid_bits-1:0] active_asid,
-    output logic                           i_tlb_enabled,
-    output logic                           d_tlb_enabled
+    output logic        [                 31:12] translation_base,
+    output logic        [         asid_bits-1:0] active_asid,
+    output logic                                 i_tlb_enabled,
+    output logic                                 d_tlb_enabled
 );
+
+    localparam counter_bits = $clog2(num_event_counters);
 
     localparam logic [31:0] misa_u = 32'd1 << 20;
     localparam logic [31:0] misa_s = 32'd1 << 18;
@@ -195,6 +223,7 @@ module RXVCSRFile #(
     logic           [                          63:0] stimecmp_next;
     logic                                            stimecmp_wren;
     logic                                            stimecmph_wren;
+    scountovf_t                                      scountovf_reg;
 
     logic                                            exception_write;
     mepc_t                                           mepc_next;
@@ -235,7 +264,16 @@ module RXVCSRFile #(
     logic           [  $bits(current_privilege)-1:0] current_privilege_q;
     logic           [$bits(exception_privilege)-1:0] exception_privilege_q;
 
-    logic                                            stime_irq;
+`ifndef verible_no_format
+    mhpmevent_t  [                         num_event_counters-1:0] mhpmevent_reg;
+    mhpmevent_t  [                         num_event_counters-1:0] mhpmevent_next;
+    logic          [num_event_counters-1:0]                        mhpmevent_wren;
+    mhpmeventh_t [                         num_event_counters-1:0] mhpmeventh_reg;
+    mhpmeventh_t [                         num_event_counters-1:0] mhpmeventh_next;
+    logic          [num_event_counters-1:0]                        mhpmeventh_wren;
+`endif
+
+    logic stime_irq;
 
     always_comb begin
         current_privilege   = privilege_t'(current_privilege_q);
@@ -267,6 +305,7 @@ module RXVCSRFile #(
         logic [3:0] cause;
 
         cause = 4'b0;
+        if (mip_reg.lcofip & mie_reg.lcofie) cause = RXVCSR::MINT_LCOFI;
         if (mip_reg.ssip & mie_reg.ssie) cause = RXVCSR::MINT_S_SW;
         if (mip_reg.stip & mie_reg.stie) cause = RXVCSR::MINT_S_TIMER;
         if (mip_reg.seip & mie_reg.seie) cause = RXVCSR::MINT_S_EXT;
@@ -274,9 +313,9 @@ module RXVCSRFile #(
         if (mip_reg.mtip & mie_reg.mtie) cause = RXVCSR::MINT_M_TIMER;
         if (mip_reg.meip & mie_reg.meie) cause = RXVCSR::MINT_M_EXT;
 
-        take_irq             = irq_pending & fetch_idle & commit_empty & ~irq_resteer &
-                               ~lsu_exception.valid & ~exec_exception.valid &
-                               ~exception_pending & ~do_mret & ~do_sret;
+        take_irq = irq_pending & fetch_idle & commit_empty & ~irq_resteer &
+                   ~lsu_exception.valid & ~exec_exception.valid &
+                   ~exception_pending & ~do_mret & ~do_sret;
         if ((current_privilege == RXVCSR::PRIV_M && !mstatus_reg.mie) ||
             (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.sie && ~|active_m_irqs))
             take_irq = 1'b0;
@@ -327,7 +366,7 @@ module RXVCSRFile #(
     );
 
     always_comb begin
-        unique case (rd_addr)
+        unique case (rd_addr) inside
             RXVCSR::CSR_MISA: rd_data_next = misa;
             RXVCSR::CSR_MVENDORID: rd_data_next = vendorid;
             RXVCSR::CSR_MARCHID: rd_data_next = archid;
@@ -370,6 +409,15 @@ module RXVCSRFile #(
             RXVCSR::CSR_STIMECMPH: rd_data_next = stimecmp_reg[63:32];
             RXVCSR::CSR_PMPADDR0, RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3:
             rd_data_next = pmp_addr;
+            [RXVCSR::CSR_MHPMEVENT3 : RXVCSR::CSR_MHPMEVENT3 + num_event_counters - 1]:
+            rd_data_next = unpack_mhpmevent(mhpmevent_reg[rd_addr-RXVCSR::CSR_MHPMEVENT3]);
+            [RXVCSR::CSR_MHPMEVENT3H : RXVCSR::CSR_MHPMEVENT3H + num_event_counters - 1]:
+            rd_data_next = unpack_mhpmeventh(mhpmeventh_reg[rd_addr-RXVCSR::CSR_MHPMEVENT3H]);
+            [RXVCSR::CSR_MHPMCOUNTER3 : RXVCSR::CSR_MHPMCOUNTER3 + num_event_counters - 1]:
+            rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3)][31:0];
+            [RXVCSR::CSR_MHPMCOUNTER3H : RXVCSR::CSR_MHPMCOUNTER3H + num_event_counters - 1]:
+            rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3H)][63:32];
+            RXVCSR::CSR_SCOUNTOVF: rd_data_next = unpack_scountovf(scountovf_reg);
             default: rd_data_next = 32'b0;
         endcase
     end
@@ -386,13 +434,24 @@ module RXVCSRFile #(
         unique case (exception.cause)
             RXVCSR::CAUSE_INSTR_ACCESS_FAULT, RXVCSR::CAUSE_INSTR_PAGE_FAULT,
             RXVCSR::CAUSE_LOAD_ACCESS_FAULT, RXVCSR::CAUSE_LOAD_PAGE_FAULT,
-            RXVCSR::CAUSE_STORE_ACCESS_FAULT, RXVCSR::CAUSE_STORE_PAGE_FAULT:
-            exception_has_pval = 1'b1;
+            RXVCSR::CAUSE_STORE_ACCESS_FAULT, RXVCSR::CAUSE_STORE_PAGE_FAULT: begin
+                exception_has_pval = 1'b1;
+            end
             default: exception_has_pval = 1'b0;
         endcase
     end
 
+// verilog_format: off
     always_comb begin
+        integer evt_i;
+
+        for (evt_i = 0; evt_i < num_event_counters; ++evt_i) begin
+            mhpmevent_wren[counter_bits'(evt_i)]  = wr_en && wr_addr == RXVCSR::CSR_MHPMEVENT3 + 12'(evt_i);
+            mhpmeventh_wren[counter_bits'(evt_i)] = wr_en && wr_addr == RXVCSR::CSR_MHPMEVENT3H + 12'(evt_i);
+            pmu_count_wren[counter_bits'(evt_i)]  = wr_en && wr_addr == RXVCSR::CSR_MHPMCOUNTER3 + 12'(evt_i);
+            pmu_counth_wren[counter_bits'(evt_i)] = wr_en && wr_addr == RXVCSR::CSR_MHPMCOUNTER3H + 12'(evt_i);
+        end
+
         mscratch_wren = wr_en && wr_addr == RXVCSR::CSR_MSCRATCH;
         mtvec_wren = wr_en && wr_addr == RXVCSR::CSR_MTVEC;
         stvec_wren = wr_en && wr_addr == RXVCSR::CSR_STVEC;
@@ -409,36 +468,35 @@ module RXVCSRFile #(
         mideleg_wren = wr_en && wr_addr == RXVCSR::CSR_MIDELEG;
         mcounteren_wren = wr_en && wr_addr == RXVCSR::CSR_MCOUNTEREN;
         mcountinhibit_wren = wr_en && wr_addr == RXVCSR::CSR_MCOUNTINHIBIT;
-        mstatus_wren  = (exception_write && exception_target_level == RXVCSR::PRIV_M) ||
-                        do_mret || (wr_en && wr_addr == RXVCSR::CSR_MSTATUS);
-        sstatus_wren  = (exception_write && exception_target_level == RXVCSR::PRIV_S) ||
-                        do_sret || (wr_en && wr_addr == RXVCSR::CSR_SSTATUS);
-        mepc_wren = (exception_write && exception_target_level == RXVCSR::PRIV_M) ||
-                    (wr_en && wr_addr == RXVCSR::CSR_MEPC);
-        sepc_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S) ||
-                    (wr_en && wr_addr == RXVCSR::CSR_SEPC);
-        mcause_wren = (exception_write && exception_target_level == RXVCSR::PRIV_M) ||
-                      (wr_en && wr_addr == RXVCSR::CSR_MCAUSE);
-        scause_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S) ||
-                      (wr_en && wr_addr == RXVCSR::CSR_SCAUSE);
-        mtval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_M &&
-                      !take_irq && exception_has_val) ||
-                     (wr_en && wr_addr == RXVCSR::CSR_MTVAL);
-        stval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
-                      !take_irq && exception_has_val) ||
-                     (wr_en && wr_addr == RXVCSR::CSR_STVAL);
-        stpval_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
-                     !take_irq && exception_has_pval) ||
-                     (wr_en && wr_addr == RXVCSR::CSR_STPVAL);
-        stperms_wren = (exception_write && exception_target_level == RXVCSR::PRIV_S &&
-                     !take_irq && exception_has_pval) ||
-                     (wr_en && wr_addr == RXVCSR::CSR_STPERMS);
+        mstatus_wren  = ((exception_write && exception_target_level == RXVCSR::PRIV_M) ||
+                         do_mret || (wr_en && wr_addr == RXVCSR::CSR_MSTATUS));
+        sstatus_wren  = ((exception_write && exception_target_level == RXVCSR::PRIV_S) ||
+                         do_sret || (wr_en && wr_addr == RXVCSR::CSR_SSTATUS));
+        mepc_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_M) ||
+                     (wr_en && wr_addr == RXVCSR::CSR_MEPC));
+        sepc_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_S) ||
+                     (wr_en && wr_addr == RXVCSR::CSR_SEPC));
+        mcause_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_M) ||
+                       (wr_en && wr_addr == RXVCSR::CSR_MCAUSE));
+        scause_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_S) ||
+                       (wr_en && wr_addr == RXVCSR::CSR_SCAUSE));
+        mtval_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_M &&
+                       !take_irq && exception_has_val) ||
+                      (wr_en && wr_addr == RXVCSR::CSR_MTVAL));
+        stval_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_S &&
+                       !take_irq && exception_has_val) ||
+                      (wr_en && wr_addr == RXVCSR::CSR_STVAL));
+        stpval_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_S &&
+                        !take_irq && exception_has_pval) ||
+                       (wr_en && wr_addr == RXVCSR::CSR_STPVAL));
+        stperms_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_S &&
+                         !take_irq && exception_has_pval) ||
+                        (wr_en && wr_addr == RXVCSR::CSR_STPERMS));
         pmp_update_cfg = wr_en && wr_addr == RXVCSR::CSR_PMPCFG0;
         pmp_update_addr = wr_en && (wr_addr == RXVCSR::CSR_PMPADDR0 ||
                                     wr_addr == RXVCSR::CSR_PMPADDR1 ||
                                     wr_addr == RXVCSR::CSR_PMPADDR2 ||
                                     wr_addr == RXVCSR::CSR_PMPADDR3);
-
         sscratch_wren = wr_en && wr_addr == RXVCSR::CSR_SSCRATCH;
         stimecmp_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMP;
         stimecmph_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMPH;
@@ -446,9 +504,14 @@ module RXVCSRFile #(
         update_mstatus = mstatus_wren | sstatus_wren;
         update_mie = mie_wren | sie_wren;
     end
+// verilog_format: on
 
     always_comb begin
-        mepc_next = pack_mepc(wr_data);
+        pmu_count_wrval = wr_data;
+    end
+
+    always_comb begin
+          mepc_next = pack_mepc(wr_data);
         if (exception_write && exception_target_level == RXVCSR::PRIV_M)
             mepc_next.addr = exception.pc;
     end
@@ -457,7 +520,6 @@ module RXVCSRFile #(
         sepc_next = pack_sepc(wr_data);
         if (exception_write && exception_target_level == RXVCSR::PRIV_S)
             sepc_next.addr = exception.pc;
-
     end
 
     always_comb begin
@@ -569,10 +631,29 @@ module RXVCSRFile #(
     end
 
     always_comb begin
-        mcountinhibit_next = pack_mcountinhibit(wr_data);
+        mcountinhibit_next  = pack_mcountinhibit(wr_data);
 
-        pmu_cycles_inhibit = mcountinhibit_reg.cy;
+        pmu_cycles_inhibit  = mcountinhibit_reg.cy;
         pmu_instret_inhibit = mcountinhibit_reg.ir;
+    end
+
+    always_comb begin
+        integer evt_i;
+
+        mhpmevent_next  = mhpmevent_reg;
+        mhpmeventh_next = mhpmeventh_reg;
+
+        for (evt_i = 0; evt_i < num_event_counters; ++evt_i) begin
+            if (pmu_overflow[evt_i]) mhpmeventh_next[evt_i].of = 1'b1;
+            if (mhpmevent_wren[evt_i]) mhpmevent_next[evt_i] = pack_mhpmevent(wr_data);
+            if (mhpmeventh_wren[evt_i]) mhpmeventh_next[evt_i] = pack_mhpmeventh(wr_data);
+        end
+    end
+
+    always_comb begin
+        m_mode = current_privilege == RXVCSR::PRIV_M;
+        s_mode = current_privilege == RXVCSR::PRIV_S;
+        u_mode = current_privilege == RXVCSR::PRIV_U;
     end
 
     always_comb begin
@@ -582,6 +663,8 @@ module RXVCSRFile #(
         mip_next.mtip = mtime_irq;
         mip_next.stip = stime_irq;
         mip_next.seip = ext_irq;
+        if (|pmu_overflow)
+            mip_next.lcofip = 1'b1;
     end
 
     always_comb begin
@@ -600,8 +683,23 @@ module RXVCSRFile #(
     end
 
     always_comb begin
-        // verilog_format: off
-        unique case (rd_addr)
+        logic [num_event_counters-1:0] ovf_mask;
+        logic [num_event_counters-1:0] ovf_status;
+
+        unique case (current_privilege)
+        RXVCSR::PRIV_M: ovf_mask = {num_event_counters{1'b1}};
+        RXVCSR::PRIV_S: ovf_mask = mcounteren_reg.hpm[num_event_counters-1:0];
+        default: ovf_mask = {num_event_counters{1'b0}};
+        endcase
+
+        for (int i = 0; i < num_event_counters; ++i)
+            ovf_status[i] = mhpmeventh_reg[i].of;
+        scountovf_reg = pack_scountovf({{(29-num_event_counters){1'b0}}, ovf_status & ovf_mask, 3'b0});
+    end
+
+    // verilog_format: off
+    always_comb begin
+        unique case (rd_addr) inside
             // Debug
             RXVCSR::CSR_TSELECT, RXVCSR::CSR_TDATA1, RXVCSR::CSR_TDATA2, RXVCSR::CSR_TDATA3,
             // Machine
@@ -613,27 +711,35 @@ module RXVCSRFile #(
             RXVCSR::CSR_MIP, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG,
             RXVCSR::CSR_MISA, RXVCSR::CSR_PMPCFG0, RXVCSR::CSR_PMPADDR0,
             RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3,
-            RXVCSR::CSR_MCOUNTEREN, RXVCSR::CSR_MCOUNTINHIBIT,
+            RXVCSR::CSR_MCOUNTEREN, RXVCSR::CSR_MCOUNTINHIBIT, RXVCSR::CSR_MSTATUSH,
+            RXVCSR::CSR_MENVCFG, RXVCSR::CSR_MENVCFGH, RXVCSR::CSR_MCONFIGPTR,
             // Supervisor
             RXVCSR::CSR_SSTATUS, RXVCSR::CSR_SEDELEG, RXVCSR::CSR_SIDELEG, RXVCSR::CSR_SIE,
             RXVCSR::CSR_SIP, RXVCSR::CSR_STVEC, RXVCSR::CSR_SCOUNTEREN, RXVCSR::CSR_SSCRATCH,
             RXVCSR::CSR_SEPC, RXVCSR::CSR_SCAUSE, RXVCSR::CSR_STVAL, RXVCSR::CSR_STPVAL,
             RXVCSR::CSR_STPERMS, RXVCSR::CSR_STIMECMP, RXVCSR::CSR_STIMECMPH,
+            RXVCSR::CSR_SCOUNTOVF, RXVCSR::CSR_SENVCFG,
             // User
             RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH,
             RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH:
-                valid_csr_out = 1'b1;
+            valid_csr_out = 1'b1;
             // SATP special case for TVM
             RXVCSR::CSR_SATP:
-                valid_csr_out = current_privilege == RXVCSR::PRIV_M ||
-                    (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
+            valid_csr_out = current_privilege == RXVCSR::PRIV_M || (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
+            [RXVCSR::CSR_MHPMEVENT3 : RXVCSR::CSR_MHPMEVENT3 + num_event_counters - 1]:
+            valid_csr_out = 1'b1;
+            [RXVCSR::CSR_MHPMEVENT3H : RXVCSR::CSR_MHPMEVENT3H + num_event_counters - 1]:
+            valid_csr_out = 1'b1;
+            [RXVCSR::CSR_MHPMCOUNTER3 : RXVCSR::CSR_MHPMCOUNTER3 + num_event_counters - 1]:
+            valid_csr_out = 1'b1;
+            [RXVCSR::CSR_MHPMCOUNTER3H : RXVCSR::CSR_MHPMCOUNTER3H + num_event_counters - 1]:
+            valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase
 
 `ifdef verilator
         if (rd_addr == RXVCSR::CSR_RXV_EMUCTL) valid_csr_out = 1'b1;
 `endif
-        // verilog_format: on
 
         if (current_privilege == RXVCSR::PRIV_S && rd_addr[9:8] == 2'b11) valid_csr_out = 1'b0;
         if (current_privilege == RXVCSR::PRIV_U && rd_addr[9:8] != 2'b00) valid_csr_out = 1'b0;
@@ -647,6 +753,8 @@ module RXVCSRFile #(
             endcase
         end
     end
+    // verilog_format: on
+
 
     always_comb begin
         mepc_out = mepc_reg.addr;
@@ -1071,5 +1179,36 @@ module RXVCSRFile #(
         .d    (stimecmp_next),
         .q    (stimecmp_reg)
     );
+
+    genvar i;
+    generate
+        for (i = 0; i < num_event_counters; ++i) begin : event_counters
+            RXVDFF #(
+                .width($bits(mhpmevent_t))
+            ) mhpmevent_dff (
+                .clk  (clk),
+                .reset(reset),
+                .en   (1'b1),
+                .d    (mhpmevent_next[i]),
+                .q    (mhpmevent_reg[i])
+            );
+
+            RXVDFF #(
+                .width($bits(mhpmeventh_t))
+            ) mhpmeventh_dff (
+                .clk  (clk),
+                .reset(reset),
+                .en   (1'b1),
+                .d    (mhpmeventh_next[i]),
+                .q    (mhpmeventh_reg[i])
+            );
+
+            assign pmu_m_inhibit[i]     = mhpmeventh_reg[i].minh;
+            assign pmu_s_inhibit[i]     = mhpmeventh_reg[i].sinh;
+            assign pmu_u_inhibit[i]     = mhpmeventh_reg[i].uinh;
+            assign pmu_event_sel[i]     = mhpmevent_reg[i].sel;
+            assign pmu_event_inhibit[i] = mcountinhibit_reg.hpm[i];
+        end
+    endgenerate
 
 endmodule

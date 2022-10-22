@@ -7,6 +7,7 @@ good performance and synthesizable for a variety of FPGAs.  Additional
 standard extensions include:
 
   - SSTC (supervisor timer compare)
+  - Sscofpmf (supervisor PMU + filter)
 
 ![Linux](documentation/images/rxv-cowsay.gif)
 
@@ -44,6 +45,28 @@ exception and are committed in-order.
 TLB/cache misses or accesses to device-memory cause newer instructions to be
 killed and reissued once the LSU is no longer busy to prevent architecturally
 visible accesses from starting in the shadow of an exception.
+
+## Performance Counters
+
+There are a configurable number of performance counters in addition to the
+mcycle+minstret fixed counters which can be used for profiling:
+
+    - PMU_CYCLES
+    - PMU_INSTRET
+    - PMU_BRANCH
+    - PMU_BRANCH_MISPRED
+    - PMU_FE_STALL
+    - PMU_BE_STALL
+    - PMU_L1D_READ
+    - PMU_L1D_READ_MISS
+    - PMU_L1D_WRITE
+    - PMU_L1D_WRITE_MISS
+    - PMU_L1I_READ
+    - PMU_L1I_READ_MISS
+    - PMU_DTLB_READ
+    - PMU_DTLB_READ_MISS
+    - PMU_ITLB_READ
+    - PMU_ITLB_READ_MISS
 
 ## Extensions
 

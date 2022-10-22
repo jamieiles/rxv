@@ -11,6 +11,9 @@ import RXVTypes::rxv_alu_op;
 import RXVTypes::rxv_csr_op;
 import RXVTypes::rxv_uop;
 import RXVTypes::commit_width;
+import RXVTypes::rxv_pmu_evt;
+import RXVTypes::pmu_evt_bus;
+import RXVTypes::pmu_evt_sel;
 import RXVTrace::trace_write_reg;
 import RXVTrace::trace_write_csr;
 import RXVCSR::RXVException;
@@ -36,6 +39,7 @@ module RXVCore #(
     parameter int          banked_register_file   = 0,
     parameter int          num_itlb_entries       = 8,
     parameter int          num_dtlb_entries       = 8,
+    parameter int          num_event_counters     = 4,
     parameter logic [31:0] reset_address          = 32'h80000000,
     parameter logic [31:0] vendorid               = 0,
     parameter logic [31:0] archid                 = 0,
@@ -53,250 +57,269 @@ module RXVCore #(
     input logic                       ext_irq
 );
 
-    logic          [             31:2] icache_address;
-    logic                              icache_valid;
-    logic                              icache_busy;
-    logic          [             31:0] icache_dout;
-    logic                              icache_invalidate;
-    logic          [             31:2] icache_phys;
-    logic                              icache_phys_valid;
+    pmu_evt_bus                             pmu_events;
+    logic          [                  31:2] icache_address;
+    logic                                   icache_valid;
+    logic                                   icache_busy;
+    logic          [                  31:0] icache_dout;
+    logic                                   icache_invalidate;
+    logic          [                  31:2] icache_phys;
+    logic                                   icache_phys_valid;
 
-    logic          [             31:2] fetch_predict_address;
-    rxv_prediction                     fetch_prediction;
-    logic                              fetch_idle;
-    translation_t                      fetch_translation;
-    logic                              fetch_access_fault;
-    logic                              fetch_tlb_busy;
-    logic                              fetch_tlb_valid;
-    logic          [             31:2] irq_epc;
-    privilege_t                        current_privilege;
+    logic          [                  31:2] fetch_predict_address;
+    rxv_prediction                          fetch_prediction;
+    logic                                   fetch_idle;
+    translation_t                           fetch_translation;
+    logic                                   fetch_access_fault;
+    logic                                   fetch_tlb_busy;
+    logic                                   fetch_tlb_valid;
+    logic          [                  31:2] irq_epc;
+    privilege_t                             current_privilege;
 
-    logic                              schedule_int;
-    logic                              schedule_lsu;
-    logic                              schedule_mul;
-    logic                              schedule_div;
-    logic                              int_ready;
-    logic                              lsu_ready;
-    logic                              mul_ready;
-    logic                              div_ready;
+    logic                                   schedule_int;
+    logic                                   schedule_lsu;
+    logic                                   schedule_mul;
+    logic                                   schedule_div;
+    logic                                   int_ready;
+    logic                                   lsu_ready;
+    logic                                   mul_ready;
+    logic                                   div_ready;
 
-    logic                              decode_resteer;
-    logic          [             31:2] decode_resteer_tgt;
-    logic                              decode_fe_stall;
-    logic                              decode_valid;
-    logic                              decode_page_fault;
-    logic                              decode_pmp_fault;
-    logic          [             31:2] decode_pc;
-    stperms_t                          decode_perms;
-    logic          [             31:2] decode_next_pc;
-    rxv_prediction                     decode_prediction;
-    logic          [             31:0] decode_instr;
-    logic                              decode_predict_kill;
-    logic          [             31:2] decode_kill_address;
-    logic          [             31:1] exec_branch_target;
-    logic          [             11:0] decode_csr_addr;
-    logic                              decode_valid_csr;
-    RXVException                       decode_exception;
-    logic          [ commit_width-1:0] decode_except_id;
+    logic                                   decode_resteer;
+    logic          [                  31:2] decode_resteer_tgt;
+    logic                                   decode_fe_stall;
+    logic                                   decode_valid;
+    logic                                   decode_page_fault;
+    logic                                   decode_pmp_fault;
+    logic          [                  31:2] decode_pc;
+    stperms_t                               decode_perms;
+    logic          [                  31:2] decode_next_pc;
+    rxv_prediction                          decode_prediction;
+    logic          [                  31:0] decode_instr;
+    logic                                   decode_predict_kill;
+    logic          [                  31:2] decode_kill_address;
+    logic          [                  31:1] exec_branch_target;
+    logic          [                  11:0] decode_csr_addr;
+    logic                                   decode_valid_csr;
+    RXVException                            decode_exception;
+    logic          [      commit_width-1:0] decode_except_id;
 
-    logic                              exec_resteer;
-    logic          [             31:2] exec_resteer_tgt;
-    logic                              int_exec_resteer;
-    logic          [             31:2] int_exec_resteer_tgt;
-    logic                              exec_predict_update;
-    logic          [              1:0] exec_predict_prev_strength;
-    logic                              exec_update_predict_taken;
-    logic          [             31:2] exec_update_predict_address;
-    logic          [             31:2] exec_update_predict_target;
-    logic          [             31:0] exec_immed;
-    rxv_opcode                         exec_opcode;
-    rxv_uop                            exec_uop;
-    logic                              exec_bypass_rs1;
-    logic                              exec_bypass_rs2;
-    logic          [             31:0] exec_csr_rd_data;
-    logic          [             11:0] exec_csr_wr_addr;
-    logic          [             31:0] exec_csr_wr_data;
-    logic                              exec_csr_wr_en;
-    logic          [             31:2] mepc_val;
-    logic          [             31:2] sepc_val;
-    mstatus_t                          mstatus_val;
-    RXVException                       exec_exception;
-    logic          [ commit_width-1:0] exec_except_id;
-    logic                              do_mret;
-    logic                              do_sret;
-    logic                              irq_pending;
-    logic          [ commit_width-1:0] int_exec_complete_id;
-    logic                              int_exec_complete_valid;
-    logic                              int_exec_reg_wr_en;
-    phys_reg_tag                       int_exec_reg_wr_addr;
-    logic          [             31:0] int_exec_reg_wr_data;
+    logic                                   exec_resteer;
+    logic          [                  31:2] exec_resteer_tgt;
+    logic                                   int_exec_resteer;
+    logic          [                  31:2] int_exec_resteer_tgt;
+    logic                                   exec_predict_update;
+    logic          [                   1:0] exec_predict_prev_strength;
+    logic                                   exec_update_predict_taken;
+    logic          [                  31:2] exec_update_predict_address;
+    logic          [                  31:2] exec_update_predict_target;
+    logic          [                  31:0] exec_immed;
+    rxv_opcode                              exec_opcode;
+    rxv_uop                                 exec_uop;
+    logic                                   exec_bypass_rs1;
+    logic                                   exec_bypass_rs2;
+    logic          [                  31:0] exec_csr_rd_data;
+    logic          [                  11:0] exec_csr_wr_addr;
+    logic          [                  31:0] exec_csr_wr_data;
+    logic                                   exec_csr_wr_en;
+    logic          [                  31:2] mepc_val;
+    logic          [                  31:2] sepc_val;
+    mstatus_t                               mstatus_val;
+    RXVException                            exec_exception;
+    logic          [      commit_width-1:0] exec_except_id;
+    logic                                   do_mret;
+    logic                                   do_sret;
+    logic                                   irq_pending;
+    logic          [      commit_width-1:0] int_exec_complete_id;
+    logic                                   int_exec_complete_valid;
+    logic                                   int_exec_reg_wr_en;
+    phys_reg_tag                            int_exec_reg_wr_addr;
+    logic          [                  31:0] int_exec_reg_wr_data;
 
-    rxv_alu_op                         exec_alu_op;
-    rxv_csr_op                         exec_csr_op;
-    logic                              int_exec_valid;
-    logic                              exec_have_writeback;
-    phys_reg_tag                       exec_rd;
-    logic          [ commit_width-1:0] exec_id;
-    logic          [             31:2] exec_pc;
-    logic          [             31:2] exec_next_pc;
-    rxv_prediction                     exec_prediction;
+    rxv_alu_op                              exec_alu_op;
+    rxv_csr_op                              exec_csr_op;
+    logic                                   int_exec_valid;
+    logic                                   exec_have_writeback;
+    phys_reg_tag                            exec_rd;
+    logic          [      commit_width-1:0] exec_id;
+    logic          [                  31:2] exec_pc;
+    logic          [                  31:2] exec_next_pc;
+    rxv_prediction                          exec_prediction;
 
-    logic                              lsu_exec_valid;
-    logic                              lsu_busy;
-    RXVException                       lsu_exception;
-    logic          [ commit_width-1:0] lsu_except_id;
-    logic                              lsu_resteer;
-    logic          [             31:2] lsu_resteer_tgt;
+    logic                                   lsu_exec_valid;
+    logic                                   lsu_busy;
+    RXVException                            lsu_exception;
+    logic          [      commit_width-1:0] lsu_except_id;
+    logic                                   lsu_resteer;
+    logic          [                  31:2] lsu_resteer_tgt;
 
-    logic                              mul_exec_valid;
-    logic          [ commit_width-1:0] mul_exec_complete_id;
-    logic                              mul_exec_complete_valid;
-    logic                              mul_exec_reg_wr_en;
-    phys_reg_tag                       mul_exec_reg_wr_addr;
-    logic          [             31:0] mul_exec_reg_wr_data;
+    logic                                   mul_exec_valid;
+    logic          [      commit_width-1:0] mul_exec_complete_id;
+    logic                                   mul_exec_complete_valid;
+    logic                                   mul_exec_reg_wr_en;
+    phys_reg_tag                            mul_exec_reg_wr_addr;
+    logic          [                  31:0] mul_exec_reg_wr_data;
 
-    logic                              div_exec_valid;
-    logic          [ commit_width-1:0] div_exec_complete_id;
-    logic                              div_exec_complete_valid;
-    logic                              div_exec_reg_wr_en;
-    phys_reg_tag                       div_exec_reg_wr_addr;
-    logic          [             31:0] div_exec_reg_wr_data;
-    logic                              div_exec_busy;
+    logic                                   div_exec_valid;
+    logic          [      commit_width-1:0] div_exec_complete_id;
+    logic                                   div_exec_complete_valid;
+    logic                                   div_exec_reg_wr_en;
+    phys_reg_tag                            div_exec_reg_wr_addr;
+    logic          [                  31:0] div_exec_reg_wr_data;
+    logic                                   div_exec_busy;
 
-    logic          [ commit_width-1:0] lsu_complete_id;
-    logic                              lsu_complete_valid;
-    logic                              lsu_reg_wr_en;
-    phys_reg_tag                       lsu_reg_wr_addr;
-    logic          [             31:0] lsu_reg_wr_data;
-    logic                              lsu_reg_busy;
-    logic                              lsu_busy_kill;
-    logic                              lsu_global_stall_start;
-    logic                              lsu_global_stall_end;
-    logic          [             31:2] lsu_dcache_address;
-    logic                              lsu_dcache_valid;
-    logic                              lsu_dcache_busy;
-    logic          [             31:0] lsu_dcache_din;
-    logic                              lsu_dcache_wren;
-    logic          [              3:0] lsu_dcache_bytesel;
-    logic          [             31:0] lsu_dcache_dout;
-    logic          [             31:2] lsu_dcache_phys_in;
-    logic                              lsu_dcache_phys_valid;
-    logic                              lsu_dcache_invalidate;
-    logic                              lsu_dcache_clean;
-    translation_t                      lsu_translation;
-    logic                              lsu_access_fault;
-    logic                              lsu_tlb_busy;
-    tlb_inv_op                         lsu_tlb_inv_op;
-    logic          [    asid_bits-1:0] lsu_tlb_inv_asid;
-    logic          [            31:12] lsu_tlb_inv_addr;
+    logic          [      commit_width-1:0] lsu_complete_id;
+    logic                                   lsu_complete_valid;
+    logic                                   lsu_reg_wr_en;
+    phys_reg_tag                            lsu_reg_wr_addr;
+    logic          [                  31:0] lsu_reg_wr_data;
+    logic                                   lsu_reg_busy;
+    logic                                   lsu_busy_kill;
+    logic                                   lsu_global_stall_start;
+    logic                                   lsu_global_stall_end;
+    logic          [                  31:2] lsu_dcache_address;
+    logic                                   lsu_dcache_valid;
+    logic                                   lsu_dcache_busy;
+    logic          [                  31:0] lsu_dcache_din;
+    logic                                   lsu_dcache_wren;
+    logic          [                   3:0] lsu_dcache_bytesel;
+    logic          [                  31:0] lsu_dcache_dout;
+    logic          [                  31:2] lsu_dcache_phys_in;
+    logic                                   lsu_dcache_phys_valid;
+    logic                                   lsu_dcache_invalidate;
+    logic                                   lsu_dcache_clean;
+    translation_t                           lsu_translation;
+    logic                                   lsu_access_fault;
+    logic                                   lsu_tlb_busy;
+    tlb_inv_op                              lsu_tlb_inv_op;
+    logic          [         asid_bits-1:0] lsu_tlb_inv_asid;
+    logic          [                 31:12] lsu_tlb_inv_addr;
 
-    phys_reg_tag                       rd_addr_a;
-    phys_reg_tag                       rd_addr_b;
-    logic          [             31:0] rd_data_a;
-    logic          [             31:0] rd_data_b;
-    logic                              reg_wr_en;
-    phys_reg_tag                       reg_wr_addr;
-    logic          [             31:0] reg_wr_data;
-    logic          [             31:0] rs1_data;
-    logic          [             31:0] rs2_data;
+    phys_reg_tag                            rd_addr_a;
+    phys_reg_tag                            rd_addr_b;
+    logic          [                  31:0] rd_data_a;
+    logic          [                  31:0] rd_data_b;
+    logic                                   reg_wr_en;
+    phys_reg_tag                            reg_wr_addr;
+    logic          [                  31:0] reg_wr_data;
+    logic          [                  31:0] rs1_data;
+    logic          [                  31:0] rs2_data;
 
-    renamed_reg                        rename_in;
-    logic                              rename_valid;
-    phys_reg_tag                       stale_phys_reg;
-    logic                              commit_valid;
-    logic                              rename_rollback;
-    arch_reg_tag                       lookup_tag_in               [1:0];
-    phys_reg_tag                       lookup_tag_out              [1:0];
+    renamed_reg                             rename_in;
+    logic                                   rename_valid;
+    phys_reg_tag                            stale_phys_reg;
+    logic                                   commit_valid;
+    logic                                   rename_rollback;
+    arch_reg_tag                            lookup_tag_in               [               1:0  ];
+    phys_reg_tag                            lookup_tag_out              [               1:0  ];
 
-    logic                              reg_alloc_empty;
-    logic                              reg_alloc;
-    logic                              reg_free;
-    phys_reg_tag                       reg_alloc_phys;
-    phys_reg_tag                       reg_free_phys;
+    logic                                   reg_alloc_empty;
+    logic                                   reg_alloc;
+    logic                                   reg_free;
+    phys_reg_tag                            reg_alloc_phys;
+    phys_reg_tag                            reg_free_phys;
 
-    logic          [             31:2] dcache_address;
-    logic                              dcache_valid;
-    logic                              dcache_busy;
-    logic          [             31:0] dcache_din;
-    logic                              dcache_wren;
-    logic          [              3:0] dcache_bytesel;
-    logic          [             31:0] dcache_dout;
-    logic                              dcache_invalidate;
-    logic                              dcache_clean;
-    logic          [             31:2] dcache_phys_in;
-    logic                              dcache_phys_valid;
-    logic          [             31:2] dcache_phys_out;
-    logic                              dcache_device_memory;
+    logic          [                  31:2] dcache_address;
+    logic                                   dcache_valid;
+    logic                                   dcache_busy;
+    logic          [                  31:0] dcache_din;
+    logic                                   dcache_wren;
+    logic          [                   3:0] dcache_bytesel;
+    logic          [                  31:0] dcache_dout;
+    logic                                   dcache_invalidate;
+    logic                                   dcache_clean;
+    logic          [                  31:2] dcache_phys_in;
+    logic                                   dcache_phys_valid;
+    logic          [                  31:2] dcache_phys_out;
+    logic                                   dcache_device_memory;
 
-    logic                              commit_full;
-    commit_entry                       dispatch_in;
-    logic                              dispatch_valid;
-    logic          [ commit_width-1:0] dispatch_id;
-    logic                              kill_valid;
-    logic                              resteer_kill_valid;
-    logic          [ commit_width-1:0] except_id;
-    logic                              except_valid;
-    logic                              exception_pending;
-    logic                              global_stall_active;
-    logic                              commit_empty;
-    commit_entry                       commit_out;
-    logic                              commit_complete_out;
-    logic                              commit_killed_out;
-    logic                              commit_excepted_out;
-    renamed_reg                        commit_rename_out;
-    logic                              commit_rename_valid;
+    logic                                   commit_full;
+    commit_entry                            dispatch_in;
+    logic                                   dispatch_valid;
+    logic          [      commit_width-1:0] dispatch_id;
+    logic                                   kill_valid;
+    logic                                   resteer_kill_valid;
+    logic          [      commit_width-1:0] except_id;
+    logic                                   except_valid;
+    logic                                   exception_pending;
+    logic                                   global_stall_active;
+    logic                                   commit_empty;
+    commit_entry                            commit_out;
+    logic                                   commit_complete_out;
+    logic                                   commit_killed_out;
+    logic                                   commit_excepted_out;
+    renamed_reg                             commit_rename_out;
+    logic                                   commit_rename_valid;
     //verilator lint_off UNUSED
-    logic          [ commit_width-1:0] commit_id;
+    logic          [      commit_width-1:0] commit_id;
     //verilator lint_on UNUSED
-    logic                              retired;
-    logic                              exception_cleanup;
-    logic                              exception_priv_change;
-    logic                              exception_busy_wait;
-    logic                              exception_resteer;
-    logic          [             31:2] exception_resteer_tgt;
+    logic                                   retired;
+    logic                                   exception_cleanup;
+    logic                                   exception_priv_change;
+    logic                                   exception_busy_wait;
+    logic                                   exception_resteer;
+    logic          [                  31:2] exception_resteer_tgt;
 
-    phys_reg_tag                       busy_reg_in;
-    logic                              busy_valid_in;
-    logic          [num_phys_regs-1:0] scoreboard_busy;
+    phys_reg_tag                            busy_reg_in;
+    logic                                   busy_valid_in;
+    logic          [     num_phys_regs-1:0] scoreboard_busy;
 
-    logic                              pmu_cyclesh_wren;
-    logic                              pmu_cyclesl_wren;
-    logic                              pmu_cycles_inhibit;
-    logic                              pmu_instreth_wren;
-    logic                              pmu_instretl_wren;
-    logic                              pmu_instret_inhibit;
-    logic          [             63:0] pmu_cycles;
-    logic          [             63:0] pmu_instret;
+    logic                                   pmu_cyclesh_wren;
+    logic                                   pmu_cyclesl_wren;
+    logic                                   pmu_cycles_inhibit;
+    logic                                   pmu_instreth_wren;
+    logic                                   pmu_instretl_wren;
+    logic                                   pmu_instret_inhibit;
+    logic          [                  63:0] pmu_cycles;
+    logic          [                  63:0] pmu_instret;
+    logic                                   m_mode;
+    logic                                   s_mode;
+    logic                                   u_mode;
+    logic          [num_event_counters-1:0] pmu_m_inhibit;
+    logic          [num_event_counters-1:0] pmu_s_inhibit;
+    logic          [num_event_counters-1:0] pmu_u_inhibit;
+    logic          [num_event_counters-1:0] pmu_event_inhibit;
+    logic          [                  63:0] pmu_count                   [num_event_counters];
+    logic          [num_event_counters-1:0] pmu_count_wren;
+    logic          [num_event_counters-1:0] pmu_counth_wren;
+    logic          [                  31:0] pmu_count_wrval;
+    logic          [num_event_counters-1:0] pmu_overflow;
 
-    logic                              irq_resteer;
-    logic          [             31:2] irq_resteer_tgt;
+    logic                                   irq_resteer;
+    logic          [                  31:2] irq_resteer_tgt;
 
-    logic          [             31:2] mmu_dcache_address;
-    logic                              mmu_dcache_valid;
-    logic                              mmu_dcache_busy;
-    logic          [             31:0] mmu_dcache_rdata;
-    logic          [             31:2] mmu_dcache_phys_in;
-    logic                              mmu_dcache_phys_valid;
-    logic                              mmu_busy;
-    logic                              mmu_dcache_grant;
-    logic          [            31:12] translation_base;
-    logic          [    asid_bits-1:0] active_asid;
-    logic                              i_tlb_enabled;
-    logic                              d_tlb_enabled;
-    logic                              pmp_update_cfg;
-    logic          [              1:0] pmp_update_addr_idx;
-    logic                              pmp_update_addr;
-    logic          [             31:0] pmp_cfg_read_data;
-    logic          [              1:0] pmp_address_read_idx;
-    logic          [             31:0] pmp_address_read_data;
-    logic          [             31:2] pmp_data_addr;
-    pmp_perms                          pmp_data_perms;
-    logic          [             31:2] pmp_instr_addr;
-    pmp_perms                          pmp_instr_perms;
+    logic          [                  31:2] mmu_dcache_address;
+    logic                                   mmu_dcache_valid;
+    logic                                   mmu_dcache_busy;
+    logic          [                  31:0] mmu_dcache_rdata;
+    logic          [                  31:2] mmu_dcache_phys_in;
+    logic                                   mmu_dcache_phys_valid;
+    logic                                   mmu_busy;
+    logic                                   mmu_dcache_grant;
+    logic          [                 31:12] translation_base;
+    logic          [         asid_bits-1:0] active_asid;
+    logic                                   i_tlb_enabled;
+    logic                                   d_tlb_enabled;
+    logic                                   pmp_update_cfg;
+    logic          [                   1:0] pmp_update_addr_idx;
+    logic                                   pmp_update_addr;
+    logic          [                  31:0] pmp_cfg_read_data;
+    logic          [                   1:0] pmp_address_read_idx;
+    logic          [                  31:0] pmp_address_read_data;
+    logic          [                  31:2] pmp_data_addr;
+    pmp_perms                               pmp_data_perms;
+    logic          [                  31:2] pmp_instr_addr;
+    pmp_perms                               pmp_instr_perms;
+
+`ifndef verible_no_format
+    pmu_evt_sel [num_event_counters-1:0] pmu_event_sel;
+`endif
 
 `ifdef RXV_TRACE
     logic [31:12] decode_phys;
 `endif  // RXV_TRACE
+
+    assign pmu_events[RXVTypes::PMU_NONE] = 1'b0;
 
     RXVICache #(
         .nr_lines       (icache_nr_lines),
@@ -306,16 +329,18 @@ module RXVCore #(
 `ifdef USE_POWER_PINS
         `POWER_PIN_CONNECT
 `endif
-        .clk       (clk),
-        .reset     (reset),
-        .bus       (instruction_bus),
-        .address   (icache_address),
-        .valid     (icache_valid),
-        .busy      (icache_busy),
-        .dout      (icache_dout),
-        .invalidate(icache_invalidate),
-        .phys_in   (icache_phys),
-        .phys_valid(icache_phys_valid)
+        .clk              (clk),
+        .reset            (reset),
+        .bus              (instruction_bus),
+        .address          (icache_address),
+        .valid            (icache_valid),
+        .busy             (icache_busy),
+        .dout             (icache_dout),
+        .invalidate       (icache_invalidate),
+        .pmu_icache_access(pmu_events[RXVTypes::PMU_L1I_READ]),
+        .pmu_icache_miss  (pmu_events[RXVTypes::PMU_L1I_READ_MISS]),
+        .phys_in          (icache_phys),
+        .phys_valid       (icache_phys_valid)
     );
 
     RXVBranchPredictor #(
@@ -458,7 +483,9 @@ module RXVCore #(
         .kill_valid                 (kill_valid),
         .exec_resteer               (exec_resteer),
         .decode_exception           (decode_exception),
-        .decode_except_id           (decode_except_id)
+        .decode_except_id           (decode_except_id),
+        .pmu_fe_stall               (pmu_events[RXVTypes::PMU_FE_STALL]),
+        .pmu_be_stall               (pmu_events[RXVTypes::PMU_BE_STALL])
     );
 
     RXVIntExec RXVIntExec (
@@ -504,7 +531,9 @@ module RXVCore #(
         .decode_except_id           (decode_except_id),
         .exec_exception             (exec_exception),
         .exec_except_id             (exec_except_id),
-        .current_privilege          (current_privilege)
+        .current_privilege          (current_privilege),
+        .pmu_branch_exec            (pmu_events[RXVTypes::PMU_BRANCH]),
+        .pmu_branch_mispred         (pmu_events[RXVTypes::PMU_BRANCH_MISPRED])
     );
 
     RXVMulExec RXVMulExec (
@@ -614,9 +643,10 @@ module RXVCore #(
     );
 
     RXVCSRFile #(
-        .vendorid(vendorid),
-        .archid  (archid),
-        .impid   (impid)
+        .vendorid          (vendorid),
+        .archid            (archid),
+        .impid             (impid),
+        .num_event_counters(num_event_counters)
     ) RXVCSRFile (
         .clk                  (clk),
         .reset                (reset),
@@ -657,6 +687,19 @@ module RXVCore #(
         .pmu_cycles           (pmu_cycles),
         .pmu_instret          (pmu_instret),
         .current_privilege    (current_privilege),
+        .m_mode               (m_mode),
+        .s_mode               (s_mode),
+        .u_mode               (u_mode),
+        .pmu_m_inhibit        (pmu_m_inhibit),
+        .pmu_s_inhibit        (pmu_s_inhibit),
+        .pmu_u_inhibit        (pmu_u_inhibit),
+        .pmu_event_sel        (pmu_event_sel),
+        .pmu_event_inhibit    (pmu_event_inhibit),
+        .pmu_count            (pmu_count),
+        .pmu_count_wren       (pmu_count_wren),
+        .pmu_counth_wren      (pmu_counth_wren),
+        .pmu_count_wrval      (pmu_count_wrval),
+        .pmu_overflow         (pmu_overflow),
         .pmp_addr_idx         (pmp_address_read_idx),
         .pmp_addr             (pmp_address_read_data),
         .pmp_cfg              (pmp_cfg_read_data),
@@ -704,22 +747,26 @@ module RXVCore #(
 `ifdef USE_POWER_PINS
         `POWER_PIN_CONNECT
 `endif
-        .clk          (clk),
-        .reset        (reset),
-        .bus          (data_bus),
-        .address      (dcache_address),
-        .valid        (dcache_valid),
-        .busy         (dcache_busy),
-        .din          (dcache_din),
-        .wren         (dcache_wren),
-        .bytesel      (dcache_bytesel),
-        .clean        (dcache_clean),
-        .phys_in      (dcache_phys_in),
-        .phys_valid   (dcache_phys_valid),
-        .phys_out     (dcache_phys_out),
-        .device_memory(dcache_device_memory),
-        .dout         (dcache_dout),
-        .invalidate   (dcache_invalidate)
+        .clk                 (clk),
+        .reset               (reset),
+        .bus                 (data_bus),
+        .address             (dcache_address),
+        .valid               (dcache_valid),
+        .busy                (dcache_busy),
+        .din                 (dcache_din),
+        .wren                (dcache_wren),
+        .bytesel             (dcache_bytesel),
+        .clean               (dcache_clean),
+        .phys_in             (dcache_phys_in),
+        .pmu_dcache_wr_access(pmu_events[RXVTypes::PMU_L1D_READ]),
+        .pmu_dcache_wr_miss  (pmu_events[RXVTypes::PMU_L1D_READ_MISS]),
+        .pmu_dcache_rd_access(pmu_events[RXVTypes::PMU_L1D_WRITE]),
+        .pmu_dcache_rd_miss  (pmu_events[RXVTypes::PMU_L1D_WRITE_MISS]),
+        .phys_valid          (dcache_phys_valid),
+        .phys_out            (dcache_phys_out),
+        .device_memory       (dcache_device_memory),
+        .dout                (dcache_dout),
+        .invalidate          (dcache_invalidate)
     );
 
     RXVDCacheArb RXVDCacheArb (
@@ -802,6 +849,10 @@ module RXVCore #(
         .dcache_phys_in   (mmu_dcache_phys_in),
         .dcache_phys_valid(mmu_dcache_phys_valid),
         .dcache_grant     (mmu_dcache_grant),
+        .pmu_itlb_access  (pmu_events[RXVTypes::PMU_ITLB_READ]),
+        .pmu_itlb_miss    (pmu_events[RXVTypes::PMU_ITLB_READ_MISS]),
+        .pmu_dtlb_access  (pmu_events[RXVTypes::PMU_DTLB_READ]),
+        .pmu_dtlb_miss    (pmu_events[RXVTypes::PMU_DTLB_READ_MISS]),
         .lsu_busy         (lsu_busy),
         .d_pmp_addr       (pmp_data_addr),
         .d_pmp            (pmp_data_perms),
@@ -891,19 +942,35 @@ module RXVCore #(
         .exception_busy_wait   (exception_busy_wait)
     );
 
-    RXVPMU RXVPMU (
-        .clk            (clk),
-        .reset          (reset),
-        .retire_valid   (retired),
-        .cyclesh_wren   (pmu_cyclesh_wren),
-        .cyclesl_wren   (pmu_cyclesl_wren),
-        .cycles_inhibit (pmu_cycles_inhibit),
-        .instreth_wren  (pmu_instreth_wren),
-        .instretl_wren  (pmu_instretl_wren),
-        .instret_inhibit(pmu_instret_inhibit),
-        .csr_wrval      (exec_csr_wr_data),
-        .pmu_cycles     (pmu_cycles),
-        .pmu_instret    (pmu_instret)
+    RXVPMU #(
+        .num_event_counters(num_event_counters)
+    ) RXVPMU (
+        .clk              (clk),
+        .reset            (reset),
+        .retire_valid     (retired),
+        .cyclesh_wren     (pmu_cyclesh_wren),
+        .cyclesl_wren     (pmu_cyclesl_wren),
+        .cycles_inhibit   (pmu_cycles_inhibit),
+        .instreth_wren    (pmu_instreth_wren),
+        .instretl_wren    (pmu_instretl_wren),
+        .instret_inhibit  (pmu_instret_inhibit),
+        .csr_wrval        (exec_csr_wr_data),
+        .pmu_cycles       (pmu_cycles),
+        .pmu_instret      (pmu_instret),
+        .pmu_events       (pmu_events),
+        .pmu_event_sel    (pmu_event_sel),
+        .pmu_event_inhibit(pmu_event_inhibit),
+        .m_mode           (m_mode),
+        .pmu_m_inhibit    (pmu_m_inhibit),
+        .s_mode           (s_mode),
+        .pmu_s_inhibit    (pmu_s_inhibit),
+        .u_mode           (u_mode),
+        .pmu_u_inhibit    (pmu_u_inhibit),
+        .pmu_count_wren   (pmu_count_wren),
+        .pmu_counth_wren  (pmu_counth_wren),
+        .pmu_count_wrval  (pmu_count_wrval),
+        .pmu_count        (pmu_count),
+        .pmu_overflow     (pmu_overflow)
     );
 
     always_comb begin
@@ -970,11 +1037,18 @@ module RXVCore #(
         dcache_device_memory = {dcache_phys_out, 2'b0} >= device_base && {dcache_phys_out, 2'b0} < device_end;
     end
 
+    // verilog_format: off
     always_comb begin
         exec_resteer = int_exec_resteer | lsu_resteer | irq_resteer;
         exec_resteer_tgt = ({30{int_exec_resteer}} & int_exec_resteer_tgt) |
                            ({30{lsu_resteer}} & lsu_resteer_tgt) |
                            ({30{irq_resteer}} & irq_resteer_tgt);
+    end
+    // verilog_format: on
+
+    always_comb begin
+        pmu_events[RXVTypes::PMU_INSTRET] = retired;
+        pmu_events[RXVTypes::PMU_CYCLES]  = 1'b1;
     end
 
     RXVAssert no_simultaneous_resteer (

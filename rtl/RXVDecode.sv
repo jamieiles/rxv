@@ -113,7 +113,9 @@ module RXVDecode (
     input  logic                              exec_resteer,
     // Exception handling
     output RXVException                       decode_exception,
-    output logic          [ commit_width-1:0] decode_except_id
+    output logic          [ commit_width-1:0] decode_except_id,
+    output logic                              pmu_fe_stall,
+    output logic                              pmu_be_stall
 );
 
     wire [ 6:0] funct7 = decode_instr[31:25];
@@ -875,6 +877,11 @@ module RXVDecode (
         // Stall the front-end when either the back-end is stalled or we are in
         // a multi-uop instruction
         decode_fe_stall = decode_be_stall || (opc_amo && 3'(amo_uop_idx) < amo_num_uops - 1'b1);
+    end
+
+    always_comb begin
+        pmu_fe_stall = decode_fe_stall;
+        pmu_be_stall = decode_be_stall;
     end
 
     always_comb begin

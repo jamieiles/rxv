@@ -24,7 +24,10 @@ module RXVTLBWrapper (
     output logic                         walk_valid_req,         // For test inspection
     input  logic                         enabled,
     input  logic                         dcache_invalidate,
-    output logic                         dcache_busy
+    output logic                         dcache_busy,
+    // PMU
+    output logic                         pmu_tlb_access,
+    output logic                         pmu_tlb_miss
 );
 
     logic              dcache_valid;
@@ -55,24 +58,28 @@ module RXVTLBWrapper (
     );
 
     RXVDCache RXVDCache (
-        .clk          (clk),
-        .reset        (reset),
-        .address      (dcache_address),
-        .valid        (dcache_valid),
-        .busy         (dcache_busy),
-        .din          (32'b0),
-        .wren         (1'b0),
-        .bytesel      (4'b1111),
-        .dout         (dcache_dout),
-        .invalidate   (dcache_invalidate),
-        .clean        (1'b0),
-        .bus          (mem_bus.Manager),
-        .phys_in      (dcache_phys_in),
-        .phys_valid   (dcache_phys_valid),
+        .clk                 (clk),
+        .reset               (reset),
+        .address             (dcache_address),
+        .valid               (dcache_valid),
+        .busy                (dcache_busy),
+        .din                 (32'b0),
+        .wren                (1'b0),
+        .bytesel             (4'b1111),
+        .dout                (dcache_dout),
+        .invalidate          (dcache_invalidate),
+        .clean               (1'b0),
+        .bus                 (mem_bus.Manager),
+        .phys_in             (dcache_phys_in),
+        .phys_valid          (dcache_phys_valid),
         // verilator lint_off PINCONNECTEMPTY
-        .phys_out     (),
+        .phys_out            (),
+        .pmu_dcache_wr_access(),
+        .pmu_dcache_wr_miss  (),
+        .pmu_dcache_rd_access(),
+        .pmu_dcache_rd_miss  (),
         // verilator lint_on PINCONNECTEMPTY
-        .device_memory(1'b0)
+        .device_memory       (1'b0)
     );
 
     RXVPTWalker RXVPTWalker (

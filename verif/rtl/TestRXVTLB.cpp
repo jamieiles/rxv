@@ -22,7 +22,7 @@ class TLBTestbench
     , public ::testing::Test
 {
 public:
-    TLBTestbench() : next_free_page(0x80000000)
+    TLBTestbench() : next_free_page(0x80000000), access_count(0), miss_count(0)
     {
         this->dut.valid = 0;
         pgd_base = alloc_page();
@@ -30,6 +30,13 @@ public:
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
         this->dut.RXVTLBWrapper->BusTransactor->set_bus(bus);
+
+        periodic(ClockCapture, [&] {
+            if (this->dut.pmu_tlb_access)
+                ++access_count;
+            if (this->dut.pmu_tlb_miss)
+                ++miss_count;
+        });
     }
 
     void enable()
@@ -141,6 +148,8 @@ public:
     std::shared_ptr<MemoryBus> bus;
     uint32_t next_free_page;
     uint32_t pgd_base;
+    uint64_t access_count;
+    uint64_t miss_count;
 };
 
 bool operator==(const TLBTestbench::Translation &lhs,
@@ -163,6 +172,8 @@ TEST_F(TLBTestbench, Page)
     auto t2 = translate(0xc0004000);
 
     EXPECT_EQ(t1, t2);
+    EXPECT_EQ(2, access_count);
+    EXPECT_EQ(1, miss_count);
 }
 
 TEST_F(TLBTestbench, MegaPage)
@@ -206,6 +217,9 @@ TEST_F(TLBTestbench, CachedTranslation)
     auto t2 = translate(0xc0004000);
 
     EXPECT_EQ(t1, t2);
+
+    EXPECT_EQ(2, access_count);
+    EXPECT_EQ(1, miss_count);
 }
 
 TEST_F(TLBTestbench, ASIDAlias)
@@ -261,6 +275,9 @@ TEST_F(TLBTestbench, PageNotMapped)
     auto t2 = translate(0xc0004000);
     EXPECT_TRUE(t2.valid);
     EXPECT_EQ(t2.pa, 0x80012000);
+
+    EXPECT_EQ(2, access_count);
+    EXPECT_EQ(2, miss_count);
 }
 
 TEST_F(TLBTestbench, ReservedBits)

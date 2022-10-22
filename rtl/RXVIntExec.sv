@@ -57,7 +57,10 @@ module RXVIntExec (
     // Exception handling
     output RXVException                      exec_exception,
     output logic          [commit_width-1:0] exec_except_id,
-    input  privilege_t                       current_privilege
+    input  privilege_t                       current_privilege,
+    // PMU
+    output logic pmu_branch_exec,
+    output logic pmu_branch_mispred
 );
 
     logic                           valid;
@@ -210,6 +213,11 @@ module RXVIntExec (
             branch_mispredict = 1'b1;
         if (exec_prediction.predicted && exec_prediction.prediction != exec_branch_target[31:2])
             branch_mispredict = 1'b1;
+    end
+
+    always_comb begin
+        pmu_branch_mispred = valid && is_branch && branch_mispredict && !kill_valid;
+        pmu_branch_exec    = valid && is_branch && !kill_valid;
     end
 
     always_comb begin

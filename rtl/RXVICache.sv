@@ -15,6 +15,8 @@ module RXVICache #(
     output logic                       busy,
     output logic                [31:0] dout,
     input  logic                       invalidate,
+    output logic                       pmu_icache_access,
+    output logic                       pmu_icache_miss,
     // From TLB
     input  logic                [31:2] phys_in,
     input  logic                       phys_valid
@@ -182,6 +184,11 @@ module RXVICache #(
         busy        = miss || filling || invalidating;
         dout        = !miss ? way_dout[hit_way] : 32'b0;
         data_offset = filling ? offset_bits'(bus_beat_num) : addr_offset(address);
+    end
+
+    always_comb begin
+        pmu_icache_access = tag_compare_valid & ~filling;
+        pmu_icache_miss   = need_fill;
     end
 
     always_comb begin

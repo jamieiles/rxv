@@ -44,6 +44,11 @@ module RXVMMUTop #(
     input  pmp_perms                     d_pmp,
     output logic         [         31:2] i_pmp_addr,
     input  pmp_perms                     i_pmp,
+    // PMU
+    output logic                         pmu_itlb_access,
+    output logic                         pmu_itlb_miss,
+    output logic                         pmu_dtlb_access,
+    output logic                         pmu_dtlb_miss,
     // Prioritisation
     input  logic                         lsu_busy
 );
@@ -92,6 +97,8 @@ module RXVMMUTop #(
         .walk_pmp_violation    (walk_pmp_violation),
         .phys_addr             (dtlb_pmp_addr),
         .phys_perms            (d_pmp),
+        .pmu_tlb_access        (pmu_dtlb_access),
+        .pmu_tlb_miss          (pmu_dtlb_miss),
         .enabled               (d_enabled)
     );
 
@@ -119,6 +126,8 @@ module RXVMMUTop #(
         .walk_pmp_violation    (walk_pmp_violation),
         .phys_addr             (i_pmp_addr),
         .phys_perms            (i_pmp),
+        .pmu_tlb_access        (pmu_itlb_access),
+        .pmu_tlb_miss          (pmu_itlb_miss),
         .enabled               (i_enabled)
     );
 

@@ -16,6 +16,10 @@ module RXVDCacheWrapper #(
     input  logic        invalidate,
     input  logic        clean,
     input  logic [31:2] phys_in,
+    output logic        pmu_dcache_wr_access,
+    output logic        pmu_dcache_wr_miss,
+    output logic        pmu_dcache_rd_access,
+    output logic        pmu_dcache_rd_miss,
     input  logic        phys_valid
 );
 
@@ -36,22 +40,26 @@ module RXVDCacheWrapper #(
         .nr_ways        (nr_ways),
         .line_size_bytes(line_size_bytes)
     ) RXVDCache (
-        .clk          (clk),
-        .reset        (reset),
-        .address      (address),
-        .valid        (valid),
-        .busy         (busy),
-        .din          (din),
-        .wren         (wren),
-        .bytesel      (bytesel),
-        .dout         (dout),
-        .invalidate   (invalidate),
-        .clean        (clean),
-        .bus          (mem_bus.Manager),
-        .phys_in      (phys_in),
-        .phys_valid   (phys_valid),
-        .phys_out     (phys_out),
-        .device_memory(device_memory)
+        .clk                 (clk),
+        .reset               (reset),
+        .address             (address),
+        .valid               (valid),
+        .busy                (busy),
+        .din                 (din),
+        .wren                (wren),
+        .bytesel             (bytesel),
+        .dout                (dout),
+        .invalidate          (invalidate),
+        .clean               (clean),
+        .bus                 (mem_bus.Manager),
+        .phys_in             (phys_in),
+        .pmu_dcache_wr_access(pmu_dcache_wr_access),
+        .pmu_dcache_wr_miss  (pmu_dcache_wr_miss),
+        .pmu_dcache_rd_access(pmu_dcache_rd_access),
+        .pmu_dcache_rd_miss  (pmu_dcache_rd_miss),
+        .phys_valid          (phys_valid),
+        .phys_out            (phys_out),
+        .device_memory       (device_memory)
     );
 
     always_comb begin

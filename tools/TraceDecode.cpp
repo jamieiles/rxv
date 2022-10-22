@@ -122,6 +122,7 @@ enum mcause_type {
     M_TINT = mcause_interrupt | 7,
     S_EINT = mcause_interrupt | 9,
     M_EINT = mcause_interrupt | 11,
+    LCOFI = mcause_interrupt | 13,
     INSTR_ALIGN = 0,
     INSTR_ACCESS_FAULT = 1,
     ILLEGAL_INSTRUCTION = 2,
@@ -152,6 +153,8 @@ static std::string decode_mcause(uint32_t v)
         return "S_TINT";
     if (v == S_EINT)
         return "S_EINT";
+    if (v == LCOFI)
+        return "LCOFI";
     if (v == INSTR_ALIGN)
         return "INSTR_ALIGN";
     if (v == ILLEGAL_INSTRUCTION)

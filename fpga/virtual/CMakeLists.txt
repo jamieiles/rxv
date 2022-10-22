@@ -26,6 +26,7 @@ set(CORE_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCacheArb.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDiv.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDivExec.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVEventCounter.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVLSU.sv

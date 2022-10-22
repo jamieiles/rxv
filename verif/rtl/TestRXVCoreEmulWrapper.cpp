@@ -1634,3 +1634,26 @@ TEST_F(RXVCoreEmulWrapperTest, PMPMMUDeny)
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MTVAL), 0x80000058);
     EXPECT_EQ(tracer->read_csr(RXV::Trace::CSRId_MEPC), 0x80000058);
 }
+
+TEST_F(RXVCoreEmulWrapperTest, BranchCounts)
+{
+    load(R"objdump(
+80000000:       00300093                li      x1,3
+80000004:       32309073                csrw    mhpmevent3,x1
+80000008:       00400093                li      x1,4
+8000000c:       32409073                csrw    mhpmevent4,x1
+80000010:       ff700093                li      x1,-9
+80000014:       b0309073                csrw    mhpmcounter3,x1
+80000018:       fff00093                li      x1,-1
+8000001c:       b8309073                csrw    mhpmcounter3h,x1
+80000020:       01000113                li      x2,16
+80000024:       000001b3                add     x3,x0,x0
+80000028:       00118193                addi    x3,x3,1
+8000002c:       fe219ee3                bne     x3,x2,0x80000028
+80000030:       b0302273                csrr    x4,mhpmcounter3
+80000034:       b04022f3                csrr    x5,mhpmcounter4
+80000038:       00000013                nop
+    )objdump");
+
+    run_until(0x80000038);
+}

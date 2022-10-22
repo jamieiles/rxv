@@ -36,24 +36,28 @@ module RXVPTWalkerWrapper (
     );
 
     RXVDCache RXVDCache (
-        .clk          (clk),
-        .reset        (reset),
-        .address      (dcache_address),
-        .valid        (dcache_valid),
-        .busy         (dcache_busy),
-        .din          (32'b0),
-        .wren         (1'b0),
-        .bytesel      (4'b1111),
-        .dout         (dcache_dout),
-        .invalidate   (1'b0),
-        .clean        (1'b0),
-        .bus          (mem_bus.Manager),
-        .phys_in      (dcache_phys_in),
-        .phys_valid   (dcache_phys_valid),
+        .clk                 (clk),
+        .reset               (reset),
+        .address             (dcache_address),
+        .valid               (dcache_valid),
+        .busy                (dcache_busy),
+        .din                 (32'b0),
+        .wren                (1'b0),
+        .bytesel             (4'b1111),
+        .dout                (dcache_dout),
+        .invalidate          (1'b0),
+        .clean               (1'b0),
+        .bus                 (mem_bus.Manager),
+        .phys_in             (dcache_phys_in),
+        .phys_valid          (dcache_phys_valid),
         // verilator lint_off PINCONNECTEMPTY
-        .phys_out     (),
+        .phys_out            (),
+        .pmu_dcache_wr_access(),
+        .pmu_dcache_wr_miss  (),
+        .pmu_dcache_rd_access(),
+        .pmu_dcache_rd_miss  (),
         // verilator lint_on PINCONNECTEMPTY
-        .device_memory(1'b0)
+        .device_memory       (1'b0)
     );
 
     RXVPTWalker RXVPTWalker (

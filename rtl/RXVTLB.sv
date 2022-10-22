@@ -36,6 +36,9 @@ module RXVTLB #(
     //verilator lint_off UNUSED
     input  pmp_perms                     phys_perms,
     //verilator lint_on UNUSED
+    // PMU
+    output logic                         pmu_tlb_access,
+    output logic                         pmu_tlb_miss,
     // Global control
     input  logic                         enabled
 );
@@ -265,6 +268,11 @@ module RXVTLB #(
 
     always_comb begin
         state = state_t'(state_q);
+    end
+
+    always_comb begin
+        pmu_tlb_access = state == STATE_READY && valid;
+        pmu_tlb_miss   = state == STATE_READY && valid && !hit;
     end
 
     RXVDFF #(

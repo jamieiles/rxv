@@ -58,6 +58,31 @@ package RXVTypes;
         ALU_RS2
     } rxv_alu_op  /* verilator public */;
 
+    typedef enum logic [4:0] {
+        PMU_NONE,
+        PMU_CYCLES,
+        PMU_INSTRET,
+        PMU_BRANCH,
+        PMU_BRANCH_MISPRED,
+        PMU_FE_STALL,
+        PMU_BE_STALL,
+        PMU_L1D_READ,
+        PMU_L1D_READ_MISS,
+        PMU_L1D_WRITE,
+        PMU_L1D_WRITE_MISS,
+        PMU_L1I_READ,
+        PMU_L1I_READ_MISS,
+        PMU_DTLB_READ,
+        PMU_DTLB_READ_MISS,
+        PMU_ITLB_READ,
+        PMU_ITLB_READ_MISS
+    } rxv_pmu_evt;
+
+    localparam pmu_num_events = PMU_ITLB_READ_MISS + 1;
+    localparam rxv_pmu_evt_bits = $clog2(pmu_num_events);
+    typedef logic [pmu_num_events-1:0] pmu_evt_bus;
+    typedef logic [rxv_pmu_evt_bits-1:0] pmu_evt_sel;
+
     typedef enum logic [1:0] {
         CSR_SWAP,
         CSR_SET,

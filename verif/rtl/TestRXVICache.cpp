@@ -13,7 +13,7 @@ class ICacheTestbench
     , public ::testing::Test
 {
 public:
-    ICacheTestbench()
+    ICacheTestbench() : access_count(0), miss_count(0)
     {
         this->dut.invalidate = 0;
         this->dut.valid = 0;
@@ -30,6 +30,11 @@ public:
                     after_n_cycles(1, [&, addr] { this->dut.phys_valid = 0; });
                 });
             }
+
+            if (this->dut.pmu_icache_access)
+                ++access_count;
+            if (this->dut.pmu_icache_miss)
+                ++miss_count;
         });
     }
 
@@ -98,6 +103,8 @@ public:
     }
 
     std::shared_ptr<MockMemoryBus> bus;
+    uint64_t access_count;
+    uint64_t miss_count;
 };
 
 TEST_F(ICacheTestbench, CompulsoryMissFills)
@@ -110,6 +117,8 @@ TEST_F(ICacheTestbench, CompulsoryMissFills)
 
     auto v = read(32);
     EXPECT_EQ(v, 0xa5a50000);
+    EXPECT_EQ(access_count, 1);
+    EXPECT_EQ(miss_count, 1);
 }
 
 TEST_F(ICacheTestbench, HitNoRefill)
@@ -122,6 +131,9 @@ TEST_F(ICacheTestbench, HitNoRefill)
 
     for (int i = 0; i < 128; ++i)
         EXPECT_EQ(read(32), 0xa5a50000);
+
+    EXPECT_EQ(access_count, 128);
+    EXPECT_EQ(miss_count, 1);
 }
 
 TEST_F(ICacheTestbench, ConflictMissRefill)
@@ -154,6 +166,9 @@ TEST_F(ICacheTestbench, PipelinedReads)
     EXPECT_THAT(v, ::testing::ElementsAre(0xa5a50001, 0xa5a50002));
 
     cycle(32);
+
+    EXPECT_EQ(access_count, 3);
+    EXPECT_EQ(miss_count, 1);
 }
 
 TEST_F(ICacheTestbench, ReadDuringBusyDropped)
@@ -217,6 +232,8 @@ TEST_F(ICacheTestbench, IdleNoLineFill)
     // Should generate no line-fills
     cycle(256);
     EXPECT_FALSE(this->dut.busy);
+    EXPECT_EQ(access_count, 0);
+    EXPECT_EQ(miss_count, 0);
 }
 
 TEST_F(ICacheTestbench, NoFillWithoutValid)

@@ -99,29 +99,35 @@ module RXVLSUWrapper #(
         .nr_ways        (nr_ways),
         .line_size_bytes(line_size_bytes)
     ) RXVDCache (
-        .clk          (clk),
-        .reset        (reset),
-        .address      (dcache_address),
-        .valid        (dcache_valid),
-        .busy         (dcache_busy),
-        .din          (dcache_wdata),
-        .wren         (dcache_wren),
-        .bytesel      (dcache_bytesel),
-        .dout         (dcache_rdata),
-        .invalidate   (dcache_invalidate),
-        .clean        (dcache_clean),
-        .bus          (mem_bus.Manager),
-        .phys_in      (dcache_phys_in),
-        .phys_valid   (dcache_phys_valid),
-        .phys_out     (dcache_phys_out),
-        .device_memory(dcache_device_memory)
+        .clk                 (clk),
+        .reset               (reset),
+        .address             (dcache_address),
+        .valid               (dcache_valid),
+        .busy                (dcache_busy),
+        .din                 (dcache_wdata),
+        .wren                (dcache_wren),
+        .bytesel             (dcache_bytesel),
+        .dout                (dcache_rdata),
+        .invalidate          (dcache_invalidate),
+        .clean               (dcache_clean),
+        .bus                 (mem_bus.Manager),
+        .phys_in             (dcache_phys_in),
+        .phys_valid          (dcache_phys_valid),
+        .phys_out            (dcache_phys_out),
+        // verilator lint_off PINCONNECTEMPTY
+        .pmu_dcache_wr_access(),
+        .pmu_dcache_wr_miss  (),
+        .pmu_dcache_rd_access(),
+        .pmu_dcache_rd_miss  (),
+        // verilator lint_on PINCONNECTEMPTY
+        .device_memory       (dcache_device_memory)
     );
 
     RXVLSU RXVLSU (
-        .clk         (clk),
-        .reset       (reset),
-        .dcache_phys (dcache_phys_in),
-        .lsu_tlb_busy(tlb_busy),
+        .clk             (clk),
+        .reset           (reset),
+        .dcache_phys     (dcache_phys_in),
+        .lsu_tlb_busy    (tlb_busy),
         .lsu_access_fault(1'b0),
         .*
     );

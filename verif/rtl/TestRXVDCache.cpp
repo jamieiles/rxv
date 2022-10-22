@@ -14,12 +14,27 @@ class DCacheTestbench
 {
 public:
     DCacheTestbench()
+        : wr_access_count(0)
+        , wr_miss_count(0)
+        , rd_access_count(0)
+        , rd_miss_count(0)
     {
         this->dut.invalidate = 0;
         this->dut.valid = 0;
         reset();
         bus = std::make_shared<::testing::StrictMock<MockMemoryBus>>();
         this->dut.RXVDCacheWrapper->BusTransactor->set_bus(bus);
+
+        periodic(ClockCapture, [&] {
+            if (this->dut.pmu_dcache_wr_access)
+                ++wr_access_count;
+            if (this->dut.pmu_dcache_wr_miss)
+                ++wr_miss_count;
+            if (this->dut.pmu_dcache_rd_access)
+                ++rd_access_count;
+            if (this->dut.pmu_dcache_rd_miss)
+                ++rd_miss_count;
+        });
     }
 
     uint32_t read(uint32_t addr)
@@ -155,6 +170,10 @@ public:
     }
 
     std::shared_ptr<MockMemoryBus> bus;
+    uint64_t wr_access_count;
+    uint64_t wr_miss_count;
+    uint64_t rd_access_count;
+    uint64_t rd_miss_count;
 };
 
 TEST_F(DCacheTestbench, CompulsoryMissFills)
@@ -167,6 +186,11 @@ TEST_F(DCacheTestbench, CompulsoryMissFills)
 
     auto v = read(32);
     EXPECT_EQ(v, 0xa5a50000);
+
+    EXPECT_EQ(1, rd_access_count);
+    EXPECT_EQ(1, rd_miss_count);
+    EXPECT_EQ(0, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, HitNoRefill)
@@ -179,6 +203,11 @@ TEST_F(DCacheTestbench, HitNoRefill)
 
     for (int i = 0; i < 128; ++i)
         EXPECT_EQ(read(32), 0xa5a50000);
+
+    EXPECT_EQ(128, rd_access_count);
+    EXPECT_EQ(1, rd_miss_count);
+    EXPECT_EQ(0, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, ConflictMissRefill)
@@ -196,6 +225,11 @@ TEST_F(DCacheTestbench, ConflictMissRefill)
     EXPECT_EQ(v, 0xa5a50000);
     v = read(64);
     EXPECT_EQ(v, 0xaa550000);
+
+    EXPECT_EQ(2, rd_access_count);
+    EXPECT_EQ(2, rd_miss_count);
+    EXPECT_EQ(0, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, PipelinedReads)
@@ -211,6 +245,11 @@ TEST_F(DCacheTestbench, PipelinedReads)
     EXPECT_THAT(v, ::testing::ElementsAre(0xa5a50001, 0xa5a50002));
 
     cycle(32);
+
+    EXPECT_EQ(3, rd_access_count);
+    EXPECT_EQ(1, rd_miss_count);
+    EXPECT_EQ(0, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, ReadDuringBusyDropped)
@@ -271,6 +310,11 @@ TEST_F(DCacheTestbench, MultiWayHitWrites)
     write(4096 + 32, 0xd00df00d);
 
     cycle(8);
+
+    EXPECT_EQ(2, rd_access_count);
+    EXPECT_EQ(2, rd_miss_count);
+    EXPECT_EQ(2, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, InvalidateRefills)
@@ -292,6 +336,11 @@ TEST_F(DCacheTestbench, InvalidateRefills)
 
     v = read(32);
     EXPECT_EQ(v, 0xa5a50000);
+
+    EXPECT_EQ(2, rd_access_count);
+    EXPECT_EQ(2, rd_miss_count);
+    EXPECT_EQ(1, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, IdleNoLineFill)
@@ -299,6 +348,10 @@ TEST_F(DCacheTestbench, IdleNoLineFill)
     // Should generate no line-fills
     cycle(256);
     EXPECT_FALSE(this->dut.busy);
+    EXPECT_EQ(0, wr_access_count);
+    EXPECT_EQ(0, wr_miss_count);
+    EXPECT_EQ(0, rd_access_count);
+    EXPECT_EQ(0, rd_miss_count);
 }
 
 TEST_F(DCacheTestbench, NoFillWithoutValid)
@@ -325,6 +378,11 @@ TEST_F(DCacheTestbench, WriteFills)
             .WillOnce(::testing::Return(0xa5a50000 + i));
 
     write(32, 0xdeadbeef);
+
+    EXPECT_EQ(0, rd_access_count);
+    EXPECT_EQ(0, rd_miss_count);
+    EXPECT_EQ(1, wr_access_count);
+    EXPECT_EQ(1, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, WriteUpdates)
@@ -338,6 +396,11 @@ TEST_F(DCacheTestbench, WriteUpdates)
     write(32, 0xdeadbeef);
     auto v = read(32);
     EXPECT_EQ(v, 0xdeadbeef);
+
+    EXPECT_EQ(1, rd_access_count);
+    EXPECT_EQ(0, rd_miss_count);
+    EXPECT_EQ(1, wr_access_count);
+    EXPECT_EQ(1, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, WriteBytesel)
@@ -473,6 +536,11 @@ TEST_F(DCacheTestbench, UncachedWriteNoFill)
     EXPECT_CALL(*this->bus, write(0xf0000000, 0xf00ff00f, 0xf));
     write(0xf0000000, 0xf00ff00f, 0xf);
     cycle(8);
+
+    EXPECT_EQ(0, rd_access_count);
+    EXPECT_EQ(0, rd_miss_count);
+    EXPECT_EQ(1, wr_access_count);
+    EXPECT_EQ(1, wr_miss_count);
 }
 
 TEST_F(DCacheTestbench, UncachedWriteSubWord)

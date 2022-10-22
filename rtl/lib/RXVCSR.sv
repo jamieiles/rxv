@@ -3,59 +3,73 @@ package RXVCSR;
     import RXVMMU::asid_bits;
 
     typedef enum logic [11:0] {
-        CSR_MVENDORID     = 12'hF11,
-        CSR_MARCHID       = 12'hF12,
-        CSR_MIMPID        = 12'hF13,
-        CSR_MHARTID       = 12'hF14,
-        CSR_UCYCLE        = 12'hC00,
-        CSR_UTIME         = 12'hC01,
-        CSR_UINSTRET      = 12'hC02,
-        CSR_UCYCLEH       = 12'hC80,
-        CSR_UTIMEH        = 12'hC81,
-        CSR_UINSTRETH     = 12'hC82,
-        CSR_MCYCLE        = 12'hB00,
-        CSR_MCYCLEH       = 12'hB80,
-        CSR_MINSTRET      = 12'hB02,
-        CSR_MINSTRETH     = 12'hB82,
-        CSR_TSELECT       = 12'h7A0,
-        CSR_TDATA1        = 12'h7A1,
-        CSR_TDATA2        = 12'h7A2,
-        CSR_TDATA3        = 12'h7A3,
-        CSR_STPVAL        = 12'h5C0,
-        CSR_STPERMS       = 12'h5C1,
-        CSR_MSTATUS       = 12'h300,
-        CSR_MISA          = 12'h301,
-        CSR_MEDELEG       = 12'h302,
-        CSR_MIDELEG       = 12'h303,
-        CSR_MIE           = 12'h304,
-        CSR_MTVEC         = 12'h305,
-        CSR_MCOUNTEREN    = 12'h306,
-        CSR_MCOUNTINHIBIT = 12'h320,
-        CSR_MSCRATCH      = 12'h340,
-        CSR_MEPC          = 12'h341,
-        CSR_MCAUSE        = 12'h342,
-        CSR_MTVAL         = 12'h343,
-        CSR_MIP           = 12'h344,
-        CSR_PMPCFG0       = 12'h3a0,
-        CSR_PMPADDR0      = 12'h3b0,
-        CSR_PMPADDR1      = 12'h3b1,
-        CSR_PMPADDR2      = 12'h3b2,
-        CSR_PMPADDR3      = 12'h3b3,
-        CSR_SSTATUS       = 12'h100,
-        CSR_SEDELEG       = 12'h102,
-        CSR_SIDELEG       = 12'h103,
-        CSR_SIE           = 12'h104,
-        CSR_STVEC         = 12'h105,
-        CSR_SCOUNTEREN    = 12'h106,
-        CSR_SSCRATCH      = 12'h140,
-        CSR_SEPC          = 12'h141,
-        CSR_SCAUSE        = 12'h142,
-        CSR_STVAL         = 12'h143,
-        CSR_SIP           = 12'h144,
-        CSR_STIMECMP      = 12'h14d,
-        CSR_STIMECMPH     = 12'h15d,
-        CSR_SATP          = 12'h180,
-        CSR_RXV_EMUCTL    = 12'h800
+        CSR_MVENDORID      = 12'hF11,
+        CSR_MARCHID        = 12'hF12,
+        CSR_MIMPID         = 12'hF13,
+        CSR_MHARTID        = 12'hF14,
+        CSR_MCONFIGPTR     = 12'hF15,
+        CSR_SCOUNTOVF      = 12'hDA0,
+        CSR_UCYCLE         = 12'hC00,
+        CSR_UTIME          = 12'hC01,
+        CSR_UINSTRET       = 12'hC02,
+        CSR_UCYCLEH        = 12'hC80,
+        CSR_UTIMEH         = 12'hC81,
+        CSR_UINSTRETH      = 12'hC82,
+        CSR_MCYCLE         = 12'hB00,
+        CSR_MCYCLEH        = 12'hB80,
+        CSR_MINSTRET       = 12'hB02,
+        CSR_MINSTRETH      = 12'hB82,
+        CSR_MHPMEVENT3H    = 12'h723,
+        CSR_MHPMEVENT31H   = 12'h73f,
+        CSR_TSELECT        = 12'h7A0,
+        CSR_TDATA1         = 12'h7A1,
+        CSR_TDATA2         = 12'h7A2,
+        CSR_TDATA3         = 12'h7A3,
+        CSR_STPVAL         = 12'h5C0,
+        CSR_STPERMS        = 12'h5C1,
+        CSR_MSTATUS        = 12'h300,
+        CSR_MISA           = 12'h301,
+        CSR_MEDELEG        = 12'h302,
+        CSR_MIDELEG        = 12'h303,
+        CSR_MIE            = 12'h304,
+        CSR_MTVEC          = 12'h305,
+        CSR_MENVCFG        = 12'h30a,
+        CSR_MENVCFGH       = 12'h31a,
+        CSR_MCOUNTEREN     = 12'h306,
+        CSR_MCOUNTINHIBIT  = 12'h320,
+        CSR_MHPMEVENT3     = 12'h323,
+        CSR_MHPMEVENT31    = 12'h33f,
+        CSR_MHPMCOUNTER3   = 12'hb03,
+        CSR_MHPMCOUNTER31  = 12'hb1f,
+        CSR_MHPMCOUNTER3H  = 12'hb83,
+        CSR_MHPMCOUNTER31H = 12'hb9f,
+        CSR_MSCRATCH       = 12'h340,
+        CSR_MEPC           = 12'h341,
+        CSR_MCAUSE         = 12'h342,
+        CSR_MTVAL          = 12'h343,
+        CSR_MIP            = 12'h344,
+        CSR_PMPCFG0        = 12'h3a0,
+        CSR_PMPADDR0       = 12'h3b0,
+        CSR_PMPADDR1       = 12'h3b1,
+        CSR_PMPADDR2       = 12'h3b2,
+        CSR_PMPADDR3       = 12'h3b3,
+        CSR_MSTATUSH       = 12'h310,
+        CSR_SSTATUS        = 12'h100,
+        CSR_SEDELEG        = 12'h102,
+        CSR_SIDELEG        = 12'h103,
+        CSR_SIE            = 12'h104,
+        CSR_STVEC          = 12'h105,
+        CSR_SCOUNTEREN     = 12'h106,
+        CSR_SSCRATCH       = 12'h140,
+        CSR_SEPC           = 12'h141,
+        CSR_SCAUSE         = 12'h142,
+        CSR_STVAL          = 12'h143,
+        CSR_SIP            = 12'h144,
+        CSR_STIMECMP       = 12'h14d,
+        CSR_STIMECMPH      = 12'h15d,
+        CSR_SATP           = 12'h180,
+        CSR_SENVCFG        = 12'h10a,
+        CSR_RXV_EMUCTL     = 12'h800
     } RXVCSR_id;
 
     typedef enum logic [3:0] {
@@ -81,7 +95,8 @@ package RXVCSR;
         MINT_S_TIMER = 4'd5,
         MINT_M_TIMER = 4'd7,
         MINT_S_EXT = 4'd9,
-        MINT_M_EXT = 4'd11
+        MINT_M_EXT = 4'd11,
+        MINT_LCOFI = 4'd13
     } MINT_id  /* verilator public */;
 
     typedef enum logic [1:0] {
@@ -239,6 +254,7 @@ package RXVCSR;
         logic mtie;
         logic seie;
         logic meie;
+        logic lcofie;
     } mie_t;
 
     function mie_t pack_mie;
@@ -246,12 +262,13 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
-            pack_mie.ssie = v[1];
-            pack_mie.msie = v[3];
-            pack_mie.stie = v[5];
-            pack_mie.mtie = v[7];
-            pack_mie.seie = v[9];
-            pack_mie.meie = v[11];
+            pack_mie.ssie   = v[1];
+            pack_mie.msie   = v[3];
+            pack_mie.stie   = v[5];
+            pack_mie.mtie   = v[7];
+            pack_mie.seie   = v[9];
+            pack_mie.meie   = v[11];
+            pack_mie.lcofie = v[13];
         end
     endfunction
 
@@ -259,7 +276,9 @@ package RXVCSR;
         input mie_t v;
         begin
             unpack_mie = {
-                20'b0,
+                18'b0,
+                v.lcofie,
+                1'b0,
                 v.meie,
                 1'b0,
                 v.seie,
@@ -282,10 +301,11 @@ package RXVCSR;
         input mie_t orig;
         // verilator lint_on UNUSED
         begin
-            pack_sie      = orig;
-            pack_sie.ssie = v[1];
-            pack_sie.stie = v[5];
-            pack_sie.seie = v[9];
+            pack_sie        = orig;
+            pack_sie.ssie   = v[1];
+            pack_sie.stie   = v[5];
+            pack_sie.seie   = v[9];
+            pack_sie.lcofie = v[13];
         end
     endfunction
 
@@ -294,7 +314,7 @@ package RXVCSR;
         input mie_t v;
         // verilator lint_on UNUSED
         begin
-            unpack_sie = {22'b0, v.seie, 3'b0, v.stie, 3'b0, v.ssie, 1'b0};
+            unpack_sie = {18'b0, v.lcofie, 3'b0, v.seie, 3'b0, v.stie, 3'b0, v.ssie, 1'b0};
         end
     endfunction
 
@@ -305,6 +325,7 @@ package RXVCSR;
         logic mtip;
         logic seip;
         logic meip;
+        logic lcofip;
     } mip_t;
 
     function mip_t pack_mip;
@@ -312,12 +333,13 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
-            pack_mip.ssip = v[1];
-            pack_mip.msip = v[3];
-            pack_mip.stip = v[5];
-            pack_mip.mtip = v[7];
-            pack_mip.seip = v[9];
-            pack_mip.meip = v[11];
+            pack_mip.ssip   = v[1];
+            pack_mip.msip   = v[3];
+            pack_mip.stip   = v[5];
+            pack_mip.mtip   = v[7];
+            pack_mip.seip   = v[9];
+            pack_mip.meip   = v[11];
+            pack_mip.lcofip = v[13];
         end
     endfunction
 
@@ -325,7 +347,9 @@ package RXVCSR;
         input mip_t v;
         begin
             unpack_mip = {
-                20'b0,
+                18'b0,
+                v.lcofip,
+                1'b0,
                 v.meip,
                 1'b0,
                 v.seip,
@@ -348,10 +372,11 @@ package RXVCSR;
         input mip_t orig;
         // verilator lint_on UNUSED
         begin
-            pack_sip      = orig;
-            pack_sip.ssip = v[1];
-            pack_sip.stip = v[5];
-            pack_sip.seip = v[9];
+            pack_sip        = orig;
+            pack_sip.ssip   = v[1];
+            pack_sip.stip   = v[5];
+            pack_sip.seip   = v[9];
+            pack_sip.lcofip = v[13];
         end
     endfunction
 
@@ -360,7 +385,7 @@ package RXVCSR;
         input mip_t v;
         // verilator lint_on UNUSED
         begin
-            unpack_sip = {22'b0, v.seip, 3'b0, v.stip, 3'b0, v.ssip, 1'b0};
+            unpack_sip = {18'b0, v.lcofip, 3'b0, v.seip, 3'b0, v.stip, 3'b0, v.ssip, 1'b0};
         end
     endfunction
 
@@ -683,6 +708,7 @@ package RXVCSR;
         logic s_sw;
         logic s_timer;
         logic s_ext;
+        logic lcofi;
     } mideleg_t;
 
     function mideleg_t pack_mideleg;
@@ -693,17 +719,19 @@ package RXVCSR;
             pack_mideleg.s_sw    = v[1];
             pack_mideleg.s_timer = v[5];
             pack_mideleg.s_ext   = v[9];
+            pack_mideleg.lcofi   = v[13];
         end
     endfunction
 
     function logic [31:0] unpack_mideleg;
         input mideleg_t v;
         begin
-            unpack_mideleg = {22'b0, v.s_ext, 3'b0, v.s_timer, 3'b0, v.s_sw, 1'b0};
+            unpack_mideleg = {18'b0, v.lcofi, 3'b0, v.s_ext, 3'b0, v.s_timer, 3'b0, v.s_sw, 1'b0};
         end
     endfunction
 
     typedef struct packed {
+        logic [28:0] hpm;
         logic ir;
         logic tm;
         logic cy;
@@ -714,20 +742,22 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
-            pack_mcounteren.ir = v[2];
-            pack_mcounteren.tm = v[1];
-            pack_mcounteren.cy = v[0];
+            pack_mcounteren.hpm = v[31:3];
+            pack_mcounteren.ir  = v[2];
+            pack_mcounteren.tm  = v[1];
+            pack_mcounteren.cy  = v[0];
         end
     endfunction
 
     function logic [31:0] unpack_mcounteren;
         input mcounteren_t v;
         begin
-            unpack_mcounteren = {29'b0, v.ir, v.tm, v.cy};
+            unpack_mcounteren = {v.hpm, v.ir, v.tm, v.cy};
         end
     endfunction
 
     typedef struct packed {
+        logic [28:0] hpm;
         logic ir;
         logic cy;
     } mcountinhibit_t;
@@ -737,15 +767,78 @@ package RXVCSR;
         input logic [31:0] v;
         // verilator lint_on UNUSED
         begin
-            pack_mcountinhibit.ir = v[2];
-            pack_mcountinhibit.cy = v[0];
+            pack_mcountinhibit.hpm = v[31:3];
+            pack_mcountinhibit.ir  = v[2];
+            pack_mcountinhibit.cy  = v[0];
         end
     endfunction
 
     function logic [31:0] unpack_mcountinhibit;
         input mcountinhibit_t v;
         begin
-            unpack_mcountinhibit = {29'b0, v.ir, 1'b0, v.cy};
+            unpack_mcountinhibit = {v.hpm, v.ir, 1'b0, v.cy};
+        end
+    endfunction
+
+    typedef struct packed {
+        logic of;
+        logic minh;
+        logic sinh;
+        logic uinh;
+    } mhpmeventh_t;
+
+    function mhpmeventh_t pack_mhpmeventh;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mhpmeventh.of   = v[31];
+            pack_mhpmeventh.minh = v[30];
+            pack_mhpmeventh.sinh = v[29];
+            pack_mhpmeventh.uinh = v[28];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mhpmeventh;
+        input mhpmeventh_t v;
+        begin
+            unpack_mhpmeventh = {v.of, v.minh, v.sinh, v.uinh, 28'b0};
+        end
+    endfunction
+
+    typedef struct packed {logic [4:0] sel;} mhpmevent_t;
+
+    function mhpmevent_t pack_mhpmevent;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_mhpmevent.sel = v[4:0];
+        end
+    endfunction
+
+    function logic [31:0] unpack_mhpmevent;
+        input mhpmevent_t v;
+        begin
+            unpack_mhpmevent = {27'b0, v.sel};
+        end
+    endfunction
+
+    typedef struct packed {logic [28:0] ovf;} scountovf_t;
+
+    function scountovf_t pack_scountovf;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_scountovf.ovf = v[31:3];
+        end
+    endfunction
+
+    function logic [31:0] unpack_scountovf;
+        input scountovf_t v;
+        begin
+            unpack_scountovf = {v.ovf, 3'b0};
         end
     endfunction
 

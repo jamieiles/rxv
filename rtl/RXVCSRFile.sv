@@ -718,66 +718,80 @@ module RXVCSRFile #(
 
 `ifdef verilator
     logic [commit_width-1:0] except_id;
-    logic [commit_width-1:0] writer_id;
+    integer trace_id;
 
     always_comb begin
         except_id = exec_except_id;
 
         if (lsu_exception.valid) except_id = lsu_except_id;
 
-        writer_id = exception_write ? except_id : writeback_id;
+        trace_id = take_irq ? -1 : (exception_write ? integer'(except_id) : integer'(writeback_id));
     end
 
     always_ff @(posedge clk) begin
-        int trace_id = 32'(writer_id);
-        if (mscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_MSCRATCH, wr_data);
-        if (cyclesl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCYCLE, wr_data);
-        if (cyclesh_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCYCLEH, wr_data);
-        if (instretl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MINSTRET, wr_data);
-        if (instretl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MINSTRETH, wr_data);
-        if (mstatus_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_MSTATUS, unpack_mstatus(mstatus_next));
-        if (mtvec_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVEC, unpack_mtvec(mtvec_next));
-        if (stvec_wren) trace_write_csr(trace_id, RXVCSR::CSR_STVEC, unpack_stvec(stvec_next));
-        if (mepc_wren) trace_write_csr(trace_id, RXVCSR::CSR_MEPC, unpack_mepc(mepc_next));
-        if (mcause_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCAUSE, unpack_mcause(mcause_next));
-        if (scause_wren) trace_write_csr(trace_id, RXVCSR::CSR_SCAUSE, unpack_scause(scause_next));
-        if (mtval_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVAL, unpack_mtval(mtval_next));
-        if (stval_wren) trace_write_csr(trace_id, RXVCSR::CSR_STVAL, unpack_stval(stval_next));
-        if (stpval_wren) trace_write_csr(trace_id, RXVCSR::CSR_STPVAL, unpack_stpval(stpval_next));
-        if (stperms_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_STPERMS, unpack_stperms(stperms_next));
-        if (mie_wren) trace_write_csr(trace_id, RXVCSR::CSR_MIE, unpack_mie(mie_next));
-        if (mip_wren) trace_write_csr(trace_id, RXVCSR::CSR_MIP, unpack_mie(mip_next));
-        if (sie_wren) trace_write_csr(trace_id, RXVCSR::CSR_SIE, unpack_sie(mie_next));
-        if (sip_wren) trace_write_csr(trace_id, RXVCSR::CSR_SIP, unpack_sie(mip_next));
-        if (medeleg_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_MEDELEG, unpack_medeleg(medeleg_next));
-        if (mideleg_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_MIDELEG, unpack_mideleg(mideleg_next));
-        if (mcounteren_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_MCOUNTEREN, unpack_mcounteren(mcounteren_next));
-        if (mcountinhibit_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_MCOUNTINHIBIT, unpack_mcountinhibit(
-                            mcountinhibit_next));
-        if (sscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_SSCRATCH, wr_data);
-        if (sepc_wren) trace_write_csr(trace_id, RXVCSR::CSR_SEPC, unpack_sepc(sepc_next));
-        if (sstatus_wren)
-            trace_write_csr(trace_id, RXVCSR::CSR_SSTATUS, unpack_sstatus(mstatus_next));
-        if (satp_wren) trace_write_csr(trace_id, RXVCSR::CSR_SATP, unpack_satp(satp_next));
-        if (pmp_update_cfg) trace_write_csr(trace_id, RXVCSR::CSR_PMPCFG0, wr_data);
-        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR0)
-            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR0, wr_data);
-        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR1)
-            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR1, wr_data);
-        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR2)
-            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR2, wr_data);
-        if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR3)
-            trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR3, wr_data);
-        if (wr_en && wr_addr == RXVCSR::CSR_STIMECMP)
-            trace_write_csr(trace_id, RXVCSR::CSR_STIMECMP, wr_data);
-        if (wr_en && wr_addr == RXVCSR::CSR_STIMECMPH)
-            trace_write_csr(trace_id, RXVCSR::CSR_STIMECMPH, wr_data);
+        integer evt_i;
+
+        if (!take_irq) begin
+            if (mscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_MSCRATCH, wr_data);
+            if (cyclesl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCYCLE, wr_data);
+            if (cyclesh_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCYCLEH, wr_data);
+            if (instretl_wren) trace_write_csr(trace_id, RXVCSR::CSR_MINSTRET, wr_data);
+            if (instreth_wren) trace_write_csr(trace_id, RXVCSR::CSR_MINSTRETH, wr_data);
+            if (mstatus_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_MSTATUS, unpack_mstatus(mstatus_next));
+            if (mtvec_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVEC, unpack_mtvec(mtvec_next));
+            if (stvec_wren) trace_write_csr(trace_id, RXVCSR::CSR_STVEC, unpack_stvec(stvec_next));
+            if (mepc_wren) trace_write_csr(trace_id, RXVCSR::CSR_MEPC, unpack_mepc(mepc_next));
+            if (mcause_wren) trace_write_csr(trace_id, RXVCSR::CSR_MCAUSE, unpack_mcause(mcause_next));
+            if (scause_wren) trace_write_csr(trace_id, RXVCSR::CSR_SCAUSE, unpack_scause(scause_next));
+            if (mtval_wren) trace_write_csr(trace_id, RXVCSR::CSR_MTVAL, unpack_mtval(mtval_next));
+            if (stval_wren) trace_write_csr(trace_id, RXVCSR::CSR_STVAL, unpack_stval(stval_next));
+            if (stpval_wren) trace_write_csr(trace_id, RXVCSR::CSR_STPVAL, unpack_stpval(stpval_next));
+            if (stperms_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_STPERMS, unpack_stperms(stperms_next));
+            if (mie_wren) trace_write_csr(trace_id, RXVCSR::CSR_MIE, unpack_mie(mie_next));
+            if (mip_wren) trace_write_csr(trace_id, RXVCSR::CSR_MIP, unpack_mie(mip_next));
+            if (sie_wren) trace_write_csr(trace_id, RXVCSR::CSR_SIE, unpack_sie(mie_next));
+            if (sip_wren) trace_write_csr(trace_id, RXVCSR::CSR_SIP, unpack_sie(mip_next));
+            if (medeleg_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_MEDELEG, unpack_medeleg(medeleg_next));
+            if (mideleg_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_MIDELEG, unpack_mideleg(mideleg_next));
+            if (mcounteren_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_MCOUNTEREN, unpack_mcounteren(mcounteren_next));
+            if (mcountinhibit_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_MCOUNTINHIBIT, unpack_mcountinhibit(
+                                mcountinhibit_next));
+            if (sscratch_wren) trace_write_csr(trace_id, RXVCSR::CSR_SSCRATCH, wr_data);
+            if (sepc_wren) trace_write_csr(trace_id, RXVCSR::CSR_SEPC, unpack_sepc(sepc_next));
+            if (sstatus_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_SSTATUS, unpack_sstatus(mstatus_next));
+            if (satp_wren) trace_write_csr(trace_id, RXVCSR::CSR_SATP, unpack_satp(satp_next));
+            if (pmp_update_cfg) trace_write_csr(trace_id, RXVCSR::CSR_PMPCFG0, wr_data);
+            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR0)
+                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR0, wr_data);
+            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR1)
+                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR1, wr_data);
+            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR2)
+                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR2, wr_data);
+            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR3)
+                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR3, wr_data);
+            if (wr_en && wr_addr == RXVCSR::CSR_STIMECMP)
+                trace_write_csr(trace_id, RXVCSR::CSR_STIMECMP, wr_data);
+            if (wr_en && wr_addr == RXVCSR::CSR_STIMECMPH)
+                trace_write_csr(trace_id, RXVCSR::CSR_STIMECMPH, wr_data);
+
+            for (evt_i = 0; evt_i < num_event_counters; ++evt_i) begin
+                if (mhpmevent_wren[counter_bits'(evt_i)])
+                    trace_write_csr(trace_id, RXVCSR::CSR_MHPMEVENT3 + 12'(evt_i), wr_data);
+                if (mhpmeventh_wren[counter_bits'(evt_i)])
+                    trace_write_csr(trace_id, RXVCSR::CSR_MHPMEVENT3H + 12'(evt_i), wr_data);
+                if (pmu_count_wren[counter_bits'(evt_i)])
+                    trace_write_csr(trace_id, RXVCSR::CSR_MHPMCOUNTER3 + 12'(evt_i), wr_data);
+                if (pmu_counth_wren[counter_bits'(evt_i)])
+                    trace_write_csr(trace_id, RXVCSR::CSR_MHPMCOUNTER3H + 12'(evt_i), wr_data);
+            end
+        end
     end
 `endif  // verilator
 

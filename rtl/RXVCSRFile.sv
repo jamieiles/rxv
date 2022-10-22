@@ -711,7 +711,7 @@ module RXVCSRFile #(
     always_ff @(posedge clk) begin
         if (wr_en && wr_addr == RXVCSR::CSR_RXV_EMUCTL) begin
             $display("rxvemu: received simulation exit CSR write (%08x)", wr_data);
-            $finish;
+            $finish();
         end
     end
 `endif

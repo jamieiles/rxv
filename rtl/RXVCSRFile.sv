@@ -296,9 +296,14 @@ module RXVCSRFile #(
     end
 
     always_ff @(posedge clk) begin
-        if (take_irq)
-            trace_irq(exception_target_level, unpack_mcause(mcause_next), unpack_mstatus(
-                      mstatus_next), unpack_mepc(mepc_next));
+        if (take_irq) begin
+            if (exception_target_level == RXVCSR::PRIV_M)
+                trace_irq(exception_target_level, unpack_mcause(mcause_next), unpack_mstatus(
+                        mstatus_next), unpack_mepc(mepc_next));
+            else
+                trace_irq(exception_target_level, unpack_scause(scause_next), unpack_sstatus(
+                    mstatus_next), unpack_sepc(sepc_next));
+        end
     end
 
     always_comb begin

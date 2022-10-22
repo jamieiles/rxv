@@ -165,14 +165,14 @@ module RXVCoreAXISynthTop (
     );
 
     RXVCore #(
-        .icache_nr_ways      (4),
+        .icache_nr_ways      (8),
         .icache_nr_lines     (128),
-        .dcache_nr_ways      (4),
+        .dcache_nr_ways      (8),
         .dcache_nr_lines     (128),
-        .banked_register_file(0),
+        .banked_register_file(1),
         .reset_address       (32'h40000000),
-        .num_itlb_entries    (8),
-        .num_dtlb_entries    (8)
+        .num_itlb_entries    (16),
+        .num_dtlb_entries    (16)
     ) RXVCore (
         .clk            (clk),
         .reset          (reset),

@@ -192,10 +192,10 @@ SD PMOD should be installed in connector JC.
 The default Arty S7 configuration has:
 
   - RXV Core
-    - 16KB 4-way set associated instruction cache
-    - 16KB 4-way set associated data cache
-    - 8-way fully associated instruction TLB
-    - 8-way fully associated data TLB
+    - 32KB 8-way set associated instruction cache
+    - 32KB 8-way set associated data cache
+    - 16-way fully associated instruction TLB
+    - 16-way fully associated data TLB
     - MTIME reference at ~10MHz
     - Separate AXI4 instruction+data busses
   - Xilinx AXI interrupt controller

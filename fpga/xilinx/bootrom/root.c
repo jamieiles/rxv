@@ -68,7 +68,7 @@ static int load_one_file(struct fat_superblock *sb,
 
         if (!wstrcmp(dirent.name, name)) {
             if (!fat_dirent_is_dir(&dirent)) {
-                printk("Reading %ls (%u bytes)\n", name, dirent.size);
+                printk("Reading %ls ", name);
                 fat_read_buf(sb, &dirent, (void *)load_address, dirent.size, 0);
                 putstr("\n");
 
@@ -114,9 +114,7 @@ void root(void)
 
     sd_init();
 
-    putstr("Finding boot partition\n");
     find_boot_partition(&start, &size);
-    putstr("Reading boot sector\n");
     if (read_sector(start, sector_buf))
         panic("unable to read fatfs sector");
 

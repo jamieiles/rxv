@@ -1,3 +1,3 @@
 #pragma once
 
-void printk(const char *fmt, ...);
+size_t printk(const char *fmt, ...);

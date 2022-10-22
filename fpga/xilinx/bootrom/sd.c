@@ -242,7 +242,6 @@ void sd_init(void)
         sd_initial_clocks();
         c = send_reset();
     }
-    putstr("SD card idle\n");
     if (send_if_cond() || send_read_ocr() || sd_wait_ready() ||
         sd_set_blocklen())
         panic("unable to initialize SD card");

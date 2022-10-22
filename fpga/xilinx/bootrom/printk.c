@@ -136,13 +136,20 @@ void read_length(struct string_formatter *formatter)
     }
 }
 
-void parse_specifier(struct string_formatter *formatter)
+int parse_specifier(struct string_formatter *formatter)
 {
     formatter->fmt++;
+
+    if (*formatter->fmt == '%') {
+        output_char(formatter, *formatter->fmt++);
+        return 0;
+    }
 
     read_zero_pad(formatter);
     read_precision(formatter);
     read_length(formatter);
+
+    return 1;
 }
 
 size_t string_format(char *buf, size_t maxlen, const char *fmt, va_list *ap)
@@ -156,8 +163,8 @@ size_t string_format(char *buf, size_t maxlen, const char *fmt, va_list *ap)
 
     while (formatter.len < maxlen - 1 && *formatter.fmt) {
         if (*formatter.fmt == '%') {
-            parse_specifier(&formatter);
-            output_item(&formatter, ap);
+            if (parse_specifier(&formatter))
+                output_item(&formatter, ap);
         } else {
             output_char(&formatter, *formatter.fmt++);
         }
@@ -168,14 +175,17 @@ size_t string_format(char *buf, size_t maxlen, const char *fmt, va_list *ap)
     return formatter.len;
 }
 
-void printk(const char *fmt, ...)
+size_t printk(const char *fmt, ...)
 {
     static char printk_buf[128];
     va_list ap;
+    size_t len;
 
     va_start(ap, fmt);
-    string_format(printk_buf, sizeof(printk_buf), fmt, &ap);
+    len = string_format(printk_buf, sizeof(printk_buf), fmt, &ap);
     va_end(ap);
 
     putstr(printk_buf);
+
+    return len;
 }

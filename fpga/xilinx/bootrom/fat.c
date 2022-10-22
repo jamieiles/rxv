@@ -4,6 +4,7 @@
 #include "sd.h"
 #include "fat.h"
 #include "uart.h"
+#include "printk.h"
 
 static inline unsigned char fat_read8(const unsigned char *p)
 {
@@ -283,6 +284,66 @@ static unsigned long fat_read_from_cluster(struct fat_superblock *sb,
     return len;
 }
 
+#define SZ_KB (1024)
+#define SZ_MB (SZ_KB * 1024)
+
+static void fmt_size(unsigned long sz,
+                     unsigned long *lhs,
+                     unsigned long *rhs,
+                     char **suffix)
+{
+    if (sz > SZ_MB) {
+        unsigned long mb = sz / SZ_MB;
+        unsigned long kb = (sz % SZ_MB) / (SZ_MB / 100);
+
+        *lhs = mb;
+        *rhs = kb;
+        *suffix = "MB";
+    } else if (sz > SZ_KB) {
+        unsigned long kb = sz / SZ_KB;
+        unsigned long b = (sz % SZ_KB) / (SZ_KB / 100);
+
+        *lhs = kb;
+        *rhs = b;
+        *suffix = "KB";
+    } else {
+        *lhs = sz;
+        *rhs = 0;
+        *suffix = "B";
+    }
+}
+
+static void clear(int clear_chars)
+{
+    for (int i = 0; i < clear_chars; ++i)
+        uart_putc('\x08');
+    for (int i = 0; i < clear_chars; ++i)
+        uart_putc(' ');
+    for (int i = 0; i < clear_chars; ++i)
+        uart_putc('\x08');
+}
+
+static int last_draw_len;
+
+static void redraw(unsigned long done, unsigned long total)
+{
+    unsigned long progress = done / (total / 100);
+
+    if (progress > 100)
+        progress = 100;
+
+    clear(last_draw_len);
+
+    unsigned long done_lhs, done_rhs, total_lhs, total_rhs;
+    char *done_suffix, *total_suffix;
+    fmt_size(done, &done_lhs, &done_rhs, &done_suffix);
+    fmt_size(total, &total_lhs, &total_rhs, &total_suffix);
+
+    last_draw_len =
+        printk("%u.%02u%s/%u.%02u%s (%u%%)", done_lhs, done_rhs, done_suffix,
+               total_lhs, total_rhs, total_suffix, progress);
+}
+
 unsigned long fat_read_buf(struct fat_superblock *sb,
                            const struct fat_dirent *dirent,
                            void *dst,
@@ -293,6 +354,8 @@ unsigned long fat_read_buf(struct fat_superblock *sb,
     unsigned long pos = 0, copied = 0;
     unsigned long bytes_per_cluster =
         sb->bytes_per_sector * sb->sectors_per_cluster;
+    unsigned long cluster_read_count = 0;
+    unsigned long orig_len = len;
 
     while (len > 0) {
         if (pos >= offs) {
@@ -305,6 +368,7 @@ unsigned long fat_read_buf(struct fat_superblock *sb,
                 clen = bytes_per_cluster;
 
             fat_read_from_cluster(sb, dst + copied, cluster, clen);
+            ++cluster_read_count;
 
             offs += cluster_offs;
             copied += clen;
@@ -316,8 +380,13 @@ unsigned long fat_read_buf(struct fat_superblock *sb,
             break;
 
         pos += bytes_per_cluster;
-        uart_putc('.');
+
+        if (cluster_read_count % 128 == 0)
+            redraw(pos, orig_len);
     }
+    redraw(orig_len, orig_len);
+
+    last_draw_len = 0;
 
     return 0;
 }

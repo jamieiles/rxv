@@ -84,20 +84,22 @@ update_compile_order -fileset sources_1
 
 read_verilog ./.gen/sources_1/bd/RXVArty/hdl/RXVArty_wrapper.v
 
-synth_design -top Top -flatten_hierarchy rebuilt -bufg 12 -keep_equivalent_registers -fsm_extraction one_hot -retiming -resource_sharing off -directive PerformanceOptimized -control_set_opt_threshold auto -no_lc -shreg_min_size 5 -verilog_define vivado=1 -verilog_define sg15E=1 -verilog_define den2048Mb=1
+synth_design -top Top -flatten_hierarchy rebuilt -bufg 12 -keep_equivalent_registers -fsm_extraction one_hot -retiming -resource_sharing off -directive PerformanceOptimized -control_set_opt_threshold auto -no_lc -verilog_define vivado=1 -verilog_define sg15E=1 -verilog_define den2048Mb=1
 
 write_checkpoint -force post_synth
 report_timing_summary -file post_synth_timing_summary.rpt
 report_power -file post_synth_power.rpt
 
 opt_design -directive ExploreWithRemap
+opt_design -srl_remap_modes {{min_depth_ffs_to_srl 5}{max_depth_srl_to_ffs 8}}
 power_opt_design
 place_design -directive ExtraTimingOpt
-phys_opt_design -directive Explore
+phys_opt_design -directive AggressiveExplore
 write_checkpoint -force post_place
 report_timing_summary -file post_place_timing_summary.rpt
 
 route_design -directive Explore
+phys_opt_design -directive AggressiveExplore
 write_checkpoint -force post_route
 report_timing_summary -file post_route_timing_summary.rpt
 report_timing -file post_route_timing.rpt -sort_by group -max_paths 100 -path_type summary
@@ -105,6 +107,7 @@ report_clock_utilization -file clock_util.rpt
 report_utilization -file post_route_util.rpt
 report_power -file post_route_power.rpt
 report_drc -file post_imp_drc.rpt
+report_qor_suggestions -file qor_suggestions.rpt
 
 set_property BITSTREAM.GENERAL.COMPRESS TRUE [current_design]
 write_bitstream -force RXVArty.bit -bin_file

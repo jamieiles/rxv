@@ -24,6 +24,7 @@ struct boot_file {
     const uint16_t *name;
     uint32_t load_address;
     int required;
+    int compressed;
 };
 
 void panic(const char *str)
@@ -46,15 +47,46 @@ static void jump_payload(void)
         "r"(0x80200000));
 }
 
+extern char load_scratch[];
+
 static const struct boot_file boot_files[] = {
     {.name = u"OPENSBI.BIN", .load_address = 0x80000000, .required = 1},
-    {.name = u"IMAGE.BIN", .load_address = 0x80400000, .required = 0},
+    {.name = u"IMAGEGZ.BIN",
+     .load_address = 0x80400000,
+     .required = 0,
+     .compressed = 1},
     {.name = u"ARTY.DTB", .load_address = 0x80200000, .required = 1},
     {}};
 
+long tinflate(const void *compressed_data,
+              long compressed_size,
+              void *output_buffer,
+              long output_size,
+              unsigned long *crc_ret);
+
+static void decompress(void *dst, const void *src, uint32_t len)
+{
+    const char *buf8 = src;
+    uint32_t uncompressed_len;
+
+    if (buf8[0] != 0x1f || buf8[1] != 0x8b) {
+        putstr("Invalid gzip magic\n");
+        return;
+    }
+
+    memcpy(&uncompressed_len, buf8 + len - 4, sizeof(uncompressed_len));
+
+    unsigned long crc_out;
+    long rc = tinflate(src + 10, len - 18, dst, uncompressed_len, &crc_out);
+
+    if (rc != uncompressed_len)
+        putstr("Failed to decompress\n");
+}
+
 static int load_one_file(struct fat_superblock *sb,
                          const uint16_t *name,
-                         uint32_t load_address)
+                         uint32_t load_address,
+                         int compressed)
 {
     unsigned long offs = fat_root_dir_offs(sb);
     int err = -1;
@@ -68,9 +100,19 @@ static int load_one_file(struct fat_superblock *sb,
 
         if (!wstrcmp(dirent.name, name)) {
             if (!fat_dirent_is_dir(&dirent)) {
-                printk("Reading %ls ", name);
-                fat_read_buf(sb, &dirent, (void *)load_address, dirent.size, 0);
+                uint32_t read_address =
+                    compressed ? (unsigned long)load_scratch : load_address;
+                printk("Reading %ls%s ", name,
+                       compressed ? " (compressed)" : "");
+                fat_read_buf(sb, &dirent, (void *)read_address, dirent.size, 0);
                 putstr("\n");
+
+                if (compressed) {
+                    putstr("Decompressing... ");
+                    decompress((void *)load_address, (const void *)read_address,
+                               dirent.size);
+                    putstr("DONE\n");
+                }
 
                 return 0;
             }
@@ -86,7 +128,7 @@ static int load_files(struct fat_superblock *sb)
     int rc = 0;
 
     while (bf->name) {
-        rc = load_one_file(sb, bf->name, bf->load_address);
+        rc = load_one_file(sb, bf->name, bf->load_address, bf->compressed);
         if (rc && bf->required) {
             printk("ERROR: required file %ls not found\n", bf->name);
             return -1;

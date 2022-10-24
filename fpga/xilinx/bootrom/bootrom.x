@@ -40,11 +40,14 @@ SECTIONS {
 		. = ALIGN(16);
 		_bss_start = . ;
 		*(.bss);
+		*(.sbss);
 		*(COMMON);
 		_bss_end = . ;
 		. = . + 65536 ;
 		. = ALIGN(16);
 		stack_top =  . ;
+		. = . + 65536 ;
+		load_scratch = . ;
 	} > sdram :bss
 
 	/DISCARD/ : {

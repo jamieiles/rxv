@@ -15,6 +15,8 @@ add_executable(bootrom
 	       printk.c
 	       spi.c
 	       sd.c
+		   tinflate.c
+		   progress.c
 	       string.c)
 target_link_options(bootrom PRIVATE "SHELL:-T${CMAKE_CURRENT_SOURCE_DIR}/bootrom.x")
 

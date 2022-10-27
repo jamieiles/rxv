@@ -15,10 +15,10 @@ static inline std::string test_fst()
 }
 
 template <typename T, bool debug_enabled = verilator_debug_enabled>
-class VerilogTestbench : public VerilogDriver<T, debug_enabled>
+class VerilogTestbench : public VerilogDriver<T, true>
 {
 public:
-    VerilogTestbench() : VerilogDriver<T, debug_enabled>(test_fst())
+    VerilogTestbench() : VerilogDriver<T, true>(test_fst())
     {
     }
 };

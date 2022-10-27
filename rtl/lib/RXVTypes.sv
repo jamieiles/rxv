@@ -76,9 +76,9 @@ package RXVTypes;
         PMU_DTLB_READ_MISS,
         PMU_ITLB_READ,
         PMU_ITLB_READ_MISS
-    } rxv_pmu_evt;
+    } rxv_pmu_evt  /* verilator public */;
 
-    localparam pmu_num_events = PMU_ITLB_READ_MISS + 1;
+    localparam pmu_num_events  /* verilator public */ = PMU_ITLB_READ_MISS + 1;
     localparam rxv_pmu_evt_bits = $clog2(pmu_num_events);
     typedef logic [pmu_num_events-1:0] pmu_evt_bus;
     typedef logic [rxv_pmu_evt_bits-1:0] pmu_evt_sel;

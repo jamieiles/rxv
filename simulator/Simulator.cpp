@@ -69,6 +69,7 @@ public:
         fmt::print(
             "{0:d} instructions in {1:d} cycles ({2:0.2f} instructions per cycle)\n\r",
             stats.retired, stats.cycles, static_cast<double>(stats.retired) / stats.cycles);
+        report_extended_perf_stats(stats);
         fmt::print("{0:d} IRQs\n\r", stats.num_irqs);
         fmt::print("Simulation speed {0:s}\r\n",
                    human_freq(stats.cycles / duration.count()));
@@ -76,6 +77,32 @@ public:
     }
 
 private:
+    void report_extended_perf_stats(const SimPerfStats &stats)
+    {
+        if (!stats.branch)
+            return;
+
+        report_one_perf_stat("BRANCH", stats.branch);
+        report_one_perf_stat("BRANCH_MISPRED", stats.branch_mispred);
+        report_one_perf_stat("FE_STALL", stats.fe_stall);
+        report_one_perf_stat("BE_STALL", stats.be_stall);
+        report_one_perf_stat("L1D_READ", stats.l1d_read);
+        report_one_perf_stat("L1D_READ_MISS", stats.l1d_read_miss);
+        report_one_perf_stat("L1D_WRITE", stats.l1d_write);
+        report_one_perf_stat("L1D_WRITE_MISS", stats.l1d_write_miss);
+        report_one_perf_stat("L1I_READ", stats.l1i_read);
+        report_one_perf_stat("L1I_READ_MISS", stats.l1i_read_miss);
+        report_one_perf_stat("DTLB_READ", stats.dtlb_read);
+        report_one_perf_stat("DTLB_READ_MISS", stats.dtlb_read_miss);
+        report_one_perf_stat("ITLB_READ", stats.itlb_read);
+        report_one_perf_stat("ITLB_READ_MISS", stats.itlb_read_mis);
+    }
+
+    void report_one_perf_stat(const std::string &name, uint64_t v)
+    {
+        fmt::print("{0:20s} {1:d}\r\n", name, v);
+    }
+
     std::unique_ptr<SimulatorBase> sim;
 };
 

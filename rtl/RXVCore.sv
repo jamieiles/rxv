@@ -57,7 +57,7 @@ module RXVCore #(
     input logic                       ext_irq
 );
 
-    pmu_evt_bus                             pmu_events;
+    pmu_evt_bus                             pmu_events /* verilator public */;
     logic          [                  31:2] icache_address;
     logic                                   icache_valid;
     logic                                   icache_busy;

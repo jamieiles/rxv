@@ -490,7 +490,7 @@ public:
 
     SimPerfStats get_perf_stats() const
     {
-        SimPerfStats s;
+        SimPerfStats s = {};
 
         s.cycles = cur_cycle;
         s.retired = cur_cycle;

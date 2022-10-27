@@ -244,6 +244,17 @@ public:
             mtime_base, 64 * 1024));
         this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
         this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
+
+        assert(this->dut.RXVTypes->pmu_num_events <
+               sizeof(core_perf_stats) / sizeof(core_perf_stats[0]));
+
+        this->periodic(ClockCapture, [&] {
+            for (unsigned i = 0; i < this->dut.RXVTypes->pmu_num_events; ++i) {
+                if (this->dut.RXVCoreEmulWrapper->RXVCore->pmu_events &
+                    (1U << i))
+                    ++core_perf_stats[i];
+            }
+        });
     }
 
     virtual ~RXVCore()
@@ -327,6 +338,26 @@ public:
         s.cycles = this->dut.RXVCoreEmulWrapper->RXVCore->RXVPMU->pmu_cycles;
         s.retired = this->dut.RXVCoreEmulWrapper->RXVCore->RXVPMU->pmu_instret;
         s.num_irqs = this->tracer->get_num_irqs();
+        s.branch = this->core_perf_stats[this->dut.RXVTypes->PMU_BRANCH];
+        s.branch_mispred =
+            this->core_perf_stats[this->dut.RXVTypes->PMU_BRANCH_MISPRED];
+        s.fe_stall = this->core_perf_stats[this->dut.RXVTypes->PMU_FE_STALL];
+        s.be_stall = this->core_perf_stats[this->dut.RXVTypes->PMU_BE_STALL];
+        s.l1d_read = this->core_perf_stats[this->dut.RXVTypes->PMU_L1D_READ];
+        s.l1d_read_miss =
+            this->core_perf_stats[this->dut.RXVTypes->PMU_L1D_READ_MISS];
+        s.l1d_write = this->core_perf_stats[this->dut.RXVTypes->PMU_L1D_WRITE];
+        s.l1d_write_miss =
+            this->core_perf_stats[this->dut.RXVTypes->PMU_L1D_WRITE_MISS];
+        s.l1i_read = this->core_perf_stats[this->dut.RXVTypes->PMU_L1I_READ];
+        s.l1i_read_miss =
+            this->core_perf_stats[this->dut.RXVTypes->PMU_L1I_READ_MISS];
+        s.dtlb_read = this->core_perf_stats[this->dut.RXVTypes->PMU_DTLB_READ];
+        s.dtlb_read_miss =
+            this->core_perf_stats[this->dut.RXVTypes->PMU_DTLB_READ_MISS];
+        s.itlb_read = this->core_perf_stats[this->dut.RXVTypes->PMU_ITLB_READ];
+        s.itlb_read_mis =
+            this->core_perf_stats[this->dut.RXVTypes->PMU_ITLB_READ_MISS];
 
         return s;
     }
@@ -353,4 +384,5 @@ private:
     std::shared_ptr<MemoryBus> bus;
     std::shared_ptr<ShadowTracer> tracer;
     bool have_reset;
+    uint64_t core_perf_stats[32];
 };

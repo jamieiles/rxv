@@ -18,6 +18,20 @@ struct SimPerfStats {
     uint64_t cycles;
     uint64_t retired;
     uint64_t num_irqs;
+    uint64_t branch;
+    uint64_t branch_mispred;
+    uint64_t fe_stall;
+    uint64_t be_stall;
+    uint64_t l1d_read;
+    uint64_t l1d_read_miss;
+    uint64_t l1d_write;
+    uint64_t l1d_write_miss;
+    uint64_t l1i_read;
+    uint64_t l1i_read_miss;
+    uint64_t dtlb_read;
+    uint64_t dtlb_read_miss;
+    uint64_t itlb_read;
+    uint64_t itlb_read_mis;
 };
 
 class SimulatorBase

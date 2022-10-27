@@ -271,8 +271,8 @@ module RXVTLB #(
     end
 
     always_comb begin
-        pmu_tlb_access = state == STATE_READY && valid;
-        pmu_tlb_miss   = state == STATE_READY && valid && !hit;
+        pmu_tlb_access = enabled && state == STATE_READY && valid;
+        pmu_tlb_miss   = enabled && state == STATE_READY && valid && !hit;
     end
 
     RXVDFF #(

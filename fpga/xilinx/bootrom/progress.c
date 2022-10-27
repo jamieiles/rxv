@@ -2,9 +2,13 @@
 #include "string.h"
 #include "printk.h"
 #include "uart.h"
+#include "mtime.h"
 
 #define SZ_KB (1024)
 #define SZ_MB (SZ_KB * 1024)
+
+#define UPDATES_PER_SECOND 10
+#define UPDATE_INTERVAL ((1000 / UPDATES_PER_SECOND) * TICKS_PER_MS)
 
 static void fmt_size(unsigned long sz,
                      unsigned long *lhs,
@@ -61,6 +65,17 @@ void progress(unsigned long done, unsigned long total)
     last_draw_len =
         printk("%u.%02u%s/%u.%02u%s (%u%%)", done_lhs, done_rhs, done_suffix,
                total_lhs, total_rhs, total_suffix, progress);
+}
+
+void progress_ratelimited(unsigned long done, unsigned long total)
+{
+    static uint64_t last_update;
+    uint64_t now = get_time();
+
+    if (now > last_update + UPDATE_INTERVAL) {
+        progress(done, total);
+        last_update = now;
+    }
 }
 
 void progress_clear(void)

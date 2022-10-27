@@ -569,7 +569,7 @@ int tinflate_partial(const void *compressed_data,
 
     do {
         int res = tinflate_block(state);
-        progress(state->out_ofs, state->out_size);
+        progress_ratelimited(state->out_ofs, state->out_size);
         if (res != 0) {
             /* This will catch the out-of-data case, so we don't need to
              * check for out-of-data separately. */

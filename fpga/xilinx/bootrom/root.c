@@ -111,7 +111,7 @@ static int load_one_file(struct fat_superblock *sb,
                     putstr("Decompressing... ");
                     decompress((void *)load_address, (const void *)read_address,
                                dirent.size);
-                    putstr("DONE\n");
+                    putstr("\n");
                 }
 
                 return 0;

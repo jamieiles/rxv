@@ -23,7 +23,8 @@ module RXVCountdown #(
     end
 
     RXVDFF #(
-        .width($bits(counter))
+        .width    ($bits(counter)),
+        .reset_val(reload_val)
     ) counter_dff (
         .clk  (clk),
         .reset(reset),

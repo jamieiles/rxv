@@ -9,7 +9,7 @@ module BitSync (
     (* ASYNC_REG = "TRUE" *)logic p1;
     (* ASYNC_REG = "TRUE" *)logic p2;
 
-    RXVDFF p1_dff (
+    RXVADFF p1_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -17,7 +17,7 @@ module BitSync (
         .q    (p1)
     );
 
-    RXVDFF p2_dff (
+    RXVADFF p2_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),

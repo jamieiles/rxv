@@ -85,6 +85,18 @@ module Top (
         .expired(sd_busy_expired)
     );
 
+    wire rst_pulse;
+
+    RXVCountdown #(
+        .width     (8),
+        .reload_val(8'hff)
+    ) reset_counter (
+        .clk    (rst_clk),
+        .reset  (1'b0),
+        .reload (mmio_rst_sync & ~mmio_rst_sync_last),
+        .expired(rst_pulse)
+    );
+
     xpm_memory_spram #(
         .ADDR_WIDTH_A      (14),
         .BYTE_WRITE_WIDTH_A(8),
@@ -108,10 +120,38 @@ module Top (
         .sleep (1'b0)
     );
 
+
+    wire                                      sys_clk;
+    wire                                      rst_clk;
+    wire                                      mmio_rst;
+    wire                                      mmio_rst_sync;
+    reg                                       mmio_rst_sync_last;
+
+    wire rtl_reset = ~ext_reset | ~rst_pulse;
+
+    always @(posedge rst_clk) mmio_rst_sync_last <= mmio_rst_sync;
+
+    BitSync mmio_rst_bitsync (
+        .clk  (rst_clk),
+        .reset(1'b0),
+        .d    (mmio_rst),
+        .q    (mmio_rst_sync)
+    );
+
+    BUFG sys_bufg (
+        .I(clk),
+        .O(sys_clk)
+    );
+
+    BUFG rst_bufg (
+        .I(clk),
+        .O(rst_clk)
+    );
+
     RXVArty_wrapper inst (
-        .clk_100MHz         (clk),
-        .reset_rtl_0        (~ext_reset),
+        .clk_100MHz         (sys_clk),
         .pwr_on_rst         (pwr_on_rst),
+        .reset_rtl_0        (rtl_reset),
         .uart_rtl_0_baudoutn(),
         .uart_rtl_0_ctsn    (),
         .uart_rtl_0_dcdn    (),
@@ -151,7 +191,8 @@ module Top (
         .spi_mosi           (spi_mosi),
         .spi_ncs            (spi_ncs),
         .spi_sck            (spi_sck),
-        .eth_int            (eth_int)
+        .eth_int            (eth_int),
+        .mmio_rst           (mmio_rst)
     );
 
 endmodule

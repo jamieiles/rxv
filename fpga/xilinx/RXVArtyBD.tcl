@@ -411,6 +411,7 @@ proc create_root_design { parentCell } {
   set spi_mosi [ create_bd_port -dir O -type data spi_mosi ]
   set spi_ncs [ create_bd_port -dir O -from 1 -to 0 spi_ncs ]
   set spi_sck [ create_bd_port -dir O -type clk spi_sck ]
+  set mmio_rst [ create_bd_port -dir O -type data mmio_rst ]
 
   # Create instance: RXVCLINT_0, and set properties
   set block_name RXVCLINT
@@ -534,6 +535,7 @@ AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_net -net mig_7series_0_ui_addn_clk_1 [get_bd_pins RXVCLINT_0/refclk] [get_bd_pins mig_7series_0/ui_addn_clk_1]
   connect_bd_net -net mig_7series_0_ui_clk [get_bd_pins RXVCLINT_0/s_axi_aclk] [get_bd_pins RXVCoreAXISynthTop_0/clk] [get_bd_pins axi_intc_0/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins axi_uart16550_0/s_axi_aclk] [get_bd_pins bootrom_ctrl/s_axi_aclk] [get_bd_pins mig_7series_0/ui_clk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins smartconnect_0/aclk]
   connect_bd_net -net pwr_on_rst_1 [get_bd_ports pwr_on_rst] [get_bd_pins mig_7series_0/sys_rst]
+  connect_bd_net -net mmio_rst_1 [get_bd_ports mmio_rst] [get_bd_pins RXVCLINT_0/sys_reset]
   connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl_0] [get_bd_pins rst_clk_wiz_100M/ext_reset_in]
   connect_bd_net -net rst_clk_wiz_100M_interconnect_aresetn [get_bd_pins rst_clk_wiz_100M/interconnect_aresetn] [get_bd_pins smartconnect_0/aresetn]
   connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins RXVCLINT_0/s_axi_aresetn] [get_bd_pins axi_intc_0/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn] [get_bd_pins bootrom_ctrl/s_axi_aresetn] [get_bd_pins mig_7series_0/aresetn] [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn]

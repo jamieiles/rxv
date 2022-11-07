@@ -20,13 +20,15 @@ module RXVCLINT (
     output wire        s_axi_rvalid,
     input  wire        s_axi_rready,
     output wire [63:0] mtime,
-    output wire        mtime_irq
+    output wire        mtime_irq,
+    output wire        sys_reset
 );
 
     localparam MTIMECMP_LOW_OFFSET = 16'h4000;
     localparam MTIMECMP_HIGH_OFFSET = 16'h4004;
     localparam MTIME_LOW_OFFSET = 16'hbff8;
     localparam MTIME_HIGH_OFFSET = 16'hbffc;
+    localparam RESET_OFFSET = 16'hc000;
 
     wire        refclk_sync;
     wire [63:0] mtimecmp;
@@ -40,6 +42,7 @@ module RXVCLINT (
     reg         reset;
     reg         refclk_half_next;
     wire        refclk_half;
+    reg         sys_reset_next;
 
     always @(*) begin
         reset = ~s_axi_aresetn;
@@ -64,6 +67,12 @@ module RXVCLINT (
             mtimecmp_next[31:0] = s_axi_wdata;
         if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == MTIMECMP_HIGH_OFFSET)
             mtimecmp_next[63:32] = s_axi_wdata;
+    end
+
+    always @(*) begin
+        sys_reset_next = sys_reset;
+        if (s_axi_wvalid && s_axi_awvalid && s_axi_awaddr == RESET_OFFSET)
+            sys_reset_next = s_axi_wdata[0];
     end
 
     always @(*) begin
@@ -173,6 +182,14 @@ module RXVCLINT (
         .en   (1'b1),
         .d    (refclk_half_next),
         .q    (refclk_half)
+    );
+
+    RXVDFF sys_reset_dff (
+        .clk  (s_axi_aclk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (sys_reset_next),
+        .q    (sys_reset)
     );
 
 endmodule

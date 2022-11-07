@@ -6,6 +6,7 @@ set_property PACKAGE_PIN V12 [get_ports uart_rtl_0_rxd]
 set_property IOSTANDARD SSTL135 [get_ports clk]
 
 create_clock -period 10.000 -name clk -waveform {0.000 5.000} [get_ports clk]
+set_false_path -from [get_clocks clk_pll_i] -to [get_clocks clk]
 
 set_property CONFIG_VOLTAGE 3.3 [current_design]
 set_property CFGBVS VCCO [current_design]

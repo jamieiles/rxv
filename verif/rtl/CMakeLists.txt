@@ -8,7 +8,7 @@ include_directories(../../simulator/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../simulator)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../tools)
 
-set(CMAKE_CXX_FLAGS "-Wno-bool-operation ${CMAKE_CXX_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Wno-bool-operation -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-error=unused-parameter ${CMAKE_CXX_FLAGS}")
 set(VERILATOR_FLAGS -Wall -Wpedantic --report-unoptflat --assert)
 
 ys_formal(TOP RAMBE

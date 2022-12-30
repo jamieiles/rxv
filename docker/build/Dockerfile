@@ -1,7 +1,7 @@
 FROM rxv-build-quartus:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
-ARG VERILATOR_VERSION=4.220
+ARG VERILATOR_VERSION=5.004
 RUN apt-get update && apt-get install --no-install-recommends -y \
 	autoconf \
         bison \
@@ -42,6 +42,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         ninja-build \
 	pkg-config \
 	python3 \
+	python3-click \
         python3-dev \
         python3-distorm3 \
         python3-lxml \

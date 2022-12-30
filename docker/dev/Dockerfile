@@ -1,13 +1,14 @@
 FROM rxv-build:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ARG USERNAME=devuser
+ARG VERIBLE_VERSION=v0.0-2466-g06e71018
 RUN apt-get install -y gpg curl
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg && \
         install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/ && \
         sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
-RUN wget https://github.com/chipsalliance/verible/releases/download/v0.0-2466-g06e71018/verible-v0.0-2466-g06e71018-Ubuntu-22.04-jammy-x86_64.tar.gz && \
-        tar xf verible-v0.0-2466-g06e71018-Ubuntu-22.04-jammy-x86_64.tar.gz && \
-        cp -r verible-v0.0-2466-g06e71018/* /usr/ && \
+RUN wget https://github.com/chipsalliance/verible/releases/download/$VERIBLE_VERSION/verible-$VERIBLE_VERSION-Ubuntu-22.04-jammy-x86_64.tar.gz && \
+        tar xf verible-$VERIBLE_VERSION-Ubuntu-22.04-jammy-x86_64.tar.gz && \
+        cp -r verible-$VERIBLE_VERSION/* /usr/ && \
 	rm -r verible*
 RUN apt-get update && apt-get install -y runit \
         gtkwave \

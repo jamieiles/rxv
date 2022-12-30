@@ -3,6 +3,7 @@ set(Boost_USE_MULTITHREADED TRUE)
 find_package(Boost 1.71.0 COMPONENTS program_options REQUIRED)
 
 get_target_property(RXVCORE_INCLUDE_DIRECTORIES RXVCoreEmul INCLUDE_DIRECTORIES)
+set(CMAKE_CXX_FLAGS "-Wno-bool-operation -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-error=unused-parameter ${CMAKE_CXX_FLAGS}")
 
 include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../tools)

@@ -6,7 +6,6 @@ module BusTransactor #(
     input logic                    clk,
           MemInterface.Subordinate bus
 );
-
     typedef enum bit [1:0] {
         READ_STATE_ADDRESS,
         READ_STATE_LATENCY_WAIT,
@@ -29,7 +28,7 @@ module BusTransactor #(
     logic [wait_bits-1:0] read_wait_counter;
     logic [wait_bits-1:0] write_wait_counter;
     logic [          3:0] read_beats;
-    logic [          3:0] write_beats;
+    logic [          3:0] write_beats  /* verilator public */;
 
     always_comb begin
         case (read_state)
@@ -61,6 +60,10 @@ module BusTransactor #(
         end
     end
 
+    function logic [31:0] bus_read(input logic [31:0] address);
+        bus_read = $c("this->bus->read(", address, ", ", instruction, ");");
+    endfunction
+
     always_ff @(posedge clk) begin
         case (next_read_state)
             READ_STATE_ADDRESS: begin
@@ -75,13 +78,7 @@ module BusTransactor #(
             READ_STATE_DATA: begin
                 bus.rvalid <= 1'b1;
                 if (read_state == READ_STATE_LATENCY_WAIT || (bus.rready && bus.rvalid)) begin
-                    bus.rdata <= $c(
-                        "this->bus->read(",
-                        bus.raddr + addr_bits'(read_beats) * 4,
-                        ", ",
-                        instruction,
-                        ");"
-                    );
+                    bus.rdata <= bus_read(bus.raddr + addr_bits'(read_beats) * 4);
                 end
                 if (bus.rlen == 'b0 || ((bus.rvalid & bus.rready) && read_beats == bus.rlen)) begin
                     bus.rlast <= 1'b1;
@@ -156,10 +153,14 @@ module BusTransactor #(
         endcase
     end
 
+    task bus_write(logic [31:0] address, logic [31:0] data, logic [3:0] wstb);
+        /* verilator no_inline_task */
+        $c("this->bus->write(", address, ", ", data, ", ", wstb, ");");
+    endtask
+
     always_ff @(posedge clk) begin
         if (write_state == WRITE_STATE_DATA && bus.wvalid && bus.wready) begin
-            $c("this->bus->write(", bus.waddr + addr_bits'(write_beats) * 4, ", ", bus.wdata, ", ",
-               bus.wstb, ");");
+            bus_write(bus.waddr + addr_bits'(write_beats) * 4, bus.wdata, bus.wstb);
             assert (|bus.wstb);
         end
     end

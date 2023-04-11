@@ -5,6 +5,7 @@
 #include <vector>
 #include <cstdlib>
 #include <cassert>
+#include <mutex>
 
 using MemFault = std::runtime_error;
 
@@ -64,6 +65,8 @@ public:
                       size_t len,
                       bool instruction_fetch = false)
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (addr >= ram_base && addr < ram_base + ram_size) {
             addr -= ram_base;
             if (addr + len > ram_size)
@@ -77,6 +80,8 @@ public:
 
     virtual void write(uint32_t addr, const char *val, size_t len)
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (addr >= ram_base && addr < ram_base + ram_size) {
             addr -= ram_base;
             if (addr + len > ram_size)
@@ -152,4 +157,5 @@ private:
     std::unique_ptr<uint32_t[]> mem;
     std::vector<std::unique_ptr<IOPeripheral>> peripherals;
     bool log_unmapped;
+    std::mutex lock;
 };

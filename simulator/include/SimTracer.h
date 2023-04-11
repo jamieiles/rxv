@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <fstream>
+#include <mutex>
 
 #include "RXV.h"
 #include "Trace_generated.h"
@@ -66,6 +67,8 @@ public:
         if (!enabled)
             return;
 
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (inflight[id].traced)
             inflight[id].mems.emplace_back(MemTrace{
                 addr, phys, static_cast<uint32_t>(val), sizeof(T), true});
@@ -79,6 +82,8 @@ public:
     {
         if (!enabled)
             return;
+
+        const std::lock_guard<std::mutex> guard(lock);
 
         uint32_t val = 0;
         memcpy(&val, v, len);
@@ -103,6 +108,8 @@ public:
         if (!enabled)
             return;
 
+        const std::lock_guard<std::mutex> guard(lock);
+
         uint32_t val = 0;
         memcpy(&val, v, len);
         if (inflight[id].traced)
@@ -115,6 +122,8 @@ public:
         if (!enabled)
             return;
 
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (inflight[id].traced)
             inflight[id].gprs.emplace_back(RegisterTrace{r, v, false});
     }
@@ -124,6 +133,8 @@ public:
         if (!enabled)
             return;
 
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (inflight[id].traced)
             inflight[id].csrs.emplace_back(CSRTrace{r, v});
     }
@@ -132,6 +143,8 @@ public:
     {
         if (!enabled || !trace_reg_reads)
             return;
+
+        const std::lock_guard<std::mutex> guard(lock);
 
         if (inflight[id].traced)
             inflight[id].gprs.emplace_back(RegisterTrace{r, v, true});
@@ -146,6 +159,8 @@ public:
     {
         if (!enabled)
             return;
+
+        const std::lock_guard<std::mutex> guard(lock);
 
         auto &instr_trace = inflight[id];
         instr_trace.cycle_num = cycle;
@@ -162,6 +177,8 @@ public:
 
     virtual void trace_exception(int id)
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (!inflight[id].traced)
             return;
 
@@ -174,6 +191,8 @@ public:
                            uint32_t status,
                            uint32_t epc)
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         RXV::Trace::CSRId xEPC;
         RXV::Trace::CSRId xCAUSE;
         RXV::Trace::CSRId xSTATUS;
@@ -213,6 +232,8 @@ public:
 
     virtual void trace_end_instruction(int id)
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         if (!inflight[id].traced)
             return;
 
@@ -267,6 +288,8 @@ public:
         if (!enabled)
             return;
 
+        const std::lock_guard<std::mutex> guard(lock);
+
         auto events = trace_builder.CreateVector(traced_events);
         auto types = trace_builder.CreateVector(event_types);
         auto trace =
@@ -297,4 +320,5 @@ private:
     std::vector<uint8_t> event_types;
     std::string filename;
     std::map<int, InstructionTrace> inflight;
+    std::mutex lock;
 };

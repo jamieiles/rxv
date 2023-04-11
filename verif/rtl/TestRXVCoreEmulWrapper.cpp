@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <mutex>
 #include "VerilogTestbench.h"
 #include "VRXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper__Syms.h"
@@ -94,12 +95,16 @@ public:
 
     virtual void trace_write_reg(int id, int r, uint32_t v) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_write_reg(id, r, v);
         instruction_map[id].reg_write = std::make_pair(r, v);
     }
 
     virtual void trace_write_csr(int id, int r, uint32_t v) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         instruction_map[id].csr_writes.emplace_back(std::make_pair(r, v));
 
         SimTracer::trace_write_csr(id, r, v);
@@ -107,6 +112,8 @@ public:
 
     virtual void trace_read_reg(int id, int r, uint32_t v) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_read_reg(id, r, v);
     }
 
@@ -117,6 +124,8 @@ public:
                                          uint64_t cycle,
                                          PrivilegeLevel level) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_start_instruction(id, pc, pc_phys, instr, cycle,
                                            level);
         instruction_map[id] = InstructionRecord();
@@ -125,12 +134,16 @@ public:
 
     virtual void trace_exception(int id) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         instruction_map[id].excepted = true;
         SimTracer::trace_exception(id);
     }
 
     virtual void trace_end_instruction(int id) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_end_instruction(id);
 
         auto &instr = instruction_map[id];
@@ -172,6 +185,7 @@ private:
     int num_instructions;
     uint32_t last_pc;
     std::map<int, InstructionRecord> instruction_map;
+    std::mutex lock;
 };
 
 class RXVCoreEmulWrapperTest

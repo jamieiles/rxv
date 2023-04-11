@@ -41,12 +41,16 @@ public:
 
     virtual void trace_write_reg(int id, int r, uint32_t v) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_write_reg(id, r, v);
         instruction_map[id].reg_write = std::make_pair(r, v);
     }
 
     virtual void trace_write_csr(int id, int r, uint32_t v) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         instruction_map[id].csr_writes.emplace_back(std::make_pair(r, v));
 
         SimTracer::trace_write_csr(id, r, v);
@@ -65,6 +69,8 @@ public:
     {
         uint32_t val = 0;
 
+        const std::lock_guard<std::mutex> guard(lock);
+
         assert(len <= sizeof(val));
         memcpy(&val, v, len);
         instruction_map[id].mem_writes.emplace_back(
@@ -79,6 +85,8 @@ public:
                                          uint64_t cycle,
                                          PrivilegeLevel level) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_start_instruction(id, pc, pc_phys, instr, cycle,
                                            level);
         instruction_map[id] = InstructionRecord();
@@ -87,12 +95,16 @@ public:
 
     virtual void trace_exception(int id) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         instruction_map[id].excepted = true;
         SimTracer::trace_exception(id);
     }
 
     virtual void trace_end_instruction(int id) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_end_instruction(id);
 
         auto &instr = instruction_map[id];
@@ -115,6 +127,8 @@ public:
                            uint32_t status,
                            uint32_t epc) override
     {
+        const std::lock_guard<std::mutex> guard(lock);
+
         SimTracer::trace_irq(target_level, cycle_num, cause, status, epc);
 
         ++num_irqs;
@@ -156,6 +170,7 @@ private:
     uint32_t last_pc;
     std::map<int, InstructionRecord> instruction_map;
     MemoryBus *shadow_bus;
+    std::mutex lock;
 };
 
 class RTLCLINT : public IOPeripheral

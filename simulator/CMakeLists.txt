@@ -11,6 +11,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../verif/rtl)
 include_directories(include)
 include_directories(${RXVCORE_INCLUDE_DIRECTORIES})
 
+set(CMAKE_CXX_FLAGS "-Wno-bool-operation -Wno-unused-parameter -Wno-unused-variable ${CMAKE_CXX_FLAGS}")
+
 add_subdirectory(bootrom)
 
 add_executable(rxv-simulator

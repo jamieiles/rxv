@@ -34,7 +34,7 @@ target_link_libraries(rxv-simulator
 
 ExternalProject_Add(riscv-tests
                     GIT_REPOSITORY https://github.com/riscv/riscv-tests.git
-                    GIT_TAG origin/master
+                    GIT_TAG b1e56a620d976b89c7910e522989031e5f934b1b
                     UPDATE_DISCONNECTED ${UPDATE_DISCONNECTED}
                     UPDATE_COMMAND ""
                     CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env CFLAGS=-ggdb <SOURCE_DIR>/configure --target=riscv64-unknown-elf --with-xlen=32

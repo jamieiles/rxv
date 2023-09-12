@@ -3,7 +3,7 @@ set(CMAKE_FIND_PACKAGE_SORT_DIRECTION DEC)
 
 set(Boost_NO_BOOST_CMAKE ON)
 set(Boost_USE_MULTITHREADED TRUE)
-find_package(Flatbuffers REQUIRED)
+find_package(FlatBuffers REQUIRED NAMES FlatBuffers Flatbuffers)
 find_package(Boost 1.71.0 COMPONENTS program_options REQUIRED)
 find_package(Clang REQUIRED)
 include_directories(SYSTEM ${LLVM_INCLUDE_DIRS})

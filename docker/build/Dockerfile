@@ -1,4 +1,5 @@
-FROM rxv-build-quartus:latest
+ARG BUILD_BASE=rxv-build-quartus:latest
+FROM $BUILD_BASE
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
 ARG VERILATOR_VERSION=5.008

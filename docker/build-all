@@ -3,6 +3,11 @@ set -e
 if [ "$MIRROR" != "" ]; then
     MIRROR_ARG="--build-arg MIRROR=$MIRROR"
 fi
-docker build $MIRROR_ARG -t rxv-build-quartus docker/build-quartus/
-docker build $MIRROR_ARG -t rxv-build docker/build/
+
+BUILD_BASE=ubuntu:22.04
+if [ $(uname -m) = "x86_64" ]; then
+    docker build $MIRROR_ARG -t rxv-build-quartus docker/build-quartus/
+    BUILD_BASE=rxv-build-quartus:latest
+fi
+docker build --build-arg BUILD_BASE=$BUILD_BASE $MIRROR_ARG -t rxv-build docker/build/
 docker build -t rxv-dev -f docker/dev/Dockerfile .

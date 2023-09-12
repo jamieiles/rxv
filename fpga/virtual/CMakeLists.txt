@@ -1,4 +1,6 @@
-find_package(Quartus REQUIRED)
+find_package(Quartus)
+
+if (QUARTUS_FOUND)
 include(Quartus)
 include(ProcessorCount)
 
@@ -72,3 +74,5 @@ add_fpga(PROJECT RXVCoreSynthTop
          SOURCES ${ALL_SOURCES})
 
 add_custom_target(virtual-fpga DEPENDS RXVCoreSynthTop.sta.rpt)
+
+endif (QUARTUS_FOUND)

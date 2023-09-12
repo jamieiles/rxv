@@ -4,12 +4,9 @@ ARG USERNAME=devuser
 ARG VERIBLE_VERSION=v0.0-3132-gb052efb1
 ARG VERIBLE_DISTRO=Ubuntu-22.04-jammy-x86_64
 RUN apt-get install -y gpg curl
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg && \
-        install -o root -g root -m 644 microsoft.gpg /etc/apt/trusted.gpg.d/ && \
-        sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/vscode stable main" > /etc/apt/sources.list.d/vscode.list'
 RUN wget https://github.com/chipsalliance/verible/releases/download/$VERIBLE_VERSION/verible-$VERIBLE_VERSION-$VERIBLE_DISTRO.tar.gz && \
-        tar xf verible-$VERIBLE_VERSION-$VERIBLE_DISTRO.tar.gz && \
-        cp -r verible-$VERIBLE_VERSION/* /usr/ && \
+	tar xf verible-$VERIBLE_VERSION-$VERIBLE_DISTRO.tar.gz && \
+	cp -r verible-$VERIBLE_VERSION/* /usr/ && \
 	rm -r verible*
 RUN echo "path-include=/usr/share/doc/fzf/examples/*" >> /etc/dpkg/dpkg.cfg.d/excludes
 RUN apt-get update && apt-get install -y runit \
@@ -31,17 +28,17 @@ ENV GTEST_COLOR=1
 RUN useradd -ms /bin/bash -G sudo,adm devuser
 RUN echo "%sudo   ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 RUN mkdir -p /home/devuser/.vscode-server/extensions \
-        /home/devuser/.vscode-server-insiders/extensions \
+	/home/devuser/.vscode-server-insiders/extensions \
     && chown -R devuser \
-        /home/devuser/.vscode-server \
-        /home/devuser/.vscode-server-insiders
+	/home/devuser/.vscode-server \
+	/home/devuser/.vscode-server-insiders
 RUN SNIPPET="export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
-        && mkdir /commandhistory \
-        && touch /commandhistory/.bash_history \
-        && chown -R $USERNAME /commandhistory \
-        && echo $SNIPPET >> "/home/$USERNAME/.bashrc"
+	&& mkdir /commandhistory \
+	&& touch /commandhistory/.bash_history \
+	&& chown -R $USERNAME /commandhistory \
+	&& echo $SNIPPET >> "/home/$USERNAME/.bashrc"
 RUN cd /tmp && \
-	git clone https://github.com/gtkwave/gtkwave.git && \
+	git clone https://github.com/gtkwave/gtkwave.git -b lts && \
 	cd gtkwave/gtkwave3-gtk3/ && \
 	./autogen.sh && \
 	./configure --prefix=/usr --enable-gtk3 --disable-tcl && \

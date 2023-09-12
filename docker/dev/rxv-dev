@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 if [ "$RXV_DEV_USER" = "" ]; then
-	exec /bin/bash
+	exec $SHELL
 fi
 if [ "$#" -ge 1 ]; then
-    HOME=$RXV_DEV_HOME exec /usr/bin/chpst -u :$RXV_DEV_UID:$RXV_DEV_GID /bin/bash -c "$*"
+    HOME=$RXV_DEV_HOME exec /usr/bin/chpst -u :$RXV_DEV_UID:$RXV_DEV_GID $SHELL -c "$*"
 else
-    HOME=$RXV_DEV_HOME exec /usr/bin/chpst -u ${RXV_DEV_USER}:${RXV_DEV_USER}:adm:sudo /bin/bash
+    HOME=$RXV_DEV_HOME exec /usr/bin/chpst -u ${RXV_DEV_USER}:${RXV_DEV_USER}:adm:sudo $SHELL
 fi

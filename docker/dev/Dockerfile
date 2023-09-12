@@ -11,18 +11,20 @@ RUN wget https://github.com/chipsalliance/verible/releases/download/$VERIBLE_VER
         tar xf verible-$VERIBLE_VERSION-$VERIBLE_DISTRO.tar.gz && \
         cp -r verible-$VERIBLE_VERSION/* /usr/ && \
 	rm -r verible*
+RUN echo "path-include=/usr/share/doc/fzf/examples/*" >> /etc/dpkg/dpkg.cfg.d/excludes
 RUN apt-get update && apt-get install -y runit \
-        gtkwave \
-        gdb \
-        sudo \
-        code \
-        fzf \
-        less \
-	build-essential \
-	libgtk-3-dev \
 	autoconf \
 	automake \
-	libbz2-dev
+	build-essential \
+	fzf \
+	fzf \
+	gdb \
+	gtkwave \
+	less \
+	libbz2-dev \
+	libgtk-3-dev \
+	sudo \
+	zsh
 ADD docker/dev/rxv-dev /usr/bin/rxv-dev
 ENV CTEST_OUTPUT_ON_FAILURE=1
 ENV GTEST_COLOR=1

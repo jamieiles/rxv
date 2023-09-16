@@ -3,6 +3,7 @@ MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ARG USERNAME=devuser
 ARG VERIBLE_VERSION=v0.0-3132-gb052efb1
 ARG VERIBLE_DISTRO=Ubuntu-22.04-jammy-x86_64
+ARG UID=1000
 RUN apt-get install -y gpg curl
 RUN wget https://github.com/chipsalliance/verible/releases/download/$VERIBLE_VERSION/verible-$VERIBLE_VERSION-$VERIBLE_DISTRO.tar.gz && \
 	tar xf verible-$VERIBLE_VERSION-$VERIBLE_DISTRO.tar.gz && \
@@ -25,7 +26,7 @@ RUN apt-get update && apt-get install -y runit \
 ADD docker/dev/rxv-dev /usr/bin/rxv-dev
 ENV CTEST_OUTPUT_ON_FAILURE=1
 ENV GTEST_COLOR=1
-RUN useradd -ms /bin/bash -G sudo,adm devuser
+RUN useradd -u $UID -ms /bin/bash -G sudo,adm devuser
 RUN echo "%sudo   ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 RUN mkdir -p /home/devuser/.vscode-server/extensions \
 	/home/devuser/.vscode-server-insiders/extensions \

@@ -5,9 +5,13 @@ if [ "$MIRROR" != "" ]; then
 fi
 
 BUILD_BASE=ubuntu:22.04
+RISCV_TOOLCHAIN_MIRROR=https://www.jamieiles.com
 if [ $(uname -m) = "x86_64" ]; then
     docker build $MIRROR_ARG -t rxv-build-quartus docker/build-quartus/
     BUILD_BASE=rxv-build-quartus:latest
+    RISCV_TOOLCHAIN_ARCHIVE=gcc-riscv-unknown-elf-x86_64.tar.gz
+elif [ $(uname -m) = "aarch64" ]; then
+    RISCV_TOOLCHAIN_ARCHIVE=gcc-riscv-unknown-elf-aarch64.tar.gz
 fi
-docker build --build-arg BUILD_BASE=$BUILD_BASE $MIRROR_ARG -t rxv-build docker/build/
-docker build -t rxv-dev -f docker/dev/Dockerfile .
+docker build --build-arg RISCV_TOOLCHAIN_MIRROR=$RISCV_TOOLCHAIN_MIRROR --build-arg RISCV_TOOLCHAIN_ARCHIVE=$RISCV_TOOLCHAIN_ARCHIVE --build-arg BUILD_BASE=$BUILD_BASE $MIRROR_ARG -t rxv-build docker/build/
+docker build --build-arg UID=$(id -u) -t rxv-dev -f docker/dev/Dockerfile .

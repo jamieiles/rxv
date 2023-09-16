@@ -3,7 +3,7 @@ set(CMAKE_SYSTEM_PROCESSOR riscv)
 set(CMAKE_C_COMPILER riscv64-unknown-elf-gcc)
 set(CMAKE_ASM_COMPILER riscv64-unknown-elf-gcc)
 
-set(CMAKE_C_FLAGS "-Wall -Werror -ffreestanding -nostdlib -O2 -ggdb3 -std=gnu99 -mabi=ilp32 -march=rv32ima")
+set(CMAKE_C_FLAGS "-Wall -Werror -ffreestanding -nostdlib -O2 -ggdb3 -std=gnu99 -mabi=ilp32 -march=rv32ima_zifencei_zicsr")
 set(CMAKE_ASM_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR} -mabi=ilp32 -march=rv32ima")
 
 add_executable(bootrom

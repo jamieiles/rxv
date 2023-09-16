@@ -3,6 +3,8 @@ FROM $BUILD_BASE
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
 ARG VERILATOR_VERSION=5.008
+ARG RISCV_TOOLCHAIN_MIRROR=https://static.dev.sifive.com/dev-tools
+ARG RISCV_TOOLCHAIN_ARCHIVE=riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
 RUN apt-get update && apt-get install --no-install-recommends -y \
     autoconf \
     bison \
@@ -20,22 +22,25 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     git \
     gperf \
     graphviz \
+    haskell-stack \
     help2man \
     libboost-program-options-dev \
-    libboost-python1.74.0 \
     libboost-python-dev \
+    libboost-python1.74.0 \
     libboost-serialization-dev \
     libclang-dev \
     libffi-dev \
+    libfl-dev \
+    libfl-dev \
     libfl2 \
-    libflatbuffers1 \
     libflatbuffers-dev \
-    libfl-dev \
-    libfl-dev \
+    libflatbuffers1 \
     libfmt-dev \
     libfmt-dev \
     libftdi-dev \
     libgmp-dev \
+    libnuma-dev \
+    libnuma1 \
     libreadline-dev \
     libsdl2-2.0-0 \
     libsdl2-dev \
@@ -46,6 +51,7 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     ninja-build \
     pkg-config \
     python3 \
+    python3-click \
     python3-dev \
     python3-distorm3 \
     python3-lxml \
@@ -64,6 +70,13 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     zip \
     zlib1g \
     zlib1g-dev
+RUN cd /tmp && \
+    git clone https://github.com/zachjs/sv2v.git && \
+    cd sv2v && \
+    make && \
+    cp bin/sv2v /usr/bin && \
+    cd .. && \
+    rm -rf sv2v
 RUN cd /tmp && \
     wget https://github.com/verilator/verilator/archive/refs/tags/v$VERILATOR_VERSION.tar.gz && \
     tar xf v$VERILATOR_VERSION.tar.gz && \
@@ -88,7 +101,7 @@ RUN cd /tmp && \
     cd /tmp && \
     rm -rf SymbiYosys
 RUN apt-get install -y curl
-RUN git clone https://github.com/boolector/boolector && \
+RUN git clone https://github.com/boolector/boolector -b 3.2.3 && \
     cd boolector && \
     ./contrib/setup-btor2tools.sh && \
     ./contrib/setup-lingeling.sh && \
@@ -100,16 +113,10 @@ RUN git clone https://github.com/boolector/boolector && \
     cd / && \
     rm -rf boolector
 RUN cd /tmp && \
-    wget https://static.dev.sifive.com/dev-tools/riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz && \
+    wget $RISCV_TOOLCHAIN_MIRROR/$RISCV_TOOLCHAIN_ARCHIVE && \
     mkdir -p /opt/riscv && \
-    tar -C /usr --strip-components=1 -xf riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz && \
+    tar -C /usr --strip-components=1 -xf $RISCV_TOOLCHAIN_ARCHIVE && \
     rm *.tar.gz
-RUN cd /tmp && \
-    wget https://github.com/zachjs/sv2v/releases/download/v0.0.9/sv2v-Linux.zip && \
-    unzip sv2v-Linux.zip && \
-    cp sv2v-Linux/sv2v /usr/bin && \
-    rm sv2v-Linux *.zip -r
-
 RUN mkdir -p /build
 WORKDIR /build
 RUN rm /usr/bin/gcov; ln -s /usr/bin/llvm-cov /usr/bin/gcov

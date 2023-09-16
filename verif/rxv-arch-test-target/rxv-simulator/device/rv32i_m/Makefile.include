@@ -9,7 +9,7 @@ RISCV_GCC      ?= $(RISCV_PREFIX)gcc
 RISCV_OBJDUMP  ?= $(RISCV_PREFIX)objdump
 RISCV_OBJCOPY  ?= $(RISCV_PREFIX)objcopy
 RISCV_READELF  ?= $(RISCV_PREFIX)readelf
-RISCV_GCC_OPTS ?= -static -mcmodel=medany -ggdb3 -fvisibility=hidden -nostdlib -nostartfiles -DXLEN=$(XLEN) $(RVTEST_DEFINES)
+RISCV_GCC_OPTS ?= -static -mcmodel=medany -ggdb3 -fvisibility=hidden -nostdlib -nostartfiles -march=rv32ima_zifencei_zicsr -DXLEN=$(XLEN) $(RVTEST_DEFINES)
 
 COMPILE_CMD=\
 	$$(RISCV_GCC) $(1) $$(RISCV_GCC_OPTS) \

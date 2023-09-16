@@ -10,8 +10,10 @@ TEST_RE = {
 }
 
 SKIP_TESTS = {
-    'software': [],
-    'rtl': []
+    # These are expected failures as they are testing hardware unaligned access
+    # support which is not something that RXV implements.
+    'software': ['rv32ui-v-ma_data', 'rv32ui-p-ma_data'],
+    'rtl': ['rv32ui-v-ma_data', 'rv32ui-p-ma_data']
 }
 
 def run_tests(runner, sim, test_tree):

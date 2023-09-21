@@ -1,9 +1,11 @@
 #include "VerilogTestbench.h"
 #include "VRXVTLBWrapper.h"
+#include "VRXVTLBWrapper__Dpi.h"
 #include "VRXVTLBWrapper_RXVTLBWrapper.h"
 #include "VRXVTLBWrapper_RXVMMU.h"
 #include "VRXVTLBWrapper_BusTransactor.h"
 #include "RXVSim.h"
+#include "SVUtils.h"
 
 static inline uint32_t vpn0(uint32_t va)
 {
@@ -29,7 +31,8 @@ public:
         this->dut.walk_translation_base = pgd_base >> 12;
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
-        this->dut.RXVTLBWrapper->BusTransactor->set_bus(bus);
+        sv_set_scope_name("TOP.RXVTLBWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
 
         periodic(ClockCapture, [&] {
             if (this->dut.pmu_tlb_access)

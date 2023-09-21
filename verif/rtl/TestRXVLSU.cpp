@@ -1,10 +1,12 @@
 #include "VerilogTestbench.h"
 #include "VRXVLSUWrapper.h"
+#include "VRXVLSUWrapper__Dpi.h"
 #include "VRXVLSUWrapper_RXVLSUWrapper.h"
 #include "VRXVLSUWrapper_BusTransactor.h"
 #include "VRXVLSUWrapper_RXVTypes.h"
 #include "VRXVLSUWrapper_RXVCSR.h"
 #include "MemoryDevice.h"
+#include "SVUtils.h"
 
 static const int nr_lines = 4;
 static const int nr_ways = 4;
@@ -21,7 +23,8 @@ public:
         this->dut.exec_valid = 0;
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024 * 1024);
-        this->dut.RXVLSUWrapper->BusTransactor->set_bus(bus);
+        sv_set_scope_name("TOP.RXVLSUWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
         this->dut.current_privilege =
             VRXVLSUWrapper_RXVCSR::privilege_t::PRIV_M;
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "SimTracer.h"
+#include "SVUtils.h"
 #include "SimulatorBase.h"
 #include "MemoryDevice.h"
 #include "VerilogDriver.h"
@@ -257,8 +258,12 @@ public:
             &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtime_reg,
             &this->dut.RXVCoreEmulWrapper->MtimeTransactor->mtimecmp_reg,
             mtime_base, 64 * 1024));
-        this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
-        this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
+
+        sv_set_scope_name("TOP.RXVCoreEmulWrapper.IBusTransactor");
+        this->dut.dpi_set_bus(bus.get());
+
+        sv_set_scope_name("TOP.RXVCoreEmulWrapper.DBusTransactor");
+        this->dut.dpi_set_bus(bus.get());
 
         assert(this->dut.RXVTypes->pmu_num_events <
                sizeof(core_perf_stats) / sizeof(core_perf_stats[0]));

@@ -1,9 +1,11 @@
 #include "VerilogTestbench.h"
 #include "VBusTransactorWrapper.h"
+#include "VBusTransactorWrapper__Dpi.h"
 #include "VBusTransactorWrapper_BusTransactorWrapper.h"
 #include "VBusTransactorWrapper_BusTransactor__Iz1.h"
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
+#include "SVUtils.h"
 
 class BusTransactorTest
     : public VerilogTestbench<VBusTransactorWrapper>
@@ -18,7 +20,9 @@ public:
         this->dut.rready = 1;
         reset();
         bus = std::make_shared<::testing::StrictMock<MockMemoryBus>>();
-        this->dut.BusTransactorWrapper->BusTransactor->set_bus(bus);
+
+        sv_set_scope_name("TOP.BusTransactorWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
     }
 
     void write(uint32_t addr, const std::vector<uint32_t> &val)

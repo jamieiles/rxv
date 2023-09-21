@@ -10,7 +10,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../tools)
 
 set(CMAKE_CXX_FLAGS "-Wno-bool-operation -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-error=unused-parameter -Wno-unused-variable ${CMAKE_CXX_FLAGS}")
 set(VERILATOR_FLAGS -Wall -Wpedantic --report-unoptflat --assert)
-
+add_definitions(-DVL_DPIDECL_dpi_set_bus_)
 ys_formal(TOP RAMBE
           DEPTH 5
           SKIP 0
@@ -43,29 +43,30 @@ ys_formal(TOP RXVIntExec
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
 
 add_executable(rtl-unittest
-               main.cpp
-               TestBusTransactor.cpp
-               TestFifo.cpp
-               TestRXVALU.cpp
-               TestRXVBranchPredictor.cpp
-               TestRXVCommitBuffer.cpp
-               TestRXVLSU.cpp
-               TestRXVMul.cpp
-               TestRXVDiv.cpp
-               TestRXVRegisterAllocator.cpp
-               TestRXVRegisterFile.cpp
-               TestRXVRenameFile.cpp
-               TestRXVScheduler.cpp
-               TestRXVScoreboard.cpp
-               TestRXVFetch.cpp
-               TestRXVDCache.cpp
-               TestRXVPTWalker.cpp
-               TestRXVTLB.cpp
-               TestRXVPMP.cpp
-               TestRXVMMUTop.cpp
-               TestRXVICache.cpp
-               TestRXVCoreEmulWrapper.cpp
-               TestStaticArbiter.cpp)
+    main.cpp
+    fixtures/BusTransactorDPI.cpp
+    TestBusTransactor.cpp
+    TestFifo.cpp
+    TestRXVALU.cpp
+    TestRXVBranchPredictor.cpp
+    TestRXVCommitBuffer.cpp
+    TestRXVLSU.cpp
+    TestRXVMul.cpp
+    TestRXVDiv.cpp
+    TestRXVRegisterAllocator.cpp
+    TestRXVRegisterFile.cpp
+    TestRXVRenameFile.cpp
+    TestRXVScheduler.cpp
+    TestRXVScoreboard.cpp
+    TestRXVFetch.cpp
+    TestRXVDCache.cpp
+    TestRXVPTWalker.cpp
+    TestRXVTLB.cpp
+    TestRXVPMP.cpp
+    TestRXVMMUTop.cpp
+    TestRXVICache.cpp
+    TestRXVCoreEmulWrapper.cpp
+    TestStaticArbiter.cpp)
 target_link_libraries(rtl-unittest
                       PRIVATE gtest gmock RXVCoreEmul fmt)
 add_test(rtl-unittest rtl-unittest)
@@ -411,7 +412,7 @@ verilate(rtl-unittest
          PREFIX VRXVPMP
          TRACE_FST TRACE_STRUCTS)
 
-add_library(RXVCoreEmul SHARED)
+add_library(RXVCoreEmul SHARED fixtures/BusTransactorDPI.cpp)
 add_dependencies(rtl-unittest gen_trace_h)
 
 verilate(RXVCoreEmul

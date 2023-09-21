@@ -6,6 +6,7 @@
 #include <mutex>
 #include "VerilogTestbench.h"
 #include "VRXVCoreEmulWrapper.h"
+#include "VRXVCoreEmulWrapper__Dpi.h"
 #include "VRXVCoreEmulWrapper__Syms.h"
 #include "VRXVCoreEmulWrapper_RXVCoreEmulWrapper.h"
 #include "VRXVCoreEmulWrapper_BusTransactor__Iz1.h"
@@ -13,6 +14,7 @@
 #include "MockMemoryBus.h"
 #include "SimTracer.h"
 #include "RXVSim.h"
+#include "SVUtils.h"
 
 static const uint32_t PGD_BASE = 0x82000000;
 
@@ -200,8 +202,13 @@ public:
         this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024 * 1024);
-        this->dut.RXVCoreEmulWrapper->IBusTransactor->set_bus(bus);
-        this->dut.RXVCoreEmulWrapper->DBusTransactor->set_bus(bus);
+
+        sv_set_scope_name("TOP.RXVCoreEmulWrapper.IBusTransactor");
+        this->dut.dpi_set_bus(bus.get());
+
+        sv_set_scope_name("TOP.RXVCoreEmulWrapper.DBusTransactor");
+        this->dut.dpi_set_bus(bus.get());
+
         pgd_base = alloc_page();
     }
 

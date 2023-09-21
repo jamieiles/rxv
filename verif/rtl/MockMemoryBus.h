@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <gmock/gmock.h>
+#include <MemoryDevice.h>
 
 class MockMemoryBus : public AbstractMemoryBus
 {

@@ -1,8 +1,10 @@
 #include "VerilogTestbench.h"
 #include "VRXVPTWalkerWrapper.h"
+#include "VRXVPTWalkerWrapper__Dpi.h"
 #include "VRXVPTWalkerWrapper_RXVPTWalkerWrapper.h"
 #include "VRXVPTWalkerWrapper_BusTransactor.h"
 #include "RXVSim.h"
+#include "SVUtils.h"
 
 static inline uint32_t vpn0(uint32_t va)
 {
@@ -26,7 +28,8 @@ public:
         this->dut.translation_base = pgd_base >> 12;
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
-        this->dut.RXVPTWalkerWrapper->BusTransactor->set_bus(bus);
+        sv_set_scope_name("TOP.RXVPTWalkerWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
     }
 
     uint32_t alloc_page()

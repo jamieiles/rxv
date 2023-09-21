@@ -1,9 +1,11 @@
 #include "VerilogTestbench.h"
 #include "VRXVMMUTopWrapper.h"
+#include "VRXVMMUTopWrapper__Dpi.h"
 #include "VRXVMMUTopWrapper_RXVMMUTopWrapper.h"
 #include "VRXVMMUTopWrapper_RXVMMU.h"
 #include "VRXVMMUTopWrapper_BusTransactor.h"
 #include "RXVSim.h"
+#include "SVUtils.h"
 
 static inline uint32_t vpn0(uint32_t va)
 {
@@ -27,7 +29,8 @@ public:
         this->dut.translation_base = pgd_base >> 12;
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024);
-        this->dut.RXVMMUTopWrapper->BusTransactor->set_bus(bus);
+        sv_set_scope_name("TOP.RXVMMUTopWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
     }
 
     void enable()

@@ -1,8 +1,10 @@
 #include "VerilogTestbench.h"
 #include "VRXVICacheWrapper.h"
+#include "VRXVICacheWrapper__Dpi.h"
 #include "VRXVICacheWrapper_RXVICacheWrapper.h"
 #include "VRXVICacheWrapper_BusTransactor__Iz1.h"
 #include "MockMemoryBus.h"
+#include "SVUtils.h"
 
 static const int nr_lines = 2;
 static const int nr_ways = 2;
@@ -19,7 +21,8 @@ public:
         this->dut.valid = 0;
         reset();
         bus = std::make_shared<::testing::StrictMock<MockMemoryBus>>();
-        this->dut.RXVICacheWrapper->BusTransactor->set_bus(bus);
+        sv_set_scope_name("TOP.RXVICacheWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
 
         periodic(ClockCapture, [&] {
             if (this->dut.valid) {

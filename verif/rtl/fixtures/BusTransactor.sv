@@ -1,7 +1,7 @@
 module BusTransactor #(
-    integer latency = 2,
-    integer words   = 512,
-    logic instruction = 0
+    integer latency     = 2,
+    integer words       = 512,
+    logic   instruction = 0
 ) (
     input logic                    clk,
           MemInterface.Subordinate bus
@@ -25,10 +25,33 @@ module BusTransactor #(
     write_state_t write_state, next_write_state;
     read_state_t read_state, next_read_state;
 
-    logic [wait_bits-1:0] read_wait_counter;
-    logic [wait_bits-1:0] write_wait_counter;
-    logic [          3:0] read_beats;
-    logic [          3:0] write_beats  /* verilator public */;
+    logic   [wait_bits-1:0] read_wait_counter;
+    logic   [wait_bits-1:0] write_wait_counter;
+    logic   [          3:0] read_beats;
+    logic   [          3:0] write_beats  /* verilator public */;
+
+    chandle                 bus_handle;
+
+    task dpi_set_bus;
+        input chandle handle;
+
+        bus_handle = handle;
+    endtask
+
+    export "DPI-C" task dpi_set_bus;
+
+    import "DPI-C" function bit [31:0] bus_read(
+        input chandle        handle,
+        input bit     [31:0] address,
+        input bit            instruction
+    );
+
+    import "DPI-C" function void bus_write(
+        input chandle        handle,
+        input bit     [31:0] address,
+        input bit     [31:0] data,
+        input bit     [ 3:0] wstb
+    );
 
     always_comb begin
         case (read_state)
@@ -60,10 +83,6 @@ module BusTransactor #(
         end
     end
 
-    function logic [31:0] bus_read(input logic [31:0] address);
-        bus_read = $c("this->bus->read(", address, ", ", instruction, ");");
-    endfunction
-
     always_ff @(posedge clk) begin
         case (next_read_state)
             READ_STATE_ADDRESS: begin
@@ -78,7 +97,8 @@ module BusTransactor #(
             READ_STATE_DATA: begin
                 bus.rvalid <= 1'b1;
                 if (read_state == READ_STATE_LATENCY_WAIT || (bus.rready && bus.rvalid)) begin
-                    bus.rdata <= bus_read(bus.raddr + addr_bits'(read_beats) * 4);
+                    bus.rdata <=
+                        bus_read(bus_handle, bus.raddr + addr_bits'(read_beats) * 4, instruction);
                 end
                 if (bus.rlen == 'b0 || ((bus.rvalid & bus.rready) && read_beats == bus.rlen)) begin
                     bus.rlast <= 1'b1;
@@ -153,14 +173,9 @@ module BusTransactor #(
         endcase
     end
 
-    task bus_write(logic [31:0] address, logic [31:0] data, logic [3:0] wstb);
-        /* verilator no_inline_task */
-        $c("this->bus->write(", address, ", ", data, ", ", wstb, ");");
-    endtask
-
     always_ff @(posedge clk) begin
         if (write_state == WRITE_STATE_DATA && bus.wvalid && bus.wready) begin
-            bus_write(bus.waddr + addr_bits'(write_beats) * 4, bus.wdata, bus.wstb);
+            bus_write(bus_handle, bus.waddr + addr_bits'(write_beats) * 4, bus.wdata, bus.wstb);
             assert (|bus.wstb);
         end
     end
@@ -172,9 +187,5 @@ module BusTransactor #(
             write_beats <= 'b0;
         end
     end
-
-`ifdef verilator
-    `include "BusTransactorCPP.sv"
-`endif
 
 endmodule

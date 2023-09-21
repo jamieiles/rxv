@@ -1,8 +1,10 @@
 #include "VerilogTestbench.h"
 #include "VRXVDCacheWrapper.h"
+#include "VRXVDCacheWrapper__Dpi.h"
 #include "VRXVDCacheWrapper_RXVDCacheWrapper.h"
 #include "VRXVDCacheWrapper_BusTransactor.h"
 #include "MockMemoryBus.h"
+#include "SVUtils.h"
 
 static const int nr_lines = 4;
 static const int nr_ways = 4;
@@ -23,7 +25,8 @@ public:
         this->dut.valid = 0;
         reset();
         bus = std::make_shared<::testing::StrictMock<MockMemoryBus>>();
-        this->dut.RXVDCacheWrapper->BusTransactor->set_bus(bus);
+        sv_set_scope_name("TOP.RXVDCacheWrapper.BusTransactor");
+        this->dut.dpi_set_bus(bus.get());
 
         periodic(ClockCapture, [&] {
             if (this->dut.pmu_dcache_wr_access)

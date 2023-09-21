@@ -412,7 +412,9 @@ verilate(rtl-unittest
          PREFIX VRXVPMP
          TRACE_FST TRACE_STRUCTS)
 
-add_library(RXVCoreEmul SHARED fixtures/BusTransactorDPI.cpp)
+add_library(RXVCoreEmul SHARED
+    fixtures/BusTransactorDPI.cpp
+    fixtures/RXVTrace.cpp)
 add_dependencies(rtl-unittest gen_trace_h)
 
 verilate(RXVCoreEmul

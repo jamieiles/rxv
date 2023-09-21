@@ -199,7 +199,9 @@ public:
     {
         tracer =
             std::make_shared<TestbenchTracer>(current_test_name() + ".trace");
-        this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
+        sv_set_scope_name("TOP.RXVTrace");
+        this->dut.dpi_set_trace_handle(tracer.get());
+
         reset();
         bus = std::make_shared<MemoryBus>(0x80000000, 64 * 1024 * 1024);
 

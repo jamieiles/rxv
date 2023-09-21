@@ -251,7 +251,9 @@ public:
         , have_reset(false)
     {
         tracer = std::make_shared<ShadowTracer>(trace_name, &shadow_bus);
-        this->dut.RXVCoreEmulWrapper->RXVCore->tracer = tracer;
+        sv_set_scope_name("TOP.RXVTrace");
+        this->dut.dpi_set_trace_handle(tracer.get());
+
         bus = std::make_shared<MemoryBus>(mem_base, mem_size);
         bus->add_peripheral(std::make_unique<UART>(uart_base, 4096, uart_log));
         bus->add_peripheral(std::make_unique<RTLCLINT>(

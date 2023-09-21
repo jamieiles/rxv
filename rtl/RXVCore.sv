@@ -1058,8 +1058,6 @@ module RXVCore #(
     );
 
 `ifdef verilator
-    `include "RXVTrace_cpp.svh"
-
     generate
         if (banked_register_file == 0) begin
             always_ff @(posedge clk) begin

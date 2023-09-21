@@ -6,6 +6,76 @@ package RXVTrace;
 
 `ifdef RXV_TRACE
     logic [RXVTypes::commit_width-1:0] instr_ids[0:RXVTypes::commit_num_entries-1];
+
+    chandle trace_handle;
+
+    task dpi_set_trace_handle;
+        input chandle handle;
+
+        trace_handle = handle;
+    endtask
+
+    export "DPI-C" task dpi_set_trace_handle;
+    import "DPI-C" function void rxv_trace_write_reg(
+        input chandle        trace_handle,
+        input int            instr_id,
+        input int            regnum,
+        input bit     [31:0] val
+    );
+    import "DPI-C" function void rxv_trace_read_reg(
+        input chandle        trace_handle,
+        input int            instr_id,
+        input int            regnum,
+        input bit     [31:0] val
+    );
+    import "DPI-C" function void rxv_trace_read_mem(
+        input chandle        trace_handle,
+        input int            instr_id,
+        input bit     [31:0] virt,
+        input bit     [31:0] phys,
+        input bit     [31:0] val,
+        input int            size
+    );
+    import "DPI-C" function void rxv_trace_write_mem(
+        input chandle        trace_handle,
+        input int            instr_id,
+        input bit     [31:0] virt,
+        input bit     [31:0] phys,
+        input bit     [31:0] val,
+        input int            size
+    );
+    import "DPI-C" function void rxv_trace_write_csr(
+        input chandle        trace_handle,
+        input int            instr_id,
+        input int            csr,
+        input bit     [31:0] val
+    );
+    import "DPI-C" function void rxv_trace_start_instruction(
+        input chandle        trace_handle,
+        input int            instr_id,
+        input bit     [31:0] pc,
+        input bit     [31:0] pc_phys,
+        input bit     [31:0] instr,
+        input bit     [63:0] cycle,
+        input int            privilege
+    );
+    import "DPI-C" function void rxv_trace_exception(
+        input chandle trace_handle,
+        input int     instr_id
+    );
+    import "DPI-C" function void rxv_trace_end_instruction(
+        input chandle trace_handle,
+        input int     instr_id
+    );
+    import "DPI-C" function void rxv_trace_irq(
+        input chandle        trace_handle,
+        input int            privilege,
+        input bit     [63:0] cycle,
+        input bit     [31:0] cause,
+        input bit     [31:0] status,
+        input bit     [31:0] epc
+    );
+    import "DPI-C" function void rxv_trace_flush(input chandle trace_handle);
 `endif
 
     // verilator lint_off UNUSED
@@ -15,19 +85,18 @@ package RXVTrace;
         input logic [31:0] val;
 
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_reg(",
-           instr_ids[instr_id], ", ", regnum, ", ", val, ");");
+        rxv_trace_write_reg(trace_handle, integer'(instr_ids[instr_id]), integer'(regnum), val);
 `endif
     endfunction
+
 
     function void trace_read_reg;
         input int instr_id;
         input RXVTypes::arch_reg_tag regnum;
-        input logic [31:0] val;
+        input bit [31:0] val;
 
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_reg(",
-           instr_ids[instr_id], ", ", regnum, ", ", val, ");");
+        rxv_trace_read_reg(trace_handle, integer'(instr_ids[instr_id]), integer'(regnum), val);
 `endif
     endfunction
 
@@ -39,18 +108,7 @@ package RXVTrace;
         input int size;
 
 `ifdef RXV_TRACE
-        unique case (size)
-            1:
-            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint8_t>(",
-               instr_ids[instr_id], ", ", virt, ", ", phys, ",", val, ");");
-            2:
-            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint16_t>(",
-               instr_ids[instr_id], ", ", virt, ", ", phys, ",", val, ");");
-            4:
-            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_read_mem<uint32_t>(",
-               instr_ids[instr_id], ", ", virt, ", ", phys, ",", val, ");");
-            default: assert (1'b0);
-        endcase
+        rxv_trace_read_mem(trace_handle, integer'(instr_ids[instr_id]), virt, phys, val, size);
 `endif
     endfunction
 
@@ -62,18 +120,7 @@ package RXVTrace;
         input int size;
 
 `ifdef RXV_TRACE
-        unique case (size)
-            1:
-            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint8_t>(",
-               instr_ids[instr_id], ", ", virt, ", ", phys, ",", val, ");");
-            2:
-            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint16_t>(",
-               instr_ids[instr_id], ", ", virt, ", ", phys, ",", val, ");");
-            4:
-            $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_mem<uint32_t>(",
-               instr_ids[instr_id], ", ", virt, ", ", phys, ",", val, ");");
-            default: assert (1'b0);
-        endcase
+        rxv_trace_write_mem(trace_handle, integer'(instr_ids[instr_id]), virt, phys, val, size);
 `endif
     endfunction
 
@@ -83,8 +130,7 @@ package RXVTrace;
         input logic [31:0] val;
 
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_write_csr(",
-           instr_ids[instr_id], ", ", csr, ",", val, ");");
+        rxv_trace_write_csr(trace_handle, integer'(instr_ids[instr_id]), integer'(csr), val);
 `endif
     endfunction
 
@@ -97,9 +143,8 @@ package RXVTrace;
 
 `ifdef RXV_TRACE
         instr_ids[instr_id] <= RXVTypes::commit_width'(instr_id);
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_start_instruction(",
-           instr_id, ", ", {pc, 2'b0}, ",", {pc_phys, 2'b0}, ",", instr, ",", $time,
-           ", static_cast<PrivilegeLevel>(", privilege, "));");
+        rxv_trace_start_instruction(trace_handle, integer'(instr_id), {pc, 2'b0}, {pc_phys, 2'b0},
+                                    instr, $time, integer'(privilege));
 `endif
     endfunction
 
@@ -116,8 +161,7 @@ package RXVTrace;
         input int instr_id;
 
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_exception(",
-           instr_ids[instr_id], ");");
+        rxv_trace_exception(trace_handle, integer'(instr_ids[instr_id]));
 `endif
     endfunction
 
@@ -125,8 +169,7 @@ package RXVTrace;
         input int instr_id;
 
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_end_instruction(",
-           instr_ids[instr_id], ");");
+        rxv_trace_end_instruction(trace_handle, integer'(instr_ids[instr_id]));
 `endif
     endfunction
 
@@ -137,15 +180,13 @@ package RXVTrace;
         input [31:0] epc;
 
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->trace_irq(",
-           "static_cast<PrivilegeLevel>(", privilege, ")", ", ", $time, ", ", cause, ", ", status,
-           ", ", epc, ");");
+        rxv_trace_irq(trace_handle, integer'(privilege), $time, cause, status, epc);
 `endif
     endfunction
 
     function void trace_flush;
 `ifdef RXV_TRACE
-        $c("this->vlSymsp->TOP.RXVCoreEmulWrapper->RXVCore->tracer->flush();");
+        rxv_trace_flush(trace_handle);
 `endif
     endfunction
     // verilator lint_on UNUSED

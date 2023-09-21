@@ -1,6 +1,5 @@
 `include "RXV.svh"
 
-import RXVTypes::rxv_pmu_evt;
 import RXVTypes::pmu_evt_bus;
 import RXVTypes::pmu_evt_sel;
 

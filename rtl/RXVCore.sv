@@ -58,6 +58,21 @@ module RXVCore #(
 );
 
     pmu_evt_bus                             pmu_events /* verilator public */;
+    logic                                   pmu_branch;
+    logic                                   pmu_branch_mispred;
+    logic                                   pmu_fe_stall;
+    logic                                   pmu_be_stall;
+    logic                                   pmu_l1d_read;
+    logic                                   pmu_l1d_read_miss;
+    logic                                   pmu_l1d_write;
+    logic                                   pmu_l1d_write_miss;
+    logic                                   pmu_l1i_read;
+    logic                                   pmu_l1i_read_miss;
+    logic                                   pmu_dtlb_read;
+    logic                                   pmu_dtlb_read_miss;
+    logic                                   pmu_itlb_read;
+    logic                                   pmu_itlb_read_miss;
+
     logic          [                  31:2] icache_address;
     logic                                   icache_valid;
     logic                                   icache_busy;
@@ -319,8 +334,6 @@ module RXVCore #(
     logic [31:12] decode_phys;
 `endif  // RXV_TRACE
 
-    assign pmu_events[RXVTypes::PMU_NONE] = 1'b0;
-
     RXVICache #(
         .nr_lines       (icache_nr_lines),
         .nr_ways        (icache_nr_ways),
@@ -337,8 +350,8 @@ module RXVCore #(
         .busy             (icache_busy),
         .dout             (icache_dout),
         .invalidate       (icache_invalidate),
-        .pmu_icache_access(pmu_events[RXVTypes::PMU_L1I_READ]),
-        .pmu_icache_miss  (pmu_events[RXVTypes::PMU_L1I_READ_MISS]),
+        .pmu_icache_access(pmu_l1i_read),
+        .pmu_icache_miss  (pmu_l1i_read_miss),
         .phys_in          (icache_phys),
         .phys_valid       (icache_phys_valid)
     );
@@ -484,8 +497,8 @@ module RXVCore #(
         .exec_resteer               (exec_resteer),
         .decode_exception           (decode_exception),
         .decode_except_id           (decode_except_id),
-        .pmu_fe_stall               (pmu_events[RXVTypes::PMU_FE_STALL]),
-        .pmu_be_stall               (pmu_events[RXVTypes::PMU_BE_STALL])
+        .pmu_fe_stall               (pmu_fe_stall),
+        .pmu_be_stall               (pmu_be_stall)
     );
 
     RXVIntExec RXVIntExec (
@@ -532,8 +545,8 @@ module RXVCore #(
         .exec_exception             (exec_exception),
         .exec_except_id             (exec_except_id),
         .current_privilege          (current_privilege),
-        .pmu_branch_exec            (pmu_events[RXVTypes::PMU_BRANCH]),
-        .pmu_branch_mispred         (pmu_events[RXVTypes::PMU_BRANCH_MISPRED])
+        .pmu_branch_exec            (pmu_branch),
+        .pmu_branch_mispred         (pmu_branch_mispred)
     );
 
     RXVMulExec RXVMulExec (
@@ -758,10 +771,10 @@ module RXVCore #(
         .bytesel             (dcache_bytesel),
         .clean               (dcache_clean),
         .phys_in             (dcache_phys_in),
-        .pmu_dcache_wr_access(pmu_events[RXVTypes::PMU_L1D_READ]),
-        .pmu_dcache_wr_miss  (pmu_events[RXVTypes::PMU_L1D_READ_MISS]),
-        .pmu_dcache_rd_access(pmu_events[RXVTypes::PMU_L1D_WRITE]),
-        .pmu_dcache_rd_miss  (pmu_events[RXVTypes::PMU_L1D_WRITE_MISS]),
+        .pmu_dcache_wr_access(pmu_l1d_read),
+        .pmu_dcache_wr_miss  (pmu_l1d_read_miss),
+        .pmu_dcache_rd_access(pmu_l1d_write),
+        .pmu_dcache_rd_miss  (pmu_l1d_write_miss),
         .phys_valid          (dcache_phys_valid),
         .phys_out            (dcache_phys_out),
         .device_memory       (dcache_device_memory),
@@ -849,10 +862,10 @@ module RXVCore #(
         .dcache_phys_in   (mmu_dcache_phys_in),
         .dcache_phys_valid(mmu_dcache_phys_valid),
         .dcache_grant     (mmu_dcache_grant),
-        .pmu_itlb_access  (pmu_events[RXVTypes::PMU_ITLB_READ]),
-        .pmu_itlb_miss    (pmu_events[RXVTypes::PMU_ITLB_READ_MISS]),
-        .pmu_dtlb_access  (pmu_events[RXVTypes::PMU_DTLB_READ]),
-        .pmu_dtlb_miss    (pmu_events[RXVTypes::PMU_DTLB_READ_MISS]),
+        .pmu_itlb_access  (pmu_itlb_read),
+        .pmu_itlb_miss    (pmu_itlb_read_miss),
+        .pmu_dtlb_access  (pmu_dtlb_read),
+        .pmu_dtlb_miss    (pmu_dtlb_read_miss),
         .lsu_busy         (lsu_busy),
         .d_pmp_addr       (pmp_data_addr),
         .d_pmp            (pmp_data_perms),
@@ -1037,18 +1050,34 @@ module RXVCore #(
         dcache_device_memory = {dcache_phys_out, 2'b0} >= device_base && {dcache_phys_out, 2'b0} < device_end;
     end
 
-    // verilog_format: off
     always_comb begin
         exec_resteer = int_exec_resteer | lsu_resteer | irq_resteer;
-        exec_resteer_tgt = ({30{int_exec_resteer}} & int_exec_resteer_tgt) |
-                           ({30{lsu_resteer}} & lsu_resteer_tgt) |
-                           ({30{irq_resteer}} & irq_resteer_tgt);
+        // verilog_format: on
+        exec_resteer_tgt =
+            (({30{int_exec_resteer}} & int_exec_resteer_tgt) |
+            ({30{lsu_resteer}} & lsu_resteer_tgt) |
+            ({30{irq_resteer}} & irq_resteer_tgt));
+        // verilog_format: off
     end
-    // verilog_format: on
 
     always_comb begin
-        pmu_events[RXVTypes::PMU_INSTRET] = retired;
-        pmu_events[RXVTypes::PMU_CYCLES]  = 1'b1;
+        pmu_events[RXVTypes::PMU_NONE]           = 1'b0;
+        pmu_events[RXVTypes::PMU_INSTRET]        = retired;
+        pmu_events[RXVTypes::PMU_CYCLES]         = 1'b1;
+        pmu_events[RXVTypes::PMU_BRANCH]         = pmu_branch;
+        pmu_events[RXVTypes::PMU_BRANCH_MISPRED] = pmu_branch_mispred;
+        pmu_events[RXVTypes::PMU_FE_STALL]       = pmu_fe_stall;
+        pmu_events[RXVTypes::PMU_BE_STALL]       = pmu_be_stall;
+        pmu_events[RXVTypes::PMU_L1D_READ]       = pmu_l1d_read;
+        pmu_events[RXVTypes::PMU_L1D_READ_MISS]  = pmu_l1d_read_miss;
+        pmu_events[RXVTypes::PMU_L1D_WRITE]      = pmu_l1d_write;
+        pmu_events[RXVTypes::PMU_L1D_WRITE_MISS] = pmu_l1d_write_miss;
+        pmu_events[RXVTypes::PMU_L1I_READ]       = pmu_l1i_read;
+        pmu_events[RXVTypes::PMU_L1I_READ_MISS]  = pmu_l1i_read_miss;
+        pmu_events[RXVTypes::PMU_DTLB_READ]      = pmu_dtlb_read;
+        pmu_events[RXVTypes::PMU_DTLB_READ_MISS] = pmu_dtlb_read_miss;
+        pmu_events[RXVTypes::PMU_ITLB_READ]      = pmu_itlb_read;
+        pmu_events[RXVTypes::PMU_ITLB_READ_MISS] = pmu_itlb_read_miss;
     end
 
     RXVAssert no_simultaneous_resteer (

@@ -1,7 +1,7 @@
 FROM rxv-build:latest
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ARG USERNAME=devuser
-ARG VERIBLE_VERSION=v0.0-3132-gb052efb1
+ARG VERIBLE_VERSION=v0.0-3416-g470e0b95
 ARG VERIBLE_DISTRO=Ubuntu-22.04-jammy-x86_64
 ARG UID=1000
 RUN apt-get install -y gpg curl

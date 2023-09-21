@@ -366,7 +366,7 @@ module RXVCSRFile #(
     );
 
     always_comb begin
-        unique case (rd_addr) inside
+        unique case (rd_addr)
             RXVCSR::CSR_MISA: rd_data_next = misa;
             RXVCSR::CSR_MVENDORID: rd_data_next = vendorid;
             RXVCSR::CSR_MARCHID: rd_data_next = archid;
@@ -409,17 +409,23 @@ module RXVCSRFile #(
             RXVCSR::CSR_STIMECMPH: rd_data_next = stimecmp_reg[63:32];
             RXVCSR::CSR_PMPADDR0, RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3:
             rd_data_next = pmp_addr;
-            [RXVCSR::CSR_MHPMEVENT3 : RXVCSR::CSR_MHPMEVENT3 + num_event_counters - 1]:
-            rd_data_next = unpack_mhpmevent(mhpmevent_reg[rd_addr-RXVCSR::CSR_MHPMEVENT3]);
-            [RXVCSR::CSR_MHPMEVENT3H : RXVCSR::CSR_MHPMEVENT3H + num_event_counters - 1]:
-            rd_data_next = unpack_mhpmeventh(mhpmeventh_reg[rd_addr-RXVCSR::CSR_MHPMEVENT3H]);
-            [RXVCSR::CSR_MHPMCOUNTER3 : RXVCSR::CSR_MHPMCOUNTER3 + num_event_counters - 1]:
-            rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3)][31:0];
-            [RXVCSR::CSR_MHPMCOUNTER3H : RXVCSR::CSR_MHPMCOUNTER3H + num_event_counters - 1]:
-            rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3H)][63:32];
             RXVCSR::CSR_SCOUNTOVF: rd_data_next = unpack_scountovf(scountovf_reg);
             default: rd_data_next = 32'b0;
         endcase
+
+	for (logic [11:0] i = 0; i < num_event_counters; ++i) begin
+            unique case (rd_addr)
+                RXVCSR::CSR_MHPMEVENT3 + i:
+                rd_data_next = unpack_mhpmevent(mhpmevent_reg[rd_addr-RXVCSR::CSR_MHPMEVENT3]);
+                RXVCSR::CSR_MHPMEVENT3H + i:
+                rd_data_next = unpack_mhpmeventh(mhpmeventh_reg[rd_addr-RXVCSR::CSR_MHPMEVENT3H]);
+                RXVCSR::CSR_MHPMCOUNTER3 + i:
+                rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3)][31:0];
+                RXVCSR::CSR_MHPMCOUNTER3H + i:
+                rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3H)][63:32];
+                default: ;
+            endcase
+        end
     end
 
     always_comb begin
@@ -443,9 +449,9 @@ module RXVCSRFile #(
 
 // verilog_format: off
     always_comb begin
-        integer evt_i;
+        logic [counter_bits:0] evt_i;
 
-        for (evt_i = 0; evt_i < num_event_counters; ++evt_i) begin
+        for (evt_i = 0; evt_i < (counter_bits+1)'(num_event_counters); ++evt_i) begin
             mhpmevent_wren[counter_bits'(evt_i)]  = wr_en && wr_addr == RXVCSR::CSR_MHPMEVENT3 + 12'(evt_i);
             mhpmeventh_wren[counter_bits'(evt_i)] = wr_en && wr_addr == RXVCSR::CSR_MHPMEVENT3H + 12'(evt_i);
             pmu_count_wren[counter_bits'(evt_i)]  = wr_en && wr_addr == RXVCSR::CSR_MHPMCOUNTER3 + 12'(evt_i);
@@ -699,7 +705,7 @@ module RXVCSRFile #(
 
     // verilog_format: off
     always_comb begin
-        unique case (rd_addr) inside
+        unique case (rd_addr)
             // Debug
             RXVCSR::CSR_TSELECT, RXVCSR::CSR_TDATA1, RXVCSR::CSR_TDATA2, RXVCSR::CSR_TDATA3,
             // Machine
@@ -726,16 +732,22 @@ module RXVCSRFile #(
             // SATP special case for TVM
             RXVCSR::CSR_SATP:
             valid_csr_out = current_privilege == RXVCSR::PRIV_M || (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
-            [RXVCSR::CSR_MHPMEVENT3 : RXVCSR::CSR_MHPMEVENT3 + num_event_counters - 1]:
-            valid_csr_out = 1'b1;
-            [RXVCSR::CSR_MHPMEVENT3H : RXVCSR::CSR_MHPMEVENT3H + num_event_counters - 1]:
-            valid_csr_out = 1'b1;
-            [RXVCSR::CSR_MHPMCOUNTER3 : RXVCSR::CSR_MHPMCOUNTER3 + num_event_counters - 1]:
-            valid_csr_out = 1'b1;
-            [RXVCSR::CSR_MHPMCOUNTER3H : RXVCSR::CSR_MHPMCOUNTER3H + num_event_counters - 1]:
-            valid_csr_out = 1'b1;
             default: valid_csr_out = 1'b0;
         endcase
+
+	for (logic [11:0] i = 0; i < num_event_counters; ++i) begin
+            unique case (rd_addr)
+                RXVCSR::CSR_MHPMEVENT3 + i:
+                valid_csr_out = 1'b1;
+                RXVCSR::CSR_MHPMEVENT3H + i:
+                valid_csr_out = 1'b1;
+                RXVCSR::CSR_MHPMCOUNTER3 + i:
+                valid_csr_out = 1'b1;
+                RXVCSR::CSR_MHPMCOUNTER3H + i:
+                valid_csr_out = 1'b1;
+                default: ;
+            endcase
+        end
 
 `ifdef verilator
         if (rd_addr == RXVCSR::CSR_RXV_EMUCTL) valid_csr_out = 1'b1;

@@ -118,7 +118,7 @@
             broken-cd;
         };
 
-        eth@1 {
+        eth0: eth@1 {
             compatible = "microchip,enc28j60";
             reg = <1>;
             interrupt-parent = <&intc>;

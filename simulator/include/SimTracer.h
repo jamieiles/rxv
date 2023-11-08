@@ -232,50 +232,12 @@ public:
 
     virtual void trace_end_instruction(int id)
     {
-        const std::lock_guard<std::mutex> guard(lock);
-
-        if (!inflight[id].traced)
+	if (!trace_end_instruction_no_flush(id))
             return;
 
-        auto &instr_trace = inflight[id];
-        std::vector<flatbuffers::Offset<RXV::Trace::Register>>
-            cur_trace_reg_accesses;
-        std::vector<flatbuffers::Offset<RXV::Trace::MemAccess>>
-            cur_trace_mem_accesses;
-        std::vector<flatbuffers::Offset<RXV::Trace::CSRValue>>
-            cur_trace_csr_writes;
-        for (auto &r : instr_trace.gprs)
-            cur_trace_reg_accesses.emplace_back(RXV::Trace::CreateRegister(
-                trace_builder, r.id, r.read, r.value));
-        for (auto &r : instr_trace.csrs)
-            cur_trace_csr_writes.emplace_back(RXV::Trace::CreateCSRValue(
-                trace_builder, static_cast<RXV::Trace::CSRId>(r.id), r.value));
-        for (auto &m : instr_trace.mems)
-            cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
-                trace_builder, m.addr, m.phys, m.value, m.size, m.read));
-
-        auto reg_accesses = trace_builder.CreateVector(cur_trace_reg_accesses);
-        auto csr_writes = trace_builder.CreateVector(cur_trace_csr_writes);
-        auto mem_accesses = trace_builder.CreateVector(cur_trace_mem_accesses);
-        auto insn_builder = RXV::Trace::InstructionTraceBuilder(trace_builder);
-
-        insn_builder.add_pc(instr_trace.pc);
-        insn_builder.add_pc_phys(instr_trace.pc_phys);
-        insn_builder.add_cycle_num(instr_trace.cycle_num);
-        insn_builder.add_exception_raised(instr_trace.exception_raised);
-        insn_builder.add_instruction(instr_trace.instruction);
-        insn_builder.add_gpr_accesses(reg_accesses);
-        insn_builder.add_csr_writes(csr_writes);
-        insn_builder.add_mem_accesses(mem_accesses);
-        insn_builder.add_privilege(
-            static_cast<RXV::Trace::Privilege>(instr_trace.privilege));
-        traced_events.emplace_back(insn_builder.Finish().Union());
-        event_types.emplace_back(RXV::Trace::Event_InstructionTrace);
-
-        if (traced_events.size() == 10000000)
+        if (traced_events.size() == 10000000) {
             flush();
-
-        instr_trace.traced = false;
+	}
     }
 
     virtual ~SimTracer()
@@ -314,6 +276,53 @@ public:
     }
 
 private:
+    bool trace_end_instruction_no_flush(int id)
+    {
+        const std::lock_guard<std::mutex> guard(lock);
+
+        if (!inflight[id].traced)
+            return false;
+
+        auto &instr_trace = inflight[id];
+        std::vector<flatbuffers::Offset<RXV::Trace::Register>>
+            cur_trace_reg_accesses;
+        std::vector<flatbuffers::Offset<RXV::Trace::MemAccess>>
+            cur_trace_mem_accesses;
+        std::vector<flatbuffers::Offset<RXV::Trace::CSRValue>>
+            cur_trace_csr_writes;
+        for (auto &r : instr_trace.gprs)
+            cur_trace_reg_accesses.emplace_back(RXV::Trace::CreateRegister(
+                trace_builder, r.id, r.read, r.value));
+        for (auto &r : instr_trace.csrs)
+            cur_trace_csr_writes.emplace_back(RXV::Trace::CreateCSRValue(
+                trace_builder, static_cast<RXV::Trace::CSRId>(r.id), r.value));
+        for (auto &m : instr_trace.mems)
+            cur_trace_mem_accesses.emplace_back(RXV::Trace::CreateMemAccess(
+                trace_builder, m.addr, m.phys, m.value, m.size, m.read));
+
+        auto reg_accesses = trace_builder.CreateVector(cur_trace_reg_accesses);
+        auto csr_writes = trace_builder.CreateVector(cur_trace_csr_writes);
+        auto mem_accesses = trace_builder.CreateVector(cur_trace_mem_accesses);
+        auto insn_builder = RXV::Trace::InstructionTraceBuilder(trace_builder);
+
+        insn_builder.add_pc(instr_trace.pc);
+        insn_builder.add_pc_phys(instr_trace.pc_phys);
+        insn_builder.add_cycle_num(instr_trace.cycle_num);
+        insn_builder.add_exception_raised(instr_trace.exception_raised);
+        insn_builder.add_instruction(instr_trace.instruction);
+        insn_builder.add_gpr_accesses(reg_accesses);
+        insn_builder.add_csr_writes(csr_writes);
+        insn_builder.add_mem_accesses(mem_accesses);
+        insn_builder.add_privilege(
+            static_cast<RXV::Trace::Privilege>(instr_trace.privilege));
+        traced_events.emplace_back(insn_builder.Finish().Union());
+        event_types.emplace_back(RXV::Trace::Event_InstructionTrace);
+
+        instr_trace.traced = false;
+
+	return true;
+    }
+
     bool enabled;
     flatbuffers::FlatBufferBuilder trace_builder;
     std::vector<flatbuffers::Offset<void>> traced_events;

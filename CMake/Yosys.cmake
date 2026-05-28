@@ -37,6 +37,6 @@ function(ys_formal)
     string(CONFIGURE "${YOSYS_SBY_TEMPLATE}" YS_TEMPLATE)
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/${ys_formal_TOP}.sby" "${YS_TEMPLATE}")
 
-    add_test(yosys-bmc-${ys_formal_TOP} sby -f ${CMAKE_CURRENT_BINARY_DIR}/${ys_formal_TOP}.sby bmc)
-    add_test(yosys-cover-${ys_formal_TOP} sby -f ${CMAKE_CURRENT_BINARY_DIR}/${ys_formal_TOP}.sby cover)
+    add_test(yosys-bmc-${ys_formal_TOP} sby --prefix ${ys_formal_TOP}_bmc -f ${CMAKE_CURRENT_BINARY_DIR}/${ys_formal_TOP}.sby bmc)
+    add_test(yosys-cover-${ys_formal_TOP} sby --prefix ${ys_formal_TOP}_cover -f ${CMAKE_CURRENT_BINARY_DIR}/${ys_formal_TOP}.sby cover)
 endfunction()

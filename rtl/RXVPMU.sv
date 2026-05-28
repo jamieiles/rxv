@@ -63,6 +63,8 @@ module RXVPMU #(
     logic [63:0] pmu_cycles_next;
     logic [63:0] pmu_instret_next;
     logic        pmu_instret_update;
+    logic        suppress_instret_update_next;
+    logic        suppress_instret_update;
 
     always_comb begin
         pmu_cycles_next = pmu_cycles;
@@ -77,7 +79,8 @@ module RXVPMU #(
         if (instreth_wren) pmu_instret_next = {csr_wrval, pmu_instret[31:0]};
         if (instretl_wren) pmu_instret_next = {pmu_instret[63:32], csr_wrval};
 
-        pmu_instret_update = instreth_wren | instretl_wren | retire_valid;
+        pmu_instret_update = instreth_wren | instretl_wren | (retire_valid & ~suppress_instret_update);
+        suppress_instret_update_next = instreth_wren | instretl_wren;
     end
 
     RXVDFF #(
@@ -98,6 +101,14 @@ module RXVPMU #(
         .en   (pmu_instret_update),
         .d    (pmu_instret_next),
         .q    (pmu_instret)
+    );
+
+    RXVDFF suppress_instret_update_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (suppress_instret_update_next),
+        .q    (suppress_instret_update)
     );
 
 endmodule

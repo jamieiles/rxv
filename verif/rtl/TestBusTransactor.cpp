@@ -2,7 +2,6 @@
 #include "VBusTransactorWrapper.h"
 #include "VBusTransactorWrapper__Dpi.h"
 #include "VBusTransactorWrapper_BusTransactorWrapper.h"
-#include "VBusTransactorWrapper_BusTransactor__Iz1.h"
 #include "MemoryDevice.h"
 #include "MockMemoryBus.h"
 #include "SVUtils.h"

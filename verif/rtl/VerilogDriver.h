@@ -27,9 +27,6 @@ enum PeriodicEventType {
 
 const int evals_per_cycle = 10;
 
-extern double sc_time_stamp();
-extern double cur_time_stamp;
-
 static_assert(evals_per_cycle % 2 == 0,
               "evals_per_cycle must be divisible by 2");
 
@@ -71,6 +68,7 @@ public:
     }
 
 protected:
+    VerilatedContext context;
     T dut;
 
 private:
@@ -100,12 +98,11 @@ VerilogDriver<T, debug_enabled>::VerilogDriver()
 
 template <typename T, bool debug_enabled>
 VerilogDriver<T, debug_enabled>::VerilogDriver(const std::string &waves_file)
-    : cycle_num(0), trigger_start(0), trigger_end(~0LL), waves_file(waves_file)
+    : context(), dut(&context), cycle_num(0), trigger_start(0), trigger_end(~0LL), waves_file(waves_file)
 {
     dut.reset = 0;
     dut.clk = 0;
     cur_time = 0;
-    cur_time_stamp = 0;
     if (debug_enabled)
         setup_trace();
 }
@@ -133,7 +130,7 @@ template <typename T, bool debug_enabled>
 void VerilogDriver<T, debug_enabled>::setup_trace()
 {
     if (debug_enabled) {
-        Verilated::traceEverOn(true);
+        context.traceEverOn(true);
         tracer_impl<T, debug_enabled>::trace_dut(&dut, &tracer);
 
         tracer.open(waves_file.c_str());
@@ -191,7 +188,7 @@ void VerilogDriver<T, debug_enabled>::cycle(int count)
         }
 
         ++cycle_num;
-        ++cur_time_stamp;
+	context.timeInc(1);
     }
 }
 

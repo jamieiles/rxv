@@ -12,6 +12,11 @@ struct ALUTestParams {
 class RXVALUTest : public ::testing::Test
 {
 public:
+    RXVALUTest()
+     : alu(&context)
+    {
+    }
+
     uint32_t add(uint32_t a, uint32_t b)
     {
         alu.a = a;
@@ -45,6 +50,7 @@ public:
         return alu.q;
     }
 
+    VerilatedContext context;
     VRXVALU alu;
 };
 

@@ -8,8 +8,8 @@ include_directories(../../simulator/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../simulator)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/../../tools)
 
-set(CMAKE_CXX_FLAGS "-Wno-bool-operation -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-error=unused-parameter -Wno-unused-variable ${CMAKE_CXX_FLAGS}")
-set(VERILATOR_FLAGS -Wall -Wpedantic --report-unoptflat --assert)
+set(CMAKE_CXX_FLAGS "-Wno-bool-operation -Wno-maybe-uninitialized -Wno-unused-parameter -Wno-error=unused-parameter -Wno-unused-variable -Wno-error=stringop-overread ${CMAKE_CXX_FLAGS}")
+set(VERILATOR_FLAGS --quiet-stats -Wall -Wpedantic --x-assign fast --x-initial fast --report-unoptflat --assert)
 add_definitions(-DVL_DPIDECL_dpi_set_bus_)
 ys_formal(TOP RAMBE
           DEPTH 5
@@ -418,7 +418,7 @@ add_library(RXVCoreEmul SHARED
 add_dependencies(rtl-unittest gen_trace_h)
 
 verilate(RXVCoreEmul
-    VERILATOR_ARGS ${VERILATOR_FLAGS} -DRXV_TRACE
+    VERILATOR_ARGS ${VERILATOR_FLAGS} -DRXV_TRACE -CFLAGS "-Wno-stringop-overread -fno-var-tracking-assignments"
     PREFIX VRXVCoreEmulWrapper
     SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/RXVCoreEmulWrapper.sv

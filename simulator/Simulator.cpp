@@ -8,13 +8,7 @@
 #include "ComplianceTest.h"
 #include "boost/algorithm/string.hpp"
 
-double cur_time_stamp = 0;
 static bool sigint_received;
-
-double sc_time_stamp()
-{
-    return cur_time_stamp;
-}
 
 static void sigint_handler(int signum)
 {

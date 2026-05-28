@@ -49,10 +49,15 @@ enum CSRID {
     MTVAL          = 0x0343,
     MIP            = 0x0344,
     PMPCFG0        = 0x03A0,
+    PMPCFG1        = 0x03A1,
     PMPADDR0       = 0x03B0,
     PMPADDR1       = 0x03B1,
     PMPADDR2       = 0x03B2,
     PMPADDR3       = 0x03B3,
+    PMPADDR4       = 0x03B4,
+    PMPADDR5       = 0x03B5,
+    PMPADDR6       = 0x03B6,
+    PMPADDR7       = 0x03B7,
     SSTATUS        = 0x0100,
     SEDELEG        = 0x0102,
     SIDELEG        = 0x0103,
@@ -144,10 +149,15 @@ static const struct CSRDef csr_defs[] = {
     { "rxvemuctl",     0xffffffff, 0x00000000, RXV_EMUCTL },
     // PMP
     { "pmpcfg0",       0x9f9f9f9f, 0x00000000, PMPCFG0 },
+    { "pmpcfg1",       0x9f9f9f9f, 0x00000000, PMPCFG1 },
     { "pmpaddr0",      0x3fffffff, 0x00000000, PMPADDR0 },
     { "pmpaddr1",      0x3fffffff, 0x00000000, PMPADDR1 },
     { "pmpaddr2",      0x3fffffff, 0x00000000, PMPADDR2 },
     { "pmpaddr3",      0x3fffffff, 0x00000000, PMPADDR3 },
+    { "pmpaddr4",      0x3fffffff, 0x00000000, PMPADDR4 },
+    { "pmpaddr5",      0x3fffffff, 0x00000000, PMPADDR5 },
+    { "pmpaddr6",      0x3fffffff, 0x00000000, PMPADDR6 },
+    { "pmpaddr7",      0x3fffffff, 0x00000000, PMPADDR7 },
     // RXV Extensions
     { "stpval",        0xffffffff, 0x00000000, STPVAL },
     { "stperms",       0xffffffff, 0x00000000, STPERMS },
@@ -272,7 +282,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     for (auto *def = csr_defs; def->name; ++def)
         csrs[def->number] = CSR{def, def->default_val};
 
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < 8; ++i)
         pmps[i] = {};
 
     mtime.time = mtime.cmp = 0;
@@ -373,6 +383,20 @@ void RXVSim::do_write_csr(int r, uint32_t v)
         }
         csrs[PMPCFG0].val = v;
         break;
+    case PMPCFG1:
+        // Only A==3 (NAPOT) or A==0 (NULL) are supported
+        for (int i = 0; i < 4; ++i) {
+            uint32_t mask = (0x3 << 3) << (i * 8);
+            uint8_t perms = (v >> (i * 8)) & 0x7;
+
+            if ((v & mask) != 0 && (v & mask) != mask)
+                v &= ~mask;
+
+            pmps[i].enabled = !!(perms & mask);
+            pmps[i].perms = perms;
+        }
+        csrs[PMPCFG1].val = v;
+        break;
     case PMPADDR0:
         csrs[PMPADDR0].val = v;
         set_pmp_addr(0, v);
@@ -388,6 +412,22 @@ void RXVSim::do_write_csr(int r, uint32_t v)
     case PMPADDR3:
         csrs[PMPADDR3].val = v;
         set_pmp_addr(3, v);
+        break;
+    case PMPADDR4:
+        csrs[PMPADDR4].val = v;
+        set_pmp_addr(4, v);
+        break;
+    case PMPADDR5:
+        csrs[PMPADDR5].val = v;
+        set_pmp_addr(5, v);
+        break;
+    case PMPADDR6:
+        csrs[PMPADDR6].val = v;
+        set_pmp_addr(6, v);
+        break;
+    case PMPADDR7:
+        csrs[PMPADDR7].val = v;
+        set_pmp_addr(7, v);
         break;
     case MINSTRET:
         insns_retired &= 0xffffffff00000000LU;

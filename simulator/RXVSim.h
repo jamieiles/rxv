@@ -574,7 +574,7 @@ private:
 
     const PMP *find_pmp(uint32_t pa)
     {
-        for (int i = 0; i < 4; ++i) {
+        for (int i = 0; i < 8; ++i) {
             auto *pmp = &pmps[i];
             if (!pmp->enabled)
                 continue;
@@ -731,6 +731,6 @@ private:
     uint64_t insns_retired;
     bool inhibit_insns_retired_update;
     bool finished;
-    PMP pmps[4];
+    PMP pmps[8];
     mcause_type mem_abort_cause;
 };

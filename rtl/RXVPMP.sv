@@ -2,16 +2,20 @@
 
 import RXVMMU::pmp_perms;
 
-module RXVPMP (
+module RXVPMP #(
+    parameter int num_entries = 8
+) (
     input  logic                     clk,
     input  logic                     reset,
     // CSR interface
     input  logic                     update_cfg,
+    input  logic     [ cfg_bits-1:0] update_cfg_idx,
     input  logic     [addr_bits-1:0] update_addr_idx,
     // verilator lint_off UNUSED
     input  logic     [         31:0] update_data,
     // verilator lint_on UNUSED
     input  logic                     update_addr,
+    input  logic     [ cfg_bits-1:0] cfg_read_idx,
     output logic     [         31:0] cfg_read_data,
     input  logic     [addr_bits-1:0] address_read_idx,
     output logic     [         31:0] address_read_data,
@@ -23,8 +27,10 @@ module RXVPMP (
     output pmp_perms                 instr_perms
 );
 
-    localparam num_entries = 4;
     localparam addr_bits = $clog2(num_entries);
+    localparam cfg_bits = num_entries <= 4 ? 1 : $clog2(num_entries / 4);
+
+    initial assert(num_entries <= 8);
 
     typedef struct packed {
         logic [31:11] addr;
@@ -34,7 +40,7 @@ module RXVPMP (
 
     pmp_entry_t       pmps          [num_entries];
     // verilator lint_off UNUSED
-    logic       [7:0] pmp_cfg_update[          4];
+    logic       [7:0] pmp_cfg_update[4];
     // verilator lint_on UNUSED
 
     function logic [31:2] pmp_mask;
@@ -57,6 +63,12 @@ module RXVPMP (
         pmp_base = {pmp.addr, 9'b0} & pmp_mask(pmp);
     endfunction
 
+    function logic [cfg_bits-1:0] bank_nr;
+        input int idx;
+
+        bank_nr = cfg_bits'(idx / 4);
+    endfunction
+
     always_comb begin
         for (int i = 0; i < 4; ++i) pmp_cfg_update[i] = update_data[8*i+:8];
     end
@@ -74,11 +86,11 @@ module RXVPMP (
                     pmp_n_next.addr = {update_data[29:9]};
                 end
 
-                if (update_cfg) begin
-                    pmp_n_next.enabled     = pmp_cfg_update[pmp_i][4:3] == 2'b11;
-                    pmp_n_next.perms.read  = pmp_cfg_update[pmp_i][0];
-                    pmp_n_next.perms.write = pmp_cfg_update[pmp_i][1];
-                    pmp_n_next.perms.exec  = pmp_cfg_update[pmp_i][2];
+                if (update_cfg_idx == bank_nr(pmp_i) && update_cfg) begin
+                    pmp_n_next.enabled     = pmp_cfg_update[pmp_i[1:0]][4:3] == 2'b11;
+                    pmp_n_next.perms.read  = pmp_cfg_update[pmp_i[1:0]][0];
+                    pmp_n_next.perms.write = pmp_cfg_update[pmp_i[1:0]][1];
+                    pmp_n_next.perms.exec  = pmp_cfg_update[pmp_i[1:0]][2];
                 end
             end
 
@@ -130,10 +142,10 @@ module RXVPMP (
         for (int i = 0; i < 4; ++i) begin
             cfg_read_data[i*8+:8] = {
                 3'b0,
-                pmps[i].enabled ? 2'b11 : 2'b00,
-                pmps[i].perms.exec,
-                pmps[i].perms.write,
-                pmps[i].perms.read
+                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].enabled ? 2'b11 : 2'b00,
+                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].perms.exec,
+                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].perms.write,
+                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].perms.read
             };
         end
     end

@@ -86,7 +86,8 @@ module RXVCSRFile #(
     parameter logic [31:0] vendorid           = 0,
     parameter logic [31:0] archid             = 0,
     parameter logic [31:0] impid              = 0,
-    parameter logic [11:0] num_event_counters = 8
+    parameter logic [11:0] num_event_counters = 8,
+    parameter int          num_pmps           = 8
 ) (
     input  logic                                 clk,
     input  logic                                 reset,
@@ -149,12 +150,14 @@ module RXVCSRFile #(
     input  logic        [num_event_counters-1:0] pmu_overflow,
     // verilator lint_on UNUSED
     // PMP
-    output logic        [                   1:0] pmp_addr_idx,
+    output logic        [     pmp_addr_bits-1:0] pmp_addr_idx,
     input  logic        [                  31:0] pmp_addr,
     input  logic        [                  31:0] pmp_cfg,
     output logic                                 pmp_update_cfg,
     output logic                                 pmp_update_addr,
-    output logic        [                   1:0] pmp_update_addr_idx,
+    output logic        [     pmp_addr_bits-1:0] pmp_update_addr_idx,
+    output logic        [      pmp_cfg_bits-1:0] pmp_update_cfg_idx,
+    output logic        [      pmp_cfg_bits-1:0] pmp_cfg_read_idx,
     // MMU
     output logic        [                 31:12] translation_base,
     output logic        [         asid_bits-1:0] active_asid,
@@ -163,6 +166,8 @@ module RXVCSRFile #(
 );
 
     localparam counter_bits = $clog2(num_event_counters);
+    localparam pmp_addr_bits = $clog2(num_pmps);
+    localparam pmp_cfg_bits = num_pmps <= 4 ? 1 : $clog2(num_pmps / 4);
 
     localparam logic [31:0] misa_u = 32'd1 << 20;
     localparam logic [31:0] misa_s = 32'd1 << 18;
@@ -366,7 +371,7 @@ module RXVCSRFile #(
     );
 
     always_comb begin
-        unique case (rd_addr)
+        unique case (rd_addr) inside
             RXVCSR::CSR_MISA: rd_data_next = misa;
             RXVCSR::CSR_MVENDORID: rd_data_next = vendorid;
             RXVCSR::CSR_MARCHID: rd_data_next = archid;
@@ -405,10 +410,10 @@ module RXVCSRFile #(
             RXVCSR::CSR_UTIME: rd_data_next = mtime[31:0];
             RXVCSR::CSR_UTIMEH: rd_data_next = mtime[63:32];
             RXVCSR::CSR_PMPCFG0: rd_data_next = pmp_cfg;
+            RXVCSR::CSR_PMPCFG1: rd_data_next = pmp_cfg;
             RXVCSR::CSR_STIMECMP: rd_data_next = stimecmp_reg[31:0];
             RXVCSR::CSR_STIMECMPH: rd_data_next = stimecmp_reg[63:32];
-            RXVCSR::CSR_PMPADDR0, RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3:
-            rd_data_next = pmp_addr;
+            [RXVCSR::CSR_PMPADDR0:RXVCSR::CSR_PMPADDR0 + 12'(num_pmps - 1)]: rd_data_next = pmp_addr;
             RXVCSR::CSR_SCOUNTOVF: rd_data_next = unpack_scountovf(scountovf_reg);
             default: rd_data_next = 32'b0;
         endcase
@@ -498,11 +503,10 @@ module RXVCSRFile #(
         stperms_wren = ((exception_write && exception_target_level == RXVCSR::PRIV_S &&
                          !take_irq && exception_has_pval) ||
                         (wr_en && wr_addr == RXVCSR::CSR_STPERMS));
-        pmp_update_cfg = wr_en && wr_addr == RXVCSR::CSR_PMPCFG0;
-        pmp_update_addr = wr_en && (wr_addr == RXVCSR::CSR_PMPADDR0 ||
-                                    wr_addr == RXVCSR::CSR_PMPADDR1 ||
-                                    wr_addr == RXVCSR::CSR_PMPADDR2 ||
-                                    wr_addr == RXVCSR::CSR_PMPADDR3);
+        pmp_update_cfg = ((wr_en && wr_addr == RXVCSR::CSR_PMPCFG0) ||
+                          (wr_en && wr_addr == RXVCSR::CSR_PMPCFG1));
+        pmp_update_addr = wr_en && (wr_addr >= RXVCSR::CSR_PMPADDR0 &&
+                                    wr_addr <= RXVCSR::CSR_PMPADDR7);
         sscratch_wren = wr_en && wr_addr == RXVCSR::CSR_SSCRATCH;
         stimecmp_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMP;
         stimecmph_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMPH;
@@ -678,8 +682,10 @@ module RXVCSRFile #(
     end
 
     always_comb begin
-        pmp_addr_idx        = rd_addr[1:0];
-        pmp_update_addr_idx = wr_addr[1:0];
+        pmp_addr_idx        = rd_addr[pmp_addr_bits-1:0];
+        pmp_update_addr_idx = wr_addr[pmp_addr_bits-1:0];
+        pmp_update_cfg_idx  = wr_addr[0];
+        pmp_cfg_read_idx    = rd_addr[0];
     end
 
     always_comb begin
@@ -705,7 +711,7 @@ module RXVCSRFile #(
 
     // verilog_format: off
     always_comb begin
-        unique case (rd_addr)
+        unique case (rd_addr) inside
             // Debug
             RXVCSR::CSR_TSELECT, RXVCSR::CSR_TDATA1, RXVCSR::CSR_TDATA2, RXVCSR::CSR_TDATA3,
             // Machine
@@ -715,8 +721,7 @@ module RXVCSRFile #(
             RXVCSR::CSR_MCYCLE, RXVCSR::CSR_MCYCLEH, RXVCSR::CSR_MINSTRET,
             RXVCSR::CSR_MINSTRETH, RXVCSR::CSR_MHARTID, RXVCSR::CSR_MIE,
             RXVCSR::CSR_MIP, RXVCSR::CSR_MEDELEG, RXVCSR::CSR_MIDELEG,
-            RXVCSR::CSR_MISA, RXVCSR::CSR_PMPCFG0, RXVCSR::CSR_PMPADDR0,
-            RXVCSR::CSR_PMPADDR1, RXVCSR::CSR_PMPADDR2, RXVCSR::CSR_PMPADDR3,
+            RXVCSR::CSR_MISA, RXVCSR::CSR_PMPCFG0, 
             RXVCSR::CSR_MCOUNTEREN, RXVCSR::CSR_MCOUNTINHIBIT, RXVCSR::CSR_MSTATUSH,
             RXVCSR::CSR_MENVCFG, RXVCSR::CSR_MENVCFGH, RXVCSR::CSR_MCONFIGPTR,
             // Supervisor
@@ -729,6 +734,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH, RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH,
             RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH:
             valid_csr_out = 1'b1;
+            RXVCSR::CSR_PMPCFG1: valid_csr_out = (num_pmps > 4);
+            [RXVCSR::CSR_PMPADDR0:RXVCSR::CSR_PMPADDR0 + 12'(num_pmps - 1)]: valid_csr_out = 1'b1;
             // SATP special case for TVM
             RXVCSR::CSR_SATP:
             valid_csr_out = current_privilege == RXVCSR::PRIV_M || (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
@@ -887,15 +894,10 @@ module RXVCSRFile #(
             if (sstatus_wren)
                 trace_write_csr(trace_id, RXVCSR::CSR_SSTATUS, unpack_sstatus(mstatus_next));
             if (satp_wren) trace_write_csr(trace_id, RXVCSR::CSR_SATP, unpack_satp(satp_next));
-            if (pmp_update_cfg) trace_write_csr(trace_id, RXVCSR::CSR_PMPCFG0, wr_data);
-            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR0)
-                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR0, wr_data);
-            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR1)
-                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR1, wr_data);
-            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR2)
-                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR2, wr_data);
-            if (wr_en && wr_addr == RXVCSR::CSR_PMPADDR3)
-                trace_write_csr(trace_id, RXVCSR::CSR_PMPADDR3, wr_data);
+            if (pmp_update_cfg && pmp_update_cfg_idx == 1'b0) trace_write_csr(trace_id, RXVCSR::CSR_PMPCFG0, wr_data);
+            if (pmp_update_cfg && pmp_update_cfg_idx == 1'b1) trace_write_csr(trace_id, RXVCSR::CSR_PMPCFG1, wr_data);
+            if (wr_en && wr_addr >= RXVCSR::CSR_PMPADDR0 && wr_addr <= RXVCSR::CSR_PMPADDR7)
+                trace_write_csr(trace_id, wr_addr, wr_data);
             if (wr_en && wr_addr == RXVCSR::CSR_STIMECMP)
                 trace_write_csr(trace_id, RXVCSR::CSR_STIMECMP, wr_data);
             if (wr_en && wr_addr == RXVCSR::CSR_STIMECMPH)

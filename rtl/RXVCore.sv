@@ -40,6 +40,7 @@ module RXVCore #(
     parameter int          num_itlb_entries       = 8,
     parameter int          num_dtlb_entries       = 8,
     parameter int          num_event_counters     = 4,
+    parameter int          num_pmps               = 8,
     parameter logic [31:0] reset_address          = 32'h80000000,
     parameter logic [31:0] vendorid               = 0,
     parameter logic [31:0] archid                 = 0,
@@ -56,6 +57,8 @@ module RXVCore #(
     input logic                       mtime_irq,
     input logic                       ext_irq
 );
+    localparam                              pmp_addr_bits = $clog2(num_pmps);
+    localparam                              pmp_cfg_bits = num_pmps <= 4 ? 1 : $clog2(num_pmps / 4);
 
     pmu_evt_bus                             pmu_events /* verilator public */;
     logic                                   pmu_branch;
@@ -316,10 +319,12 @@ module RXVCore #(
     logic                                   i_tlb_enabled;
     logic                                   d_tlb_enabled;
     logic                                   pmp_update_cfg;
-    logic          [                   1:0] pmp_update_addr_idx;
+    logic          [      pmp_cfg_bits-1:0] pmp_update_cfg_idx;
+    logic          [     pmp_addr_bits-1:0] pmp_update_addr_idx;
     logic                                   pmp_update_addr;
+    logic          [      pmp_cfg_bits-1:0] pmp_cfg_read_idx;
     logic          [                  31:0] pmp_cfg_read_data;
-    logic          [                   1:0] pmp_address_read_idx;
+    logic          [     pmp_addr_bits-1:0] pmp_address_read_idx;
     logic          [                  31:0] pmp_address_read_data;
     logic          [                  31:2] pmp_data_addr;
     pmp_perms                               pmp_data_perms;
@@ -659,7 +664,8 @@ module RXVCore #(
         .vendorid          (vendorid),
         .archid            (archid),
         .impid             (impid),
-        .num_event_counters(num_event_counters)
+        .num_event_counters(num_event_counters),
+	.num_pmps          (num_pmps)
     ) RXVCSRFile (
         .clk                  (clk),
         .reset                (reset),
@@ -718,6 +724,8 @@ module RXVCore #(
         .pmp_cfg              (pmp_cfg_read_data),
         .pmp_update_cfg       (pmp_update_cfg),
         .pmp_update_addr      (pmp_update_addr),
+        .pmp_update_cfg_idx   (pmp_update_cfg_idx),
+        .pmp_cfg_read_idx     (pmp_cfg_read_idx),
         .pmp_update_addr_idx  (pmp_update_addr_idx),
         .translation_base     (translation_base),
         .active_asid          (active_asid),
@@ -816,13 +824,17 @@ module RXVCore #(
         .dcache_clean         (dcache_clean)
     );
 
-    RXVPMP RXVPMP (
+    RXVPMP #(
+	.num_entries      (num_pmps)
+    ) RXVPMP (
         .clk              (clk),
         .reset            (reset),
         .update_cfg       (pmp_update_cfg),
+        .update_cfg_idx   (pmp_update_cfg_idx),
         .update_addr_idx  (pmp_update_addr_idx),
         .update_data      (exec_csr_wr_data),
         .update_addr      (pmp_update_addr),
+        .cfg_read_idx     (pmp_cfg_read_idx),
         .cfg_read_data    (pmp_cfg_read_data),
         .address_read_idx (pmp_address_read_idx),
         .address_read_data(pmp_address_read_data),

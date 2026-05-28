@@ -1,11 +1,24 @@
 set script_dir [file dirname [file normalize [info script]]]
 set origin_dir "${script_dir}/../.."
 
-create_project -in_memory -part xc7s50csga324-2 RXVArty
+create_project -part xc7s50csga324-2 RXVArty build
 
 set_property source_mgmt_mode All [current_project]
 
 add_files "${origin_dir}/_build/fpga/xilinx/bootrom/bootrom.mem"
+read_verilog "${origin_dir}/fpga/xilinx/RXVCLINT.v"
+read_verilog "${origin_dir}/fpga/xilinx/RXVCoreAXISynthTop.v"
+
+source "${origin_dir}/fpga/xilinx/RXVArtyBD.tcl"
+
+set_property source_mgmt_mode All [current_project]
+
+read_xdc "${origin_dir}/fpga/xilinx/RXVArty.xdc"
+
+generate_target all [get_files RXVArty.bd]
+
+read_verilog ./.gen/sources_1/bd/RXVArty/hdl/RXVArty_wrapper.v
+read_verilog -v "${origin_dir}/fpga/xilinx/Top.v"
 
 read_verilog -sv "${origin_dir}/rtl/lib/RXV.svh"
 set_property is_global_include true [get_files "${origin_dir}/rtl/lib/RXV.svh"]
@@ -16,9 +29,6 @@ read_verilog -sv "${origin_dir}/rtl/lib/RXVCSR.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/RXVMMU.sv"
 read_verilog -sv "${origin_dir}/fpga/xilinx/AXIAdapter.sv"
 read_verilog -sv "${origin_dir}/fpga/xilinx/RAMBE.sv"
-read_verilog "${origin_dir}/fpga/xilinx/RXVCLINT.v"
-read_verilog "${origin_dir}/fpga/xilinx/RXVCoreAXISynthTop.v"
-read_verilog "${origin_dir}/fpga/xilinx/Top.v"
 read_verilog -sv "${origin_dir}/rtl/RXVALU.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVBranchPredictor.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVCommitBuffer.sv"
@@ -72,18 +82,6 @@ read_verilog -sv "${origin_dir}/rtl/lib/StaticArbiter.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/SyncPulse.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/TLBPLRU.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/CacheRAM.sv"
-
-source "${origin_dir}/fpga/xilinx/RXVArtyBD.tcl"
-
-set_property source_mgmt_mode All [current_project]
-
-read_xdc "${origin_dir}/fpga/xilinx/RXVArty.xdc"
-
-generate_target all [get_files RXVArty.bd]
-
-update_compile_order -fileset sources_1
-
-read_verilog ./.gen/sources_1/bd/RXVArty/hdl/RXVArty_wrapper.v
 
 synth_design -top Top -flatten_hierarchy rebuilt -bufg 12 -keep_equivalent_registers -fsm_extraction one_hot -retiming -resource_sharing off -directive PerformanceOptimized -control_set_opt_threshold auto -no_lc -verilog_define vivado=1 -verilog_define sg15E=1 -verilog_define den2048Mb=1
 

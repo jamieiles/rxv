@@ -13,9 +13,11 @@ module RXVAssert #(
     always_ff @(posedge clk) begin
         if (en) begin
             if (!condition) begin
+`ifndef vivado
                 $display("%t RXV: assertion failed: %m: %-s", $time, message);
                 RXVTrace::trace_flush();
                 assert (1'b0);
+`endif
             end
         end
     end

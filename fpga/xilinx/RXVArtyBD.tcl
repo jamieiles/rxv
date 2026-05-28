@@ -235,7 +235,7 @@ proc write_mig_file_RXVArty_mig_7series_0_0 { str_mig_prj_filepath } {
    puts $mig_prj_file {    <DeepMemory>1</DeepMemory>}
    puts $mig_prj_file {    <DataMask>1</DataMask>}
    puts $mig_prj_file {    <ECC>Disabled</ECC>}
-   puts $mig_prj_file {    <Ordering>Strict</Ordering>}
+   puts $mig_prj_file {    <Ordering>Normal</Ordering>}
    puts $mig_prj_file {    <BankMachineCnt>4</BankMachineCnt>}
    puts $mig_prj_file {    <CustomPart>FALSE</CustomPart>}
    puts $mig_prj_file {    <NewPartName/>}
@@ -491,11 +491,11 @@ proc create_root_design { parentCell } {
   set smartconnect_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:smartconnect:1.0 smartconnect_0 ]
   set_property -dict [ list \
    CONFIG.ADVANCED_PROPERTIES {\
-     __view__ {functional { S01_Entry { SUPPORTS_WRAP 0 } S00_Buffer { AR_SIZE 16\
-AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } M01_Buffer { AR_SIZE 16\
-AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } S01_Buffer { AR_SIZE 16\
-AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } M00_Buffer { AR_SIZE 16\
-AW_SIZE 16 B_SIZE 16 R_SIZE 16 W_SIZE 16 } S00_Entry { SUPPORTS_WRAP 0\
+     __view__ {functional { S01_Entry { SUPPORTS_WRAP 0 } S00_Buffer { AR_SIZE 32\
+AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } M01_Buffer { AR_SIZE 32\
+AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S01_Buffer { AR_SIZE 32\
+AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } M00_Buffer { AR_SIZE 32\
+AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
 } }}\
    } \
    CONFIG.NUM_MI {6} \

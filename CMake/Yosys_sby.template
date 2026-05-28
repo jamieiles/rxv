@@ -10,7 +10,7 @@ depth @ys_formal_DEPTH@
 append 0
 
 [engines]
-smtbmc boolector
+smtbmc yices
 
 [script]
 @ys_formal_DEFINE_LINES@

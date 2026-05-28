@@ -100,7 +100,7 @@ RUN cd /tmp && \
     make install && \
     cd /tmp && \
     rm -rf SymbiYosys
-RUN apt-get install -y curl
+RUN apt-get install -y curl meson libmpfr-dev
 RUN git clone https://github.com/boolector/boolector -b 3.2.3 && \
     cd boolector && \
     ./contrib/setup-btor2tools.sh && \
@@ -112,6 +112,14 @@ RUN git clone https://github.com/boolector/boolector -b 3.2.3 && \
     cp deps/btor2tools/bin/btorsim /usr/bin/ && \
     cd / && \
     rm -rf boolector
+RUN git clone https://github.com/SRI-CSL/yices2.git yices2 && \
+    cd yices2 && \
+    autoconf && \
+    ./configure && \
+    make -j$(nproc) && \
+    make install && \
+    cd / && \
+    rm -rf yices2
 RUN cd /tmp && \
     wget $RISCV_TOOLCHAIN_MIRROR/$RISCV_TOOLCHAIN_ARCHIVE && \
     mkdir -p /opt/riscv && \

@@ -61,12 +61,13 @@ public:
         auto stats = sim->get_perf_stats();
         // clang-format off
         fmt::print(
-            "{0:d} instructions in {1:d} cycles ({2:0.2f} instructions per cycle)\n\r",
-            stats.retired, stats.cycles, static_cast<double>(stats.retired) / stats.cycles);
+            "{0:d} instructions in {1:d} cycles, {2:d} seconds ({3:0.2f} instructions per cycle)\n\r",
+            stats.retired, stats.cycles, std::chrono::duration_cast<std::chrono::seconds>(duration).count(),
+            static_cast<double>(stats.retired) / stats.cycles);
         report_extended_perf_stats(stats);
         fmt::print("{0:d} IRQs\n\r", stats.num_irqs);
         fmt::print("Simulation speed {0:s}\r\n",
-                   human_freq(stats.cycles / duration.count()));
+                   human_freq(stats.cycles / std::chrono::duration_cast<std::chrono::seconds>(duration).count()));
         // clang-format on
     }
 

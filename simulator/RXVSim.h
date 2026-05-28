@@ -729,6 +729,7 @@ private:
     uint64_t num_irqs;
     uint64_t pmu_cycles;
     uint64_t insns_retired;
+    bool inhibit_insns_retired_update;
     bool finished;
     PMP pmps[4];
     mcause_type mem_abort_cause;

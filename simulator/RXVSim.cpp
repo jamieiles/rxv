@@ -260,6 +260,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , num_irqs(0)
     , pmu_cycles(0)
     , insns_retired(0)
+    , inhibit_insns_retired_update(false)
     , finished(false)
 {
     status.set(M, 0);
@@ -391,10 +392,12 @@ void RXVSim::do_write_csr(int r, uint32_t v)
     case MINSTRET:
         insns_retired &= 0xffffffff00000000LU;
         insns_retired |= v;
+	inhibit_insns_retired_update = true;
         break;
     case MINSTRETH:
         insns_retired &= 0xffffffffLU;
         insns_retired |= static_cast<uint64_t>(v) << 32;
+	inhibit_insns_retired_update = true;
         break;
     case RXV_EMUCTL:
         std::cerr << "rxvemu: received simulation exit CSR write (" << std::hex
@@ -1389,10 +1392,12 @@ bool RXVSim::step()
     privilege_level = new_privilege_level;
 
     ++cur_cycle;
-    if (!(read_csr(MCOUNTINHIBIT) & (1 << 2)))
+    if (!(read_csr(MCOUNTINHIBIT) & (1 << 2)) && !inhibit_insns_retired_update)
         ++insns_retired;
     if (!(read_csr(MCOUNTINHIBIT) & (1 << 0)))
         ++pmu_cycles;
+
+    inhibit_insns_retired_update = false;
 
     return !finished;
 }

@@ -220,6 +220,8 @@ module RXVCSRFile #(
     logic                                            mideleg_wren;
     mcounteren_t                                     mcounteren_reg;
     logic                                            mcounteren_wren;
+    mcounteren_t                                     scounteren_reg;
+    logic                                            scounteren_wren;
     mcountinhibit_t                                  mcountinhibit_reg;
     logic                                            mcountinhibit_wren;
     satp_t                                           satp_reg;
@@ -247,6 +249,7 @@ module RXVCSRFile #(
     medeleg_t                                        medeleg_next;
     mideleg_t                                        mideleg_next;
     mcounteren_t                                     mcounteren_next;
+    mcounteren_t                                     scounteren_next;
     mcountinhibit_t                                  mcountinhibit_next;
     satp_t                                           satp_next;
 
@@ -405,6 +408,7 @@ module RXVCSRFile #(
             RXVCSR::CSR_MEDELEG: rd_data_next = unpack_medeleg(medeleg_reg);
             RXVCSR::CSR_MIDELEG: rd_data_next = unpack_mideleg(mideleg_reg);
             RXVCSR::CSR_MCOUNTEREN: rd_data_next = unpack_mcounteren(mcounteren_reg);
+            RXVCSR::CSR_SCOUNTEREN: rd_data_next = unpack_mcounteren(scounteren_reg);
             RXVCSR::CSR_MCOUNTINHIBIT: rd_data_next = unpack_mcountinhibit(mcountinhibit_reg);
             RXVCSR::CSR_SEPC: rd_data_next = unpack_sepc(sepc_reg);
             RXVCSR::CSR_UTIME: rd_data_next = mtime[31:0];
@@ -428,6 +432,10 @@ module RXVCSRFile #(
                 rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3)][31:0];
                 RXVCSR::CSR_MHPMCOUNTER3H + i:
                 rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_MHPMCOUNTER3H)][63:32];
+                RXVCSR::CSR_HPMCOUNTER3 + i:
+                rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_HPMCOUNTER3)][31:0];
+                RXVCSR::CSR_HPMCOUNTER3H + i:
+                rd_data_next = pmu_count[counter_bits'(rd_addr-RXVCSR::CSR_HPMCOUNTER3H)][63:32];
                 default: ;
             endcase
         end
@@ -478,6 +486,7 @@ module RXVCSRFile #(
         medeleg_wren = wr_en && wr_addr == RXVCSR::CSR_MEDELEG;
         mideleg_wren = wr_en && wr_addr == RXVCSR::CSR_MIDELEG;
         mcounteren_wren = wr_en && wr_addr == RXVCSR::CSR_MCOUNTEREN;
+        scounteren_wren = wr_en && wr_addr == RXVCSR::CSR_SCOUNTEREN;
         mcountinhibit_wren = wr_en && wr_addr == RXVCSR::CSR_MCOUNTINHIBIT;
         mstatus_wren  = ((exception_write && exception_target_level == RXVCSR::PRIV_M) ||
                          do_mret || (wr_en && wr_addr == RXVCSR::CSR_MSTATUS));
@@ -641,6 +650,10 @@ module RXVCSRFile #(
     end
 
     always_comb begin
+        scounteren_next = pack_mcounteren(wr_data);
+    end
+
+    always_comb begin
         mcountinhibit_next  = pack_mcountinhibit(wr_data);
 
         pmu_cycles_inhibit  = mcountinhibit_reg.cy;
@@ -763,13 +776,38 @@ module RXVCSRFile #(
         if (current_privilege == RXVCSR::PRIV_S && rd_addr[9:8] == 2'b11) valid_csr_out = 1'b0;
         if (current_privilege == RXVCSR::PRIV_U && rd_addr[9:8] != 2'b00) valid_csr_out = 1'b0;
 
-        if (current_privilege != RXVCSR::PRIV_M) begin
+        if (current_privilege == RXVCSR::PRIV_S) begin
             unique case (rd_addr)
                 RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH: valid_csr_out = mcounteren_reg.tm;
                 RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH: valid_csr_out = mcounteren_reg.cy;
                 RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH: valid_csr_out = mcounteren_reg.ir;
                 default: ;
             endcase
+
+	    for (logic [11:0] i = 0; i < num_event_counters; ++i) begin
+                unique case (rd_addr)
+                    RXVCSR::CSR_HPMCOUNTER3 + i, RXVCSR::CSR_HPMCOUNTER3H + i:
+                        valid_csr_out = mcounteren_reg.hpm[5'(i)];
+                    default: ;
+                endcase
+            end
+        end
+
+        if (current_privilege == RXVCSR::PRIV_U) begin
+            unique case (rd_addr)
+                RXVCSR::CSR_UTIME, RXVCSR::CSR_UTIMEH: valid_csr_out = mcounteren_reg.tm & scounteren_reg.tm;
+                RXVCSR::CSR_UCYCLE, RXVCSR::CSR_UCYCLEH: valid_csr_out = mcounteren_reg.cy & scounteren_reg.cy;
+                RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH: valid_csr_out = mcounteren_reg.ir & scounteren_reg.ir;
+                default: ;
+            endcase
+
+	    for (logic [11:0] i = 0; i < num_event_counters; ++i) begin
+                unique case (rd_addr)
+                    RXVCSR::CSR_HPMCOUNTER3 + i, RXVCSR::CSR_HPMCOUNTER3H + i:
+                        valid_csr_out = mcounteren_reg.hpm[5'(i)] & scounteren_reg.hpm[5'(i)];
+                    default: ;
+                endcase
+            end
         end
     end
     // verilog_format: on
@@ -886,6 +924,8 @@ module RXVCSRFile #(
                 trace_write_csr(trace_id, RXVCSR::CSR_MIDELEG, unpack_mideleg(mideleg_next));
             if (mcounteren_wren)
                 trace_write_csr(trace_id, RXVCSR::CSR_MCOUNTEREN, unpack_mcounteren(mcounteren_next));
+            if (scounteren_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_SCOUNTEREN, unpack_mcounteren(scounteren_next));
             if (mcountinhibit_wren)
                 trace_write_csr(trace_id, RXVCSR::CSR_MCOUNTINHIBIT, unpack_mcountinhibit(
                                 mcountinhibit_next));
@@ -1105,6 +1145,16 @@ module RXVCSRFile #(
         .en   (mcounteren_wren),
         .d    (mcounteren_next),
         .q    (mcounteren_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(scounteren_reg))
+    ) scounteren_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (scounteren_wren),
+        .d    (scounteren_next),
+        .q    (scounteren_reg)
     );
 
     RXVDFF #(

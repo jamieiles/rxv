@@ -4,11 +4,9 @@ if [ "$MIRROR" != "" ]; then
     MIRROR_ARG="--build-arg MIRROR=$MIRROR"
 fi
 
-BUILD_BASE=ubuntu:22.04
+BUILD_BASE=ubuntu:26.04
 RISCV_TOOLCHAIN_MIRROR=https://www.jamieiles.com
 if [ $(uname -m) = "x86_64" ]; then
-    docker build $MIRROR_ARG -t rxv-build-quartus docker/build-quartus/
-    BUILD_BASE=rxv-build-quartus:latest
     RISCV_TOOLCHAIN_ARCHIVE=gcc-riscv-unknown-elf-x86_64.tar.gz
 elif [ $(uname -m) = "aarch64" ]; then
     RISCV_TOOLCHAIN_ARCHIVE=gcc-riscv-unknown-elf-aarch64.tar.gz

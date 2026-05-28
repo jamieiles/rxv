@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:26.04
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -23,15 +23,11 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
         wget \
         libxft2:i386 \
         libxext6:i386 \
-        libncurses5:i386 \
         libc6:i386 \
         libstdc++6:i386 \
         unixodbc-dev \
-        lib32ncurses5-dev \
         libzmq3-dev \
-        libssl-dev \
-        libcrypto++-dev \
-        libcrypto++8
+        libssl-dev
 
 RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && locale-gen
 ENV LANG en_US.UTF-8

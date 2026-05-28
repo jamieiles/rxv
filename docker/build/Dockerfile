@@ -1,14 +1,15 @@
-ARG BUILD_BASE=rxv-build-quartus:latest
+ARG BUILD_BASE=ubuntu:26.04
 FROM $BUILD_BASE
 MAINTAINER Jamie Iles <jamie@jamieiles.com>
 ENV DEBIAN_FRONTEND=noninteractive
-ARG VERILATOR_VERSION=5.008
+ARG VERILATOR_VERSION=5.048
 ARG RISCV_TOOLCHAIN_MIRROR=https://static.dev.sifive.com/dev-tools
 ARG RISCV_TOOLCHAIN_ARCHIVE=riscv64-unknown-elf-gcc-8.3.0-2019.08.0-x86_64-linux-ubuntu14.tar.gz
 RUN apt-get update && apt-get install --no-install-recommends -y \
     autoconf \
     bison \
     build-essential \
+    ca-certificates \
     ccache \
     clang \
     clang-c++ \
@@ -26,7 +27,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     help2man \
     libboost-program-options-dev \
     libboost-python-dev \
-    libboost-python1.74.0 \
     libboost-serialization-dev \
     libclang-dev \
     libffi-dev \
@@ -34,7 +34,6 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libfl-dev \
     libfl2 \
     libflatbuffers-dev \
-    libflatbuffers1 \
     libfmt-dev \
     libfmt-dev \
     libftdi-dev \
@@ -46,7 +45,8 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     libsdl2-dev \
     libusb-1.0-0-dev \
     llvm \
-    llvm-12-dev \
+    llvm-dev \
+    locales \
     mercurial \
     ninja-build \
     pkg-config \
@@ -70,6 +70,10 @@ RUN apt-get update && apt-get install --no-install-recommends -y \
     zip \
     zlib1g \
     zlib1g-dev
+RUN echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen && locale-gen
+ENV LANG en_US.UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL en_US.UTF-8
 RUN cd /tmp && \
     git clone https://github.com/zachjs/sv2v.git && \
     cd sv2v && \
@@ -88,30 +92,19 @@ RUN cd /tmp && \
     cd /tmp && rm -r verilator-$VERILATOR_VERSION
 
 RUN cd /tmp && \
-    git clone https://github.com/YosysHQ/yosys.git yosys && \
+    git clone https://github.com/YosysHQ/yosys.git -b v0.64 --recurse-submodules yosys && \
     cd yosys && \
     make -j$(nproc) && \
     make install && \
     cd /tmp && \
     rm -rf yosys
 RUN cd /tmp && \
-    git clone https://github.com/YosysHQ/SymbiYosys.git SymbiYosys && \
+    git clone https://github.com/YosysHQ/SymbiYosys.git -b v0.64 --recurse-submodules SymbiYosys && \
     cd SymbiYosys && \
     make install && \
     cd /tmp && \
     rm -rf SymbiYosys
 RUN apt-get install -y curl meson libmpfr-dev
-RUN git clone https://github.com/boolector/boolector -b 3.2.3 && \
-    cd boolector && \
-    ./contrib/setup-btor2tools.sh && \
-    ./contrib/setup-lingeling.sh && \
-    ./configure.sh && \
-    make -C build -j$(nproc) && \
-    cp build/bin/boolector /usr/bin/ && \
-    cp build/bin/btor* /usr/bin/ && \
-    cp deps/btor2tools/bin/btorsim /usr/bin/ && \
-    cd / && \
-    rm -rf boolector
 RUN git clone https://github.com/SRI-CSL/yices2.git yices2 && \
     cd yices2 && \
     autoconf && \

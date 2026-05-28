@@ -1088,7 +1088,7 @@ module RXVCore #(
 
 `ifdef verilator
     generate
-        if (banked_register_file == 0) begin
+        if (banked_register_file == 0) begin : gen_non_banked
             always_ff @(posedge clk) begin
                 if (commit_rename_valid) begin
                     trace_write_reg(32'(commit_out.parent_id), commit_out.dest_reg.arch,
@@ -1103,7 +1103,7 @@ module RXVCore #(
                         trace_end_instruction(32'(commit_out.parent_id));
                 end
             end
-        end else begin
+        end else begin : gen_banked
             always_ff @(posedge clk) begin
                 if (commit_rename_valid) begin
                     trace_write_reg(32'(commit_out.parent_id), commit_out.dest_reg.arch,

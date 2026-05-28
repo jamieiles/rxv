@@ -37,7 +37,7 @@ module CacheRAM #(
                 .dout(lane_ram_out)
             );
 
-            if (read_during_write) begin
+            if (read_during_write) begin : gen_rdw
                 logic [lane_width-1:0] lane_bypass_data_reg;
                 logic                  lane_bypass;
 
@@ -60,7 +60,7 @@ module CacheRAM #(
                 );
 
                 assign dout[(i*lane_width)+:lane_width] = lane_bypass ? lane_bypass_data_reg : lane_ram_out;
-            end else begin
+            end else begin : gen_no_rdw
                 assign dout[(i*lane_width)+:lane_width] = lane_ram_out;
             end
         end

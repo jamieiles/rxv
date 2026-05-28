@@ -232,6 +232,9 @@ public:
 
     virtual void trace_end_instruction(int id)
     {
+        if (!inflight[id].traced)
+            return;
+
 	if (!trace_end_instruction_no_flush(id))
             return;
 

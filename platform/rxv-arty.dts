@@ -85,11 +85,17 @@
         reg = <0xf0000000 0xc000>;
     };
 
-    reset: reset@f000c000 {
-        compatible = "rxv,reset-mmio";
-        reg = <0xf000c000 0x4>;
-        preserve-mask = <0x00000000>;
-        reset-val = <0x00000001>;
+    syscon: syscon@f000c000 {
+        compatible = "rxv,syscon", "syscon";
+        reg = <0xf000c000 0x1000>;
+
+        reboot {
+            compatible = "syscon-reboot";
+            regmap = <&syscon>;
+            offset = <0x00000000>;
+            mask = <0x00000001>;
+            value = <0x00000001>;
+        };
     };
 
     sram: memory@80000000 {

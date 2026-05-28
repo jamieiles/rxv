@@ -27,7 +27,7 @@ module RXVPMP (
     localparam addr_bits = $clog2(num_entries);
 
     typedef struct packed {
-        logic [31:12] addr;
+        logic [31:11] addr;
         logic enabled;
         pmp_perms perms;
     } pmp_entry_t;
@@ -43,7 +43,7 @@ module RXVPMP (
         // verilator lint_on UNUSED
 
         pmp_mask = 30'hfff;
-        for (int i = 12; i < 32; ++i) begin
+        for (int i = 11; i < 32; ++i) begin
             pmp_mask[i] = 1;
             if (!pmp.addr[i]) break;
         end
@@ -54,7 +54,7 @@ module RXVPMP (
     function logic [31:2] pmp_base;
         input pmp_entry_t pmp;
 
-        pmp_base = {pmp.addr, 10'b0} & pmp_mask(pmp);
+        pmp_base = {pmp.addr, 9'b0} & pmp_mask(pmp);
     endfunction
 
     always_comb begin
@@ -71,7 +71,7 @@ module RXVPMP (
                 pmp_n_next = pmp_n;
 
                 if (update_addr && addr_bits'(update_addr_idx) == pmp_i) begin
-                    pmp_n_next.addr = update_data[29:10];
+                    pmp_n_next.addr = {update_data[29:9]};
                 end
 
                 if (update_cfg) begin
@@ -143,7 +143,10 @@ module RXVPMP (
         pmp_entry_t pmp;
         // verilator lint_on UNUSED
         pmp               = pmps[address_read_idx];
-        address_read_data = {2'b0, pmp.addr, 10'b0};
+        if (!pmp.enabled)
+            address_read_data = {2'b0, pmp.addr[31:12], 10'b0};
+        else
+            address_read_data = {2'b0, pmp.addr[31:11], {9{1'b1}}};
     end
 
 endmodule

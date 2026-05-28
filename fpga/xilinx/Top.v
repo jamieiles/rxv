@@ -55,7 +55,6 @@ module Top (
     wire [ 3:0] bootrom_bram_we;
 
     wire        sd_busy_counter_reload;
-    wire        sd_busy_counter;
     wire        sd_busy_expired;
 
     wire        spi_miso;

@@ -231,7 +231,7 @@ proc write_mig_file_RXVArty_mig_7series_0_0 { str_mig_prj_filepath } {
    puts $mig_prj_file {    <BankAddress>3</BankAddress>}
    puts $mig_prj_file {    <MemoryVoltage>1.35V</MemoryVoltage>}
    puts $mig_prj_file {    <C0_MEM_SIZE>268435456</C0_MEM_SIZE>}
-   puts $mig_prj_file {    <UserMemoryAddressMap>BANK_ROW_COLUMN</UserMemoryAddressMap>}
+   puts $mig_prj_file {    <UserMemoryAddressMap>ROW_BANK_COLUMN</UserMemoryAddressMap>}
    puts $mig_prj_file {    <PinSelection>}
    puts $mig_prj_file {      <Pin IN_TERM="" IOSTANDARD="SSTL135" PADName="U2" SLEW="" VCCAUX_IO="" name="ddr3_addr[0]"/>}
    puts $mig_prj_file {      <Pin IN_TERM="" IOSTANDARD="SSTL135" PADName="P6" SLEW="" VCCAUX_IO="" name="ddr3_addr[10]"/>}
@@ -317,7 +317,7 @@ proc write_mig_file_RXVArty_mig_7series_0_0 { str_mig_prj_filepath } {
    puts $mig_prj_file {    <AXIParameters>}
    puts $mig_prj_file {      <C0_C_RD_WR_ARB_ALGORITHM>RD_PRI_REG</C0_C_RD_WR_ARB_ALGORITHM>}
    puts $mig_prj_file {      <C0_S_AXI_ADDR_WIDTH>28</C0_S_AXI_ADDR_WIDTH>}
-   puts $mig_prj_file {      <C0_S_AXI_DATA_WIDTH>32</C0_S_AXI_DATA_WIDTH>}
+   puts $mig_prj_file {      <C0_S_AXI_DATA_WIDTH>128</C0_S_AXI_DATA_WIDTH>}
    puts $mig_prj_file {      <C0_S_AXI_ID_WIDTH>4</C0_S_AXI_ID_WIDTH>}
    puts $mig_prj_file {      <C0_S_AXI_SUPPORTS_NARROW_BURST>0</C0_S_AXI_SUPPORTS_NARROW_BURST>}
    puts $mig_prj_file {    </AXIParameters>}
@@ -487,6 +487,8 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
    } \
    CONFIG.NUM_MI {6} \
  ] $smartconnect_0
+
+ set_property -dict [ list CONFIG.ADVANCED_PROPERTIES { __experimental_features__ {disable_low_area_mode 1 }} ] [get_bd_cells smartconnect_0]
 
   # Create instance: xlconcat_0, and set properties
   set xlconcat_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_0 ]

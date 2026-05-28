@@ -138,8 +138,8 @@ public:
 
         size_t i = 0, word = 0, idle_cycles = 0;
         do {
-            uint32_t addr = addresses[word];
             if (word < addresses.size()) {
+                uint32_t addr = addresses[word];
                 after_n_cycles(0, [&, addr] {
                     this->dut.address = addr >> 2;
                     this->dut.valid = 1;

@@ -111,6 +111,7 @@ static boost::program_options::variables_map parse_options(int argc,
         ("sim", boost::program_options::value<std::string>(), "Simulator")
         ("waves", boost::program_options::value<std::string>(), "Waves File")
         ("trace_file", boost::program_options::value<std::string>(), "TraceName")
+        ("heartbeat_file", boost::program_options::value<std::string>(), "HeartbeatName")
         ("uart_log", boost::program_options::value<std::string>(), "UART log path")
         ("trigger-start", boost::program_options::value<unsigned long>(), "Trigger wave capture at cycle count N")
         ("trigger-end", boost::program_options::value<unsigned long>(), "Trigger wave capture at cycle count N")
@@ -159,19 +160,25 @@ int main(int argc, char *argv[])
             vm.count("trace_file")
                 ? std::optional<std::string>(vm["trace_file"].as<std::string>())
                 : std::nullopt;
+        auto heartbeat_name =
+            vm.count("heartbeat_file")
+                ? std::optional<std::string>(vm["heartbeat_file"].as<std::string>())
+                : std::nullopt;
         auto uart_log = vm.count("uart_log") ? vm["uart_log"].as<std::string>()
                                              : "uart0.log";
 
         std::unique_ptr<SimulatorBase> sim;
         if (vm["sim"].as<std::string>() == "software") {
-            sim = std::make_unique<RXVSim>(trace_name, 384 * 1024 * 1024,
+            sim = std::make_unique<RXVSim>(trace_name, heartbeat_name,
+                                           384 * 1024 * 1024,
                                            0x80000000, uart_log);
         } else if (vm["sim"].as<std::string>() == "rtl") {
             bool waves = vm.count("waves");
 
             if (waves) {
                 sim = std::make_unique<RXVCore<true>>(
-                    trace_name, 384 * 1024 * 1024, 0x80000000,
+                    trace_name, heartbeat_name,
+                    384 * 1024 * 1024, 0x80000000,
                     vm["waves"].as<std::string>(), uart_log);
                 if (vm.count("trigger-start"))
                     sim->set_trigger_start(
@@ -180,8 +187,8 @@ int main(int argc, char *argv[])
                     sim->set_trigger_end(vm["trigger-end"].as<unsigned long>());
             } else {
                 sim = std::make_unique<RXVCore<false>>(
-                    trace_name, 384 * 1024 * 1024, 0x80000000, "no_waves.fst",
-                    uart_log);
+                    trace_name, heartbeat_name, 384 * 1024 * 1024, 0x80000000,
+                    "no_waves.fst", uart_log);
             }
         } else {
             std::cerr << "error: invalid simulator "

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include <mutex>
+#include <fmt/core.h>
 
 #include "RXV.h"
 #include "Trace_generated.h"
@@ -46,9 +47,14 @@ struct InstructionTrace {
 class SimTracer
 {
     static constexpr bool trace_reg_reads = false;
+    static constexpr uint64_t heartbeat_period = 10000;
 
 public:
-    SimTracer(const std::optional<std::string> filename) : enabled(false)
+    SimTracer(const std::optional<std::string> filename,
+              const std::optional<std::string> heartbeat_filename) :
+        enabled(false),
+        heartbeat_enabled(false),
+        retired(0)
     {
         if (filename) {
             this->enabled = true;
@@ -58,6 +64,11 @@ public:
             insn_trace_file.open(this->filename,
                                  std::ios::out | std::ios::binary);
             insn_trace_file.close();
+        }
+
+        if (heartbeat_filename) {
+            heartbeat_log.open(*heartbeat_filename, std::ios::out);
+            heartbeat_enabled = true;
         }
     }
 
@@ -150,6 +161,16 @@ public:
             inflight[id].gprs.emplace_back(RegisterTrace{r, v, true});
     }
 
+    static std::string privilege_str(const PrivilegeLevel level)
+    {
+        switch (level) {
+        case U: return "U";
+        case S: return "S";
+        case M: return "M";
+        default: return "?";
+        }
+    }
+
     virtual void trace_start_instruction(int id,
                                          uint32_t virt,
                                          uint32_t phys,
@@ -157,6 +178,11 @@ public:
                                          uint64_t cycle,
                                          PrivilegeLevel level)
     {
+        if (heartbeat_enabled && retired % heartbeat_period == 0)
+            heartbeat_log << fmt::format("@ {0:d} ({1}): {2} {3:08x} {4:08x}\n",
+                                         cycle, retired, privilege_str(level), virt,
+                                         instr);
+
         if (!enabled)
             return;
 
@@ -232,6 +258,8 @@ public:
 
     virtual void trace_end_instruction(int id)
     {
+        ++retired;
+
         if (!inflight[id].traced)
             return;
 
@@ -246,6 +274,7 @@ public:
     virtual ~SimTracer()
     {
         flush();
+        heartbeat_log.close();
     }
 
     void flush()
@@ -327,6 +356,9 @@ private:
     }
 
     bool enabled;
+    bool heartbeat_enabled;
+    uint64_t retired;
+    std::ofstream heartbeat_log;
     flatbuffers::FlatBufferBuilder trace_builder;
     std::vector<flatbuffers::Offset<void>> traced_events;
     std::vector<uint8_t> event_types;

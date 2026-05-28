@@ -87,7 +87,7 @@ class TestbenchTracer : public SimTracer
 {
 public:
     TestbenchTracer(const std::optional<std::string> filename)
-        : SimTracer(filename), num_instructions(0), last_pc(0x80000000)
+        : SimTracer(filename, std::nullopt), num_instructions(0), last_pc(0x80000000)
     {
         for (auto i = 0; i < 32; ++i)
             shadow_regs[i] = 0;

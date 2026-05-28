@@ -248,6 +248,7 @@ private:
 };
 
 RXVSim::RXVSim(const std::optional<std::string> trace_name,
+               const std::optional<std::string> heartbeat_name,
                size_t mem_size,
                uint32_t mem_base,
                std::string uart_log)
@@ -265,7 +266,7 @@ RXVSim::RXVSim(const std::optional<std::string> trace_name,
     , last_tlb_hit(0)
     , asid(0)
     , bus(ram_base, mem_size)
-    , tracer(trace_name)
+    , tracer(trace_name, heartbeat_name)
     , cur_cycle(0)
     , num_irqs(0)
     , pmu_cycles(0)

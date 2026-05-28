@@ -23,8 +23,9 @@ class ShadowTracer : public SimTracer
 {
 public:
     ShadowTracer(const std::optional<std::string> filename,
+                 const std::optional<std::string> heartbeat_filename,
                  MemoryBus *shadow_bus)
-        : SimTracer(filename)
+        : SimTracer(filename, heartbeat_filename)
         , num_instructions(0)
         , num_irqs(0)
         , last_pc(0x80000000)
@@ -241,6 +242,7 @@ class RXVCore
 {
 public:
     RXVCore(const std::optional<std::string> trace_name,
+            const std::optional<std::string> heartbeat_name,
             size_t mem_size = default_mem_size,
             uint32_t mem_base = default_ram_base,
             std::string waves_file = "VRXVCoreEmulWrapper.fst",
@@ -250,7 +252,8 @@ public:
         , shadow_bus(mem_base, mem_size, false)
         , have_reset(false)
     {
-        tracer = std::make_shared<ShadowTracer>(trace_name, &shadow_bus);
+        tracer = std::make_shared<ShadowTracer>(trace_name, heartbeat_name,
+                                                &shadow_bus);
         sv_set_scope_name("TOP.RXVTrace");
         this->dut.dpi_set_trace_handle(tracer.get());
 

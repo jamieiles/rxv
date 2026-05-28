@@ -30,7 +30,6 @@ module BusAdapter (
     logic [ 3:0] len_f;
     logic        bus_ar_ack;
     logic        bus_aw_ack;
-    logic        bus_write_ack;
     logic        bus_write_beat_ack;
     logic        bus_read_beat_ack;
     logic [ 3:0] bytesel_f;
@@ -38,7 +37,6 @@ module BusAdapter (
     always_comb begin
         bus_ar_ack         = bus.arready & bus.arvalid;
         bus_aw_ack         = bus.awready & bus.awvalid;
-        bus_write_ack      = bus.bready & bus.bvalid;
         bus_write_beat_ack = bus.wready & bus.wvalid;
         bus_read_beat_ack  = bus.rready & bus.rvalid;
     end
@@ -84,7 +82,7 @@ module BusAdapter (
     end
 
     always_comb begin
-        complete = bus_write_ack | (bus.rlast & bus_read_beat_ack);
+        complete = (bus_write_beat_ack & bus.wlast) | (bus.rlast & bus_read_beat_ack);
     end
 
     RXVDFF bus_active_dff (

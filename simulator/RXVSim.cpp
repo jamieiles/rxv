@@ -34,8 +34,10 @@ enum CSRID {
     TDATA2         = 0x07A2,
     TDATA3         = 0x07A3,
     MSTATUS        = 0x0300,
+    MSTATUSH       = 0x0310,
     MISA           = 0x0301,
     MEDELEG        = 0x0302,
+    MEDELEGH       = 0x0312,
     MIDELEG        = 0x0303,
     MIE            = 0x0304,
     MTVEC          = 0x0305,
@@ -94,6 +96,7 @@ static const struct CSRDef csr_defs[] = {
     { "mhartid",       0x00000000, 0x00000000, MHARTID },
     // Machine trap setup
     { "mstatus",       0xffffffff, 3 << 11, MSTATUS },
+    { "mstatush",      0x00000000, 0x00000000, MSTATUSH },
     { "misa",          0x00000000, supported_extensions, MISA },
     { "mie",           0xffffffff, 0x00000000, MIE },
     { "mtvec",         0xfffffffd, 0x00000000, MTVEC },
@@ -105,6 +108,7 @@ static const struct CSRDef csr_defs[] = {
     { "mtval",         0xffffffff, 0x00000000, MTVAL },
     { "mip",           0xffffffff, 0x00000000, MIP },
     { "medeleg",       0xffffffff, 0x00000000, MEDELEG },
+    { "medelegh",      0x00000000, 0x00000000, MEDELEGH },
     { "mideleg",       0xffffffff, 0x00000000, MIDELEG },
     // Supervisor trap setup
     { "sstatus",       0xffffffff, 0x00000000, SSTATUS },

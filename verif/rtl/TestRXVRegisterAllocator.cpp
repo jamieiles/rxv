@@ -106,10 +106,11 @@ TEST_F(RXVRegisterAllocatorDeathTest, DoublePushFails)
 {
     OutputSuprocessor stdout_suppress(STDOUT_FILENO);
     OutputSuprocessor stderr_suppress(STDERR_FILENO);
+    GTEST_FLAG_SET(death_test_style, "threadsafe");
 
     EXPECT_EXIT(({
                     dealloc(1);
                     cycle();
                 }),
-                testing::KilledBySignal(SIGABRT), "");
+                testing::ExitedWithCode(1), "");
 }

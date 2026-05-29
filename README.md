@@ -109,12 +109,13 @@ For example:
 
     ./simulator/rxv-simulator --simulator rtl \
         --binary fw_jump.bin@0x84000000 \
-        --binary linux/arch/riscv/boot/Image@0x80400000 \
+        --binary linux/arch/riscv/boot/Image@0x84400000 \
         --binary platform/rxv-emul.dtb@0x80200000 \
+        --binary rootfs.img@0x88000000 \
 	--elf simulator/bootrom/sim-bootrom
 
 will load the OpenSBI ELF file and then copy the Linux kernel and root
-filesystem to 0x80400000 and 0x88000000 respectively before setting the PC to
+filesystem to 0x84400000 and 0x88000000 respectively before setting the PC to
 the entry point of OpenSBI.
 
 Tracing can be enabled with --trace to write to a binary trace file which will

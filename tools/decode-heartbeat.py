@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+#
+# Copyright 2026 Jamie Iles
+# SPDX-License-Identifier: Apache-2.0
+#
 # /// script
 # requires-python = ">=3.12"
 # dependencies = [

@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 module RAMBE #(
     parameter depth      = 32,
     parameter byte_width = 4

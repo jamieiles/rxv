@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 `include "RXV.svh"
 
 import RXVTypes::rxv_alu_op;

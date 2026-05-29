@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 module RXVCoreAXISynthTop (
     // verilog_format: off
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 core_clk CLK" *)

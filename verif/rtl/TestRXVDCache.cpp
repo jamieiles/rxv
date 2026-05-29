@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 #include "VerilogTestbench.h"
 #include "VRXVDCacheWrapper.h"
 #include "VRXVDCacheWrapper__Dpi.h"

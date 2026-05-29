@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 module RXVCLINT (
     input  wire        refclk,
     input  wire        s_axi_aclk,

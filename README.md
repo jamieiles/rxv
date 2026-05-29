@@ -1,6 +1,6 @@
 # RXV RISC-V soft core.
 
-© Jamie Iles 2019-2022
+© Jamie Iles 2019-2026
 
 The RXV core is an RV32IMAZicsrZifencei core written in SystemVerilog offering
 good performance and synthesizable for a variety of FPGAs.  Additional

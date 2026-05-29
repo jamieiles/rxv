@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 import RXVTypes::commit_num_entries;
 import RXVTypes::commit_width;
 import RXVTypes::arch_reg_tag;

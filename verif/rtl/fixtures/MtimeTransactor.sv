@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 module MtimeTransactor (
     output logic [63:0] mtime,
     output logic        mtime_irq

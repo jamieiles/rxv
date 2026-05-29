@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 module RXVICacheWrapper #(
     parameter nr_lines        = 4,
     parameter nr_ways         = 4,

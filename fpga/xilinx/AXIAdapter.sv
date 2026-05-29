@@ -1,3 +1,5 @@
+// Copyright 2026 Jamie Iles
+// SPDX-License-Identifier: Apache-2.0
 module AXIAdapter (
     output wire                 [31:0] axi_awaddr,
     output wire                 [ 7:0] axi_awlen,

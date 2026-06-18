@@ -31,3 +31,9 @@ target_link_libraries(make-core
                       ${ZLIB_LIBRARIES}
                       fmt
                       elfio::elfio)
+add_executable(gdb-server
+               GdbServer.cpp)
+target_link_libraries(gdb-server
+                      ${Boost_LIBRARIES}
+                      fmt)
+add_dependencies(gdb-server gen_trace_h)

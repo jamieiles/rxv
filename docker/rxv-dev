@@ -1,5 +1,4 @@
 #!/bin/bash
-DOCKER_INTERACTIVE_FLAGS="-it -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix$DISPLAY"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
 
 TOOL=docker
@@ -10,11 +9,20 @@ MOUNT_ARGS="\
     -v /usr/share/themes:/usr/share/themes:ro \
     -v /usr/share/icons:/usr/share/icons:ro \
 "
+DEFAULT_INTERACTIVE_FLAGS="-it -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY=unix$DISPLAY"
+
 if [[ "$OSTYPE" =~ "darwin" ]]; then
     TOOL=container
     TOOL_ARGS="--cpus 10 --memory 20G"
-    DOCKER_INTERACTIVE_FLAGS="-it"
+    DEFAULT_INTERACTIVE_FLAGS="-it"
     MOUNT_ARGS="-v $HOME:$HOME"
+fi
+
+# Allow the caller to override the interactive flags (e.g. set
+# DOCKER_INTERACTIVE_FLAGS= to run non-interactively without allocating a PTY);
+# only fall back to the per-OS default when it is unset.
+if [ -z ${DOCKER_INTERACTIVE_FLAGS+x} ]; then
+    DOCKER_INTERACTIVE_FLAGS="$DEFAULT_INTERACTIVE_FLAGS"
 fi
 
 # Quartus 16.1 needs /sys bind mounted to avoid a segfault in libudev when

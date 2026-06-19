@@ -40,4 +40,4 @@ $TOOL run $TOOL_ARGS -w /workspaces/rxv \
     -e RXV_DEV_UID=$(id -u) \
     -e RXV_DEV_GID=$(id -g) \
     -e SHELL=$SHELL \
-    rxv-dev:latest $@
+    rxv-dev:latest "$@"

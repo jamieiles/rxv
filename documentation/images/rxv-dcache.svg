@@ -1,0 +1,178 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1290" viewBox="0 0 1560 1290" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif">
+<defs>
+<marker id="a-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker>
+<marker id="s-flow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#334155"/></marker>
+<marker id="a-bp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/></marker>
+<marker id="s-bp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7c3aed"/></marker>
+<marker id="a-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker>
+<marker id="s-red" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#dc2626"/></marker>
+<marker id="a-commit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/></marker>
+<marker id="s-commit" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#16a34a"/></marker>
+<marker id="a-mem" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0891b2"/></marker>
+<marker id="s-mem" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#0891b2"/></marker>
+<marker id="a-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker>
+<marker id="s-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/></marker>
+<marker id="a-ex" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#b45309"/></marker>
+<marker id="s-ex" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#b45309"/></marker>
+</defs>
+<rect width="1560" height="1290" fill="#ffffff"/>
+<text x="40.0" y="52.0" font-size="27" text-anchor="start" fill="#0f172a" font-weight="700">RXV Data Cache — RXVDCache</text>
+<text x="40.0" y="78.0" font-size="14" text-anchor="start" fill="#475569" font-weight="400">Virtually indexed, physically tagged · 4 ways × 16 sets × 32 B line (parameterised) · write-back, write-allocate · 3-cycle access</text>
+<text x="1520.0" y="52.0" font-size="12" text-anchor="end" fill="#94a3b8" font-weight="400">rtl/RXVDCache.sv, rtl/RXVDCacheArb.sv</text>
+<text x="60.0" y="112.0" font-size="12" text-anchor="start" fill="#64748b" font-weight="700">REQUEST — shared between the LSU and the page-table walker (RXVDCacheArb: walker has priority)</text>
+<rect x="60.0" y="124.0" width="330.0" height="82.0" rx="10" fill="#eaf1fe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="225.0" y="156.5" font-size="13" text-anchor="middle" fill="#1d4ed8" font-weight="600">CPU port</text>
+<text x="225.0" y="173.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">address (VA), valid, wren,</text>
+<text x="225.0" y="187.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">bytesel[3:0], write data</text>
+<rect x="430.0" y="124.0" width="300.0" height="82.0" rx="10" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="580.0" y="156.5" font-size="13" text-anchor="middle" fill="#0e7490" font-weight="600">phys_in · phys_valid</text>
+<text x="580.0" y="173.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">PA from the DTLB, available</text>
+<text x="580.0" y="187.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">in cycle 2</text>
+<rect x="770.0" y="124.0" width="300.0" height="82.0" rx="10" fill="#eef2f7" stroke="#64748b" stroke-width="1.6"/>
+<text x="920.0" y="156.5" font-size="13" text-anchor="middle" fill="#475569" font-weight="600">device_memory</text>
+<text x="920.0" y="173.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">PMA check on the physical</text>
+<text x="920.0" y="187.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">address (device window)</text>
+<rect x="1110.0" y="124.0" width="330.0" height="82.0" rx="10" fill="#fdeaea" stroke="#dc2626" stroke-width="1.6"/>
+<text x="1275.0" y="156.5" font-size="13" text-anchor="middle" fill="#b91c1c" font-weight="600">clean · invalidate</text>
+<text x="1275.0" y="173.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">cache maintenance requests</text>
+<text x="1275.0" y="187.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">from FENCE.I</text>
+<text x="60.0" y="238.0" font-size="12" text-anchor="start" fill="#64748b" font-weight="700">CYCLE 1 — RAM read, indexed with the virtual address</text>
+<rect x="60.0" y="250.0" width="330.0" height="116.0" rx="10" fill="#eaf1fe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="225.0" y="292.5" font-size="13" text-anchor="middle" fill="#1d4ed8" font-weight="600">Address decode</text>
+<text x="225.0" y="309.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">index  = A[8:5]   16 sets</text>
+<text x="225.0" y="323.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">offset = A[4:2]   8 words</text>
+<text x="225.0" y="337.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">tag    = A[31:9]  23 bits</text>
+<rect x="430.0" y="250.0" width="300.0" height="116.0" rx="10" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="580.0" y="299.5" font-size="13" text-anchor="middle" fill="#0e7490" font-weight="600">TagRam</text>
+<text x="580.0" y="316.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">16 sets × 4 lanes</text>
+<text x="580.0" y="330.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">{valid, tag[22:0]}</text>
+<rect x="770.0" y="250.0" width="300.0" height="116.0" rx="10" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="920.0" y="299.5" font-size="13" text-anchor="middle" fill="#0e7490" font-weight="600">DirtyRam</text>
+<text x="920.0" y="316.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">16 sets × 4 lanes</text>
+<text x="920.0" y="330.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">one dirty bit per way</text>
+<rect x="1110.0" y="250.0" width="330.0" height="116.0" rx="10" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="1275.0" y="299.5" font-size="13" text-anchor="middle" fill="#0e7490" font-weight="600">DataRam (RAMBE)</text>
+<text x="1275.0" y="316.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">512 words, byte enables</text>
+<text x="1275.0" y="330.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">addr = {way, index, offset}</text>
+<polyline points="225.0,206.0 225.0,250.0" fill="none" stroke="#334155" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<polyline points="390.0,308.0 430.0,308.0" fill="none" stroke="#334155" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<polyline points="225.0,366.0 225.0,400.0 920.0,400.0 920.0,366.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<rect x="540.0" y="383.0" width="40.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="560.0" y="394.0" font-size="11" text-anchor="middle" fill="#334155" font-weight="600">index</text>
+<polyline points="1275.0,400.0 1275.0,366.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<polyline points="920,400 1275,400" fill="none" stroke="#334155" stroke-width="1.6"/>
+<text x="60.0" y="428.0" font-size="12" text-anchor="start" fill="#64748b" font-weight="700">CYCLE 2 — tag compare against the physical address, RAM write on a hit</text>
+<rect x="60.0" y="440.0" width="330.0" height="130.0" rx="10" fill="#fdeaea" stroke="#dc2626" stroke-width="1.6"/>
+<text x="225.0" y="482.5" font-size="13" text-anchor="middle" fill="#b91c1c" font-weight="600">busy / stall</text>
+<text x="225.0" y="499.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">hit  : never busy, fully pipelined</text>
+<text x="225.0" y="513.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">miss : busy until the fill completes</text>
+<text x="225.0" y="527.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">device: busy until the bus replies</text>
+<text x="225.0" y="541.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">the LSU kills and replays newer uops</text>
+<rect x="430.0" y="440.0" width="300.0" height="130.0" rx="10" fill="#eaf1fe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="580.0" y="489.5" font-size="13" text-anchor="middle" fill="#1d4ed8" font-weight="600">Tag compare × 4 ways</text>
+<text x="580.0" y="506.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">way_tag == A[31:9]</text>
+<text x="580.0" y="520.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">&amp;&amp; way_valid &amp;&amp; phys_valid</text>
+<text x="580.0" y="534.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">hit_way from OneHotDecode</text>
+<rect x="770.0" y="440.0" width="300.0" height="130.0" rx="10" fill="#eaf1fe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="920.0" y="489.5" font-size="13" text-anchor="middle" fill="#1d4ed8" font-weight="600">Hit / miss / device</text>
+<text x="920.0" y="506.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">miss   = valid &amp; ~|way_hit</text>
+<text x="920.0" y="520.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">device = uncached PMA region</text>
+<text x="920.0" y="534.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">dirty[way] selects write-back</text>
+<rect x="1110.0" y="440.0" width="330.0" height="130.0" rx="10" fill="#eef2f7" stroke="#64748b" stroke-width="1.6"/>
+<text x="1275.0" y="496.5" font-size="13" text-anchor="middle" fill="#475569" font-weight="600">BitPLRU + victim select</text>
+<text x="1275.0" y="513.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">fill an invalid way first,</text>
+<text x="1275.0" y="527.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">otherwise the PLRU victim</text>
+<polyline points="500.0,206.0 500.0,240.0 404.0,240.0 404.0,486.0 430.0,486.0" fill="none" stroke="#0891b2" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-mem)"/>
+<g transform="rotate(-90 404 350)"><rect x="378.8" y="341.0" width="50.4" height="15" rx="4" fill="#ffffff" opacity="0.72"/><text x="404" y="353" font-size="11" text-anchor="middle" fill="#0e7490" font-weight="600" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif">PA tag</text></g>
+<polyline points="580.0,366.0 580.0,440.0" fill="none" stroke="#334155" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<rect x="585.0" y="417.0" width="106.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="590.0" y="428.0" font-size="11" text-anchor="start" fill="#334155" font-weight="600">{valid, tag} × 4</text>
+<polyline points="920.0,366.0 920.0,416.0 860.0,416.0 860.0,440.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<rect x="870.0" y="399.0" width="40.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="890.0" y="410.0" font-size="11" text-anchor="middle" fill="#334155" font-weight="600">dirty</text>
+<polyline points="730.0,500.0 770.0,500.0" fill="none" stroke="#334155" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<polyline points="1070.0,500.0 1110.0,500.0" fill="none" stroke="#334155" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<rect x="1073.0" y="481.0" width="34.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="1090.0" y="492.0" font-size="11" text-anchor="middle" fill="#334155" font-weight="600">miss</text>
+<text x="60.0" y="608.0" font-size="12" text-anchor="start" fill="#64748b" font-weight="700">CYCLE 3 — data</text>
+<rect x="430.0" y="620.0" width="640.0" height="96.0" rx="10" fill="#e7f7ec" stroke="#16a34a" stroke-width="1.6"/>
+<text x="750.0" y="652.5" font-size="13" text-anchor="middle" fill="#15803d" font-weight="600">Write path (hit)</text>
+<text x="750.0" y="669.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">byte-enable write into DataRam[hit_way][offset] in cycle 2 — no write buffer,</text>
+<text x="750.0" y="683.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">no allocate-on-write-miss stall; DirtyRam[hit_way] is set at the same time</text>
+<text x="750.0" y="697.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">device writes never update the RAMs</text>
+<rect x="1110.0" y="620.0" width="330.0" height="96.0" rx="10" fill="#eaf1fe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="1275.0" y="652.5" font-size="13" text-anchor="middle" fill="#1d4ed8" font-weight="600">Read data mux</text>
+<text x="1275.0" y="669.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">cached  : DataRam output</text>
+<text x="1275.0" y="683.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">uncached: registered bus data</text>
+<text x="1275.0" y="697.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">selected two cycles after issue</text>
+<rect x="1110.0" y="740.0" width="330.0" height="66.0" rx="10" fill="#eaf1fe" stroke="#2563eb" stroke-width="1.6"/>
+<text x="1275.0" y="771.5" font-size="13" text-anchor="middle" fill="#1d4ed8" font-weight="600">dout → LSU stage 3</text>
+<text x="1275.0" y="788.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">rotate + sign extend in the LSU</text>
+<polyline points="1275.0,716.0 1275.0,740.0" fill="none" stroke="#334155" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<polyline points="1440.0,320.0 1478.0,320.0 1478.0,668.0 1440.0,668.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<g transform="rotate(-90 1478 500)"><rect x="1459.2" y="491.0" width="37.6" height="15" rx="4" fill="#ffffff" opacity="0.72"/><text x="1478" y="503" font-size="11" text-anchor="middle" fill="#334155" font-weight="600" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif">word</text></g>
+<polyline points="620.0,570.0 620.0,620.0" fill="none" stroke="#16a34a" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-commit)"/>
+<polyline points="1160.0,570.0 1160.0,620.0" fill="none" stroke="#334155" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-flow)"/>
+<rect x="60.0" y="850.0" width="780.0" height="390.0" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.2"/>
+<text x="450.0" y="876.0" font-size="13" text-anchor="middle" fill="#0f172a" font-weight="700">Cache controller state machine</text>
+<rect x="100.0" y="922.0" width="110.0" height="46.0" rx="8" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="155.0" y="950.5" font-size="11.5" text-anchor="middle" fill="#0e7490" font-weight="600">RUN</text>
+<rect x="270.0" y="922.0" width="110.0" height="46.0" rx="8" fill="#fdf2e0" stroke="#d97706" stroke-width="1.6"/>
+<text x="325.0" y="950.5" font-size="11.5" text-anchor="middle" fill="#b45309" font-weight="600">MISS</text>
+<rect x="440.0" y="922.0" width="120.0" height="46.0" rx="8" fill="#fdf2e0" stroke="#d97706" stroke-width="1.6"/>
+<text x="500.0" y="950.5" font-size="11.5" text-anchor="middle" fill="#b45309" font-weight="600">FLUSH</text>
+<rect x="610.0" y="922.0" width="110.0" height="46.0" rx="8" fill="#fdf2e0" stroke="#d97706" stroke-width="1.6"/>
+<text x="665.0" y="950.5" font-size="11.5" text-anchor="middle" fill="#b45309" font-weight="600">FILL</text>
+<rect x="270.0" y="1006.0" width="140.0" height="46.0" rx="8" fill="#eef2f7" stroke="#64748b" stroke-width="1.6"/>
+<text x="340.0" y="1034.5" font-size="11.5" text-anchor="middle" fill="#475569" font-weight="600">UNCACHED</text>
+<rect x="520.0" y="1006.0" width="200.0" height="46.0" rx="8" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="620.0" y="1034.5" font-size="11.5" text-anchor="middle" fill="#0e7490" font-weight="600">ACCESS_COMPLETE</text>
+<rect x="100.0" y="1092.0" width="110.0" height="46.0" rx="8" fill="#fdeaea" stroke="#dc2626" stroke-width="1.6"/>
+<text x="155.0" y="1120.5" font-size="11.5" text-anchor="middle" fill="#b91c1c" font-weight="600">CLEAN</text>
+<rect x="270.0" y="1092.0" width="110.0" height="46.0" rx="8" fill="#fdeaea" stroke="#dc2626" stroke-width="1.6"/>
+<text x="325.0" y="1120.5" font-size="11.5" text-anchor="middle" fill="#b91c1c" font-weight="600">INVAL</text>
+<polyline points="210.0,945.0 270.0,945.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)"/>
+<rect x="223.0" y="926.0" width="34.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="240.0" y="937.0" font-size="11" text-anchor="middle" fill="#dc2626" font-weight="600">miss</text>
+<polyline points="380.0,945.0 440.0,945.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)"/>
+<rect x="390.0" y="926.0" width="40.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="410.0" y="937.0" font-size="11" text-anchor="middle" fill="#dc2626" font-weight="600">dirty</text>
+<polyline points="560.0,945.0 610.0,945.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)"/>
+<polyline points="325.0,922.0 325.0,900.0 665.0,900.0 665.0,922.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)"/>
+<rect x="454.0" y="883.0" width="82.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="495.0" y="894.0" font-size="11" text-anchor="middle" fill="#dc2626" font-weight="600">victim clean</text>
+<polyline points="665.0,968.0 665.0,1006.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)"/>
+<polyline points="615.0,1052.0 615.0,1070.0 170.0,1070.0 170.0,968.0" fill="none" stroke="#0891b2" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-mem)"/>
+<rect x="317.0" y="1053.0" width="166.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="400.0" y="1064.0" font-size="11" text-anchor="middle" fill="#0891b2" font-weight="600">replay the access as a hit</text>
+<polyline points="140.0,968.0 140.0,1029.0 270.0,1029.0" fill="none" stroke="#94a3b8" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-ctl)" marker-start="url(#s-ctl)"/>
+<rect x="182.0" y="1010.0" width="46.0" height="15.0" rx="4" fill="#ffffff" stroke="none" stroke-width="1.6" opacity="0.72"/>
+<text x="205.0" y="1021.0" font-size="11" text-anchor="middle" fill="#94a3b8" font-weight="600">device</text>
+<polyline points="120.0,968.0 120.0,1092.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)" marker-start="url(#s-red)"/>
+<polyline points="200.0,968.0 200.0,1082.0 325.0,1082.0 325.0,1092.0" fill="none" stroke="#dc2626" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-red)" marker-start="url(#s-red)"/>
+<text x="90.0" y="1160.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400">clean:  walk every set / way,</text>
+<text x="90.0" y="1176.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400">write back dirty lines (FENCE.I)</text>
+<text x="290.0" y="1160.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400">invalidate: walk every set,</text>
+<text x="290.0" y="1176.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400">clear valid, drop dirty data</text>
+<text x="450.0" y="1216.0" font-size="11" text-anchor="middle" fill="#94a3b8" font-weight="400">a miss blocks the cache: no hit under miss, no write buffer, no MSHR</text>
+<rect x="880.0" y="850.0" width="620.0" height="390.0" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.2"/>
+<text x="1190.0" y="882.0" font-size="13" text-anchor="middle" fill="#0f172a" font-weight="700">Bus interface</text>
+<rect x="900.0" y="906.0" width="300.0" height="120.0" rx="10" fill="#e1f5fa" stroke="#0891b2" stroke-width="1.6"/>
+<text x="1050.0" y="950.5" font-size="13" text-anchor="middle" fill="#0e7490" font-weight="600">BusAdapter</text>
+<text x="1050.0" y="967.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">burst read  — line fill</text>
+<text x="1050.0" y="981.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">burst write — write-back</text>
+<text x="1050.0" y="995.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">single beat — device access</text>
+<rect x="1250.0" y="926.0" width="220.0" height="80.0" rx="16" fill="#eef2f7" stroke="#64748b" stroke-width="1.6"/>
+<text x="1360.0" y="964.5" font-size="13" text-anchor="middle" fill="#475569" font-weight="600">AXI</text>
+<text x="1360.0" y="981.5" font-size="11" text-anchor="middle" fill="#475569" font-weight="400">data port</text>
+<polyline points="1200.0,966.0 1250.0,966.0" fill="none" stroke="#0891b2" stroke-width="2.0" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-mem)" marker-start="url(#s-mem)"/>
+<text x="900.0" y="1060.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400" font-family="'SF Mono', 'Menlo', 'DejaVu Sans Mono', monospace">FILL      8 beats read into DataRam[victim way]; the tag is written on the last beat</text>
+<text x="900.0" y="1082.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400" font-family="'SF Mono', 'Menlo', 'DejaVu Sans Mono', monospace">FLUSH     8 beats writing the dirty victim back before the fill starts</text>
+<text x="900.0" y="1104.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400" font-family="'SF Mono', 'Menlo', 'DejaVu Sans Mono', monospace">CLEAN     sweeps every dirty line out to memory, then RUN resumes</text>
+<text x="900.0" y="1126.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400" font-family="'SF Mono', 'Menlo', 'DejaVu Sans Mono', monospace">UNCACHED  device reads and writes bypass the RAMs completely and are</text>
+<text x="900.0" y="1148.0" font-size="10.5" text-anchor="start" fill="#475569" font-weight="400" font-family="'SF Mono', 'Menlo', 'DejaVu Sans Mono', monospace">          never cached, so the LSU sees them as variable-latency accesses</text>
+<polyline points="1050.0,906.0 1050.0,826.0 1520.0,826.0 1520.0,226.0 580.0,226.0 580.0,250.0" fill="none" stroke="#16a34a" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-commit)"/>
+<polyline points="1275.0,226.0 1275.0,250.0" fill="none" stroke="#16a34a" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-commit)"/>
+<polyline points="920.0,226.0 920.0,250.0" fill="none" stroke="#16a34a" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round" marker-end="url(#a-commit)"/>
+<g transform="rotate(-90 1520 560)"><rect x="1421.2" y="551.0" width="197.6" height="15" rx="4" fill="#ffffff" opacity="0.72"/><text x="1520" y="563" font-size="11" text-anchor="middle" fill="#16a34a" font-weight="600" font-family="Inter, 'Helvetica Neue', Helvetica, Arial, sans-serif">fill data · tag + dirty write</text></g>
+</svg>

@@ -104,10 +104,34 @@
         reg = <0x80000000 0x10000000>;
     };
 
+    sdclk: clock-81247969 {
+        compatible = "fixed-clock";
+        #clock-cells = <0>;
+        clock-frequency = <81247969>;
+    };
+
+    mmc0: mmc@fffc0000 {
+        compatible = "arasan,sdhci-8.9a";
+        reg = <0xfffc0000 0x10000>;
+        clocks = <&sdclk>, <&sdclk>;
+        clock-names = "clk_xin", "clk_ahb";
+        interrupt-parent = <&intc>;
+        // Level-high
+        interrupts = <3 4>;
+        bus-width = <4>;
+        cap-sd-highspeed;
+        max-frequency = <40623984>;
+        no-1-8-v;
+        disable-wp;
+        no-sdio;
+        no-mmc;
+        broken-cd;
+    };
+
     spi0: spi@fffe0000 {
         compatible = "xlnx,xps-spi-2.00.a";
         reg = <0xfffe0000 0x10000>;
-        xlnx,num-ss-bits = <0x2>;
+        xlnx,num-ss-bits = <0x1>;
         xlnx,num-transfer-bits = <8>;
         status = "okay";
         #address-cells = <1>;
@@ -116,17 +140,9 @@
         // Edge-rising
         interrupts = <0 1>;
 
-        slot@0 {
-            compatible = "mmc-spi-slot";
-            reg = <0>;
-            voltage-ranges = <3300 3300>;
-            spi-max-frequency = <50000000>;
-            broken-cd;
-        };
-
-        eth0: eth@1 {
+        eth0: eth@0 {
             compatible = "microchip,enc28j60";
-            reg = <1>;
+            reg = <0>;
             interrupt-parent = <&intc>;
             // Edge-falling
             interrupts = <2 2>;
@@ -143,7 +159,7 @@
         interrupts-extended = <&cpu0_intc 9>;
         reg = <0xfffd0000 0x10000>;
         xlnx,kind-of-intr = <0x5>;
-        xlnx,num-intr-inputs = <0x3>;
+        xlnx,num-intr-inputs = <0x4>;
     };
 
     uart0: serial@ffff1000 {

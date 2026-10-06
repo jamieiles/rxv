@@ -9,6 +9,8 @@ add_files "${origin_dir}/_build/fpga/xilinx/bootrom/bootrom.mem"
 read_verilog "${origin_dir}/fpga/xilinx/RXVCLINT.v"
 read_verilog "${origin_dir}/fpga/xilinx/RXVCoreAXISynthTop.v"
 
+source "${origin_dir}/fpga/xilinx/mig_native.tcl"
+
 source "${origin_dir}/fpga/xilinx/RXVArtyBD.tcl"
 
 set_property source_mgmt_mode All [current_project]
@@ -28,6 +30,8 @@ read_verilog -sv "${origin_dir}/rtl/lib/RXVTrace.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/RXVCSR.sv"
 read_verilog -sv "${origin_dir}/rtl/lib/RXVMMU.sv"
 read_verilog -sv "${origin_dir}/fpga/xilinx/AXIAdapter.sv"
+read_verilog -sv "${origin_dir}/fpga/xilinx/MemSplit.sv"
+read_verilog -sv "${origin_dir}/fpga/xilinx/MIGFrontend.sv"
 read_verilog -sv "${origin_dir}/fpga/xilinx/RAMBE.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVALU.sv"
 read_verilog -sv "${origin_dir}/rtl/RXVBranchPredictor.sv"

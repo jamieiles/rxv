@@ -149,9 +149,132 @@ module Top (
         .O(rst_clk)
     );
 
+    wire         ui_clk;
+    wire         ui_clk_sync_rst;
+    wire         mig_clk_ref;
+    wire         clint_refclk;
+    wire         init_calib_complete;
+    wire [ 27:0] app_addr;
+    wire [  2:0] app_cmd;
+    wire         app_en;
+    wire         app_rdy;
+    wire [127:0] app_wdf_data;
+    wire [ 15:0] app_wdf_mask;
+    wire         app_wdf_wren;
+    wire         app_wdf_end;
+    wire         app_wdf_rdy;
+    wire [127:0] app_rd_data;
+    wire         app_rd_data_valid;
+    wire         app_rd_data_end;
+
+    // The MIG only provides additional UI clocks with the AXI interface, so
+    // recreate them here exactly as the MIG did: an MMCM from the UI clock
+    // (81.25MHz x 8 = 650MHz VCO) giving the 200MHz IDELAYCTRL reference and
+    // the CLINT reference clock (650MHz / 64 = 10.15625MHz).  The MIG PLL is
+    // only reset by sys_rst so the UI clock runs before the reference clock
+    // is available, as it did with the internal MMCM.
+    wire        clkgen_fb;
+    wire        clkgen_ref;
+    wire        clkgen_clint;
+    wire        clkgen_locked;
+    reg  [16:0] clkgen_rst_count = 17'h1ffff;
+
+    // Hold the MMCM in reset until the MIG PLL has locked and the UI clock
+    // is stable (~1.3ms at 100MHz).
+    always @(posedge sys_clk)
+        if (|clkgen_rst_count) clkgen_rst_count <= clkgen_rst_count - 1'b1;
+
+    MMCME2_BASE #(
+        .CLKIN1_PERIOD   (12.308),
+        .DIVCLK_DIVIDE   (1),
+        .CLKFBOUT_MULT_F (8.0),
+        .CLKOUT0_DIVIDE_F(3.25),
+        .CLKOUT1_DIVIDE  (64)
+    ) clkgen (
+        .CLKIN1  (ui_clk),
+        .CLKFBIN (clkgen_fb),
+        .CLKFBOUT(clkgen_fb),
+        .CLKOUT0 (clkgen_ref),
+        .CLKOUT1 (clkgen_clint),
+        .LOCKED  (clkgen_locked),
+        .RST     (|clkgen_rst_count),
+        .PWRDWN  (1'b0)
+    );
+
+    // Only start the reference clock once stable so that the IDELAYCTRL
+    // reset is applied with a valid clock.
+    BUFGCE clk_ref_bufg (
+        .I (clkgen_ref),
+        .CE(clkgen_locked),
+        .O (mig_clk_ref)
+    );
+
+    BUFG clint_refclk_bufg (
+        .I(clkgen_clint),
+        .O(clint_refclk)
+    );
+
+    mig_native mig (
+        .ddr3_addr          (ddr3_addr),
+        .ddr3_ba            (ddr3_ba),
+        .ddr3_cas_n         (ddr3_cas_n),
+        .ddr3_ck_n          (ddr3_ck_n),
+        .ddr3_ck_p          (ddr3_ck_p),
+        .ddr3_cke           (ddr3_cke),
+        .ddr3_cs_n          (ddr3_cs_n),
+        .ddr3_dm            (ddr3_dm),
+        .ddr3_dq            (ddr3_dq),
+        .ddr3_dqs_n         (ddr3_dqs_n),
+        .ddr3_dqs_p         (ddr3_dqs_p),
+        .ddr3_odt           (ddr3_odt),
+        .ddr3_ras_n         (ddr3_ras_n),
+        .ddr3_reset_n       (ddr3_reset_n),
+        .ddr3_we_n          (ddr3_we_n),
+        .sys_clk_i          (sys_clk),
+        .clk_ref_i          (mig_clk_ref),
+        .sys_rst            (1'b0),
+        .ui_clk             (ui_clk),
+        .ui_clk_sync_rst    (ui_clk_sync_rst),
+        .init_calib_complete(init_calib_complete),
+        .device_temp        (),
+        .app_addr           (app_addr),
+        .app_cmd            (app_cmd),
+        .app_en             (app_en),
+        .app_rdy            (app_rdy),
+        .app_wdf_data       (app_wdf_data),
+        .app_wdf_mask       (app_wdf_mask),
+        .app_wdf_wren       (app_wdf_wren),
+        .app_wdf_end        (app_wdf_end),
+        .app_wdf_rdy        (app_wdf_rdy),
+        .app_rd_data        (app_rd_data),
+        .app_rd_data_valid  (app_rd_data_valid),
+        .app_rd_data_end    (app_rd_data_end),
+        .app_sr_req         (1'b0),
+        .app_ref_req        (1'b0),
+        .app_zq_req         (1'b0),
+        .app_sr_active      (),
+        .app_ref_ack        (),
+        .app_zq_ack         ()
+    );
+
     RXVArty_wrapper inst (
-        .clk_100MHz         (sys_clk),
-        .pwr_on_rst         (pwr_on_rst),
+        .ui_clk             (ui_clk),
+        .clint_refclk       (clint_refclk),
+        // Hold the system in reset until the DRAM is calibrated
+        .ddr_ready          (init_calib_complete & ~ui_clk_sync_rst),
+        .ddr_calib_complete (init_calib_complete),
+        .ddr_app_addr       (app_addr),
+        .ddr_app_cmd        (app_cmd),
+        .ddr_app_en         (app_en),
+        .ddr_app_rdy        (app_rdy),
+        .ddr_app_wdf_data   (app_wdf_data),
+        .ddr_app_wdf_mask   (app_wdf_mask),
+        .ddr_app_wdf_wren   (app_wdf_wren),
+        .ddr_app_wdf_end    (app_wdf_end),
+        .ddr_app_wdf_rdy    (app_wdf_rdy),
+        .ddr_app_rd_data    (app_rd_data),
+        .ddr_app_rd_data_valid(app_rd_data_valid),
+        .ddr_app_rd_data_end(app_rd_data_end),
         .reset_rtl_0        (rtl_reset),
         .uart_rtl_0_baudoutn(),
         .uart_rtl_0_ctsn    (),
@@ -173,21 +296,6 @@ module Top (
         .bootrom_bram_dout  (bootrom_bram_dout),
         .bootrom_bram_en    (bootrom_bram_en),
         .bootrom_bram_we    (bootrom_bram_we),
-        .ddr3_addr          (ddr3_addr),
-        .ddr3_ba            (ddr3_ba),
-        .ddr3_cas_n         (ddr3_cas_n),
-        .ddr3_ck_n          (ddr3_ck_n),
-        .ddr3_ck_p          (ddr3_ck_p),
-        .ddr3_cke           (ddr3_cke),
-        .ddr3_cs_n          (ddr3_cs_n),
-        .ddr3_dm            (ddr3_dm),
-        .ddr3_dq            (ddr3_dq),
-        .ddr3_dqs_n         (ddr3_dqs_n),
-        .ddr3_dqs_p         (ddr3_dqs_p),
-        .ddr3_odt           (ddr3_odt),
-        .ddr3_ras_n         (ddr3_ras_n),
-        .ddr3_reset_n       (ddr3_reset_n),
-        .ddr3_we_n          (ddr3_we_n),
         .spi_miso           (spi_miso),
         .spi_mosi           (spi_mosi),
         .spi_ncs            (spi_ncs),

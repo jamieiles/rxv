@@ -66,7 +66,8 @@ add_executable(rtl-unittest
     TestRXVMMUTop.cpp
     TestRXVICache.cpp
     TestRXVCoreEmulWrapper.cpp
-    TestStaticArbiter.cpp)
+    TestStaticArbiter.cpp
+    TestMIGFrontend.cpp)
 target_link_libraries(rtl-unittest
                       PRIVATE gtest gmock RXVCoreEmul fmt)
 add_test(rtl-unittest rtl-unittest)
@@ -484,3 +485,22 @@ verilate(RXVCoreEmul
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/rtl-unittest.dir/VBusTransactorWrapper.dir
                     ${CMAKE_CURRENT_SOURCE_DIR}/../../simulator/include)
+
+verilate(rtl-unittest
+    VERILATOR_ARGS ${VERILATOR_FLAGS}
+    PREFIX VMIGFrontendWrapper
+    SOURCES
+    fixtures/MIGFrontendWrapper.sv
+    fixtures/MIGFrontendTestDevice.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/MemSplit.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/MIGFrontend.sv
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+    TOP_MODULE MIGFrontendWrapper
+    TRACE_FST TRACE_STRUCTS)

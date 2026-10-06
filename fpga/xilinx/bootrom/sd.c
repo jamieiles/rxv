@@ -112,6 +112,8 @@ static int send_if_cond(void)
     return r1.v & R1_ERROR_MASK;
 }
 
+static int sd_block_addressed;
+
 static int send_read_ocr(void)
 {
     struct spi_cmd cmd = {
@@ -119,10 +121,15 @@ static int send_read_ocr(void)
         .rx_datalen = 5,
     };
     struct r1_response r1;
+    const unsigned char *r1ptr;
 
     spi_do_command(&cmd, 0);
-    if (!find_r1_response(&r1))
+    r1ptr = find_r1_response(&r1);
+    if (!r1ptr)
         return -1;
+
+    /* CCS is OCR bit 30, only valid once the card has completed ACMD41. */
+    sd_block_addressed = (r1ptr[1] >> 6) & 0x1;
 
     return r1.v & R1_ERROR_MASK;
 }
@@ -194,12 +201,13 @@ static void copy_block(unsigned char *dst, const unsigned char *src)
         dst[m] = src[m];
 }
 
-int read_sector(unsigned long address, unsigned char *dst)
+int read_sector(unsigned long sector, unsigned char *dst)
 {
+    unsigned long arg = sd_block_addressed ? sector : sector * BLOCK_SIZE;
     struct spi_cmd cmd = {
         .cmd = 0x51,
-        .arg = {(address >> 24) & 0xff, (address >> 16) & 0xff,
-                (address >> 8) & 0xff, (address >> 0) & 0xff},
+        .arg = {(arg >> 24) & 0xff, (arg >> 16) & 0xff, (arg >> 8) & 0xff,
+                (arg >> 0) & 0xff},
         .rx_datalen = 1,
     };
     struct r1_response r1;
@@ -242,7 +250,7 @@ void sd_init(void)
         sd_initial_clocks();
         c = send_reset();
     }
-    if (send_if_cond() || send_read_ocr() || sd_wait_ready() ||
+    if (send_if_cond() || sd_wait_ready() || send_read_ocr() ||
         sd_set_blocklen())
         panic("unable to initialize SD card");
 }

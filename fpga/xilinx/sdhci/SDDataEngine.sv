@@ -10,8 +10,8 @@
 // Reads: the start bit is accepted as soon as the command has been issued
 // (data may begin before the response has been received).  Each block is
 // written to the buffer as it is received and is marked ready once the CRC
-// and end bit have been checked.  There is only a single block of buffering
-// so between blocks SDCLK is stopped until the buffer has been drained.
+// and end bit have been checked.  If the buffer has no space for another
+// block SDCLK is stopped between blocks until the CPU has made space.
 //
 // Writes: once the command response has been received and a whole block is
 // in the buffer the block is sent after NWR clocks, followed by the CRC and
@@ -57,6 +57,7 @@ module SDDataEngine #(
     output logic        fifo_pop,
     input  logic [31:0] fifo_rdata,
     input  logic        fifo_empty,
+    input  logic        blk_space,
     input  logic        blk_avail,
     output logic        blk_done,
     // Status
@@ -170,10 +171,10 @@ module SDDataEngine #(
         read_active   = active && x_xfer && x_read;
         write_active  = active && x_xfer && !x_read;
 
-        stop = (state == STATE_R_WAIT_START && !fifo_empty) ||
+        stop = (state == STATE_R_WAIT_START && !blk_space) ||
             (state == STATE_W_WAIT_BUF && !blk_avail);
 
-        waiting = (state == STATE_R_WAIT_START && fifo_empty) || state == STATE_W_STATUS ||
+        waiting = (state == STATE_R_WAIT_START && blk_space) || state == STATE_W_STATUS ||
             state == STATE_W_STATUS_BITS || state == STATE_BUSY;
 
         // 2^(13 + n) TMCLK cycles, 0xf is reserved so treat it as 0xe.
@@ -238,7 +239,7 @@ module SDDataEngine #(
                 count_next     = 5'd0;
                 word_next      = 32'b0;
                 crc_next       = '{default: 16'b0};
-                if (sample && fifo_empty && !dat_i[0]) state_next = STATE_R_DATA;
+                if (sample && blk_space && !dat_i[0]) state_next = STATE_R_DATA;
                 else if (cmd_done && !cmd_done_auto && cmd_err) state_next = STATE_IDLE;
             end
             STATE_R_DATA: begin

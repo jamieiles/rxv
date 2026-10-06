@@ -53,6 +53,8 @@ const uint32_t INT_ACMD12 = 1 << 24;
 
 // Present state
 const uint32_t PS_CMD_INHIBIT = 1 << 0;
+const uint32_t PS_BUF_WR_EN = 1 << 10;
+const uint32_t PS_BUF_RD_EN = 1 << 11;
 const uint32_t PS_DAT_INHIBIT = 1 << 1;
 const uint32_t PS_CARD_INSERTED = 1 << 16;
 const uint32_t PS_CARD_STABLE = 1 << 17;
@@ -305,18 +307,21 @@ public:
         setup_xfer(n, mode | TM_READ);
         send_cmd(n > 1 ? 18 : 17, start, RESP_R1 | CMD_DATA);
 
-        for (unsigned b = 0; b < n; ++b) {
+        // As Linux does: one interrupt may cover several buffered blocks so
+        // drain while Buffer Read Enable is set.
+        unsigned b = 0;
+        while (b < n) {
             auto status = wait_int(INT_BUF_RD_READY);
             EXPECT_TRUE(status & INT_BUF_RD_READY) << std::hex << status;
             if (!(status & INT_BUF_RD_READY))
                 return data;
             write32(REG_INT_STATUS, INT_BUF_RD_READY);
-            auto rises = sdclk_rises;
             cycle(drain_delay);
-            if (b + 1 < n)
-                drain_rises.push_back(sdclk_rises - rises);
-            auto blk = read_buffer_block();
-            data.insert(data.end(), blk.begin(), blk.end());
+            while (b < n && (read32(REG_PRESENT_STATE) & PS_BUF_RD_EN)) {
+                auto blk = read_buffer_block();
+                data.insert(data.end(), blk.begin(), blk.end());
+                ++b;
+            }
         }
 
         wait_xfer_complete();
@@ -331,13 +336,17 @@ public:
         setup_xfer(n, mode);
         send_cmd(n > 1 ? 25 : 24, start, RESP_R1 | CMD_DATA);
 
-        for (unsigned b = 0; b < n; ++b) {
+        unsigned b = 0;
+        while (b < n) {
             auto status = wait_int(INT_BUF_WR_READY);
             EXPECT_TRUE(status & INT_BUF_WR_READY) << std::hex << status;
             if (!(status & INT_BUF_WR_READY))
                 return;
             write32(REG_INT_STATUS, INT_BUF_WR_READY);
-            write_buffer_block(&data[b * SDCardModel::block_size]);
+            while (b < n && (read32(REG_PRESENT_STATE) & PS_BUF_WR_EN)) {
+                write_buffer_block(&data[b * SDCardModel::block_size]);
+                ++b;
+            }
         }
 
         wait_xfer_complete();
@@ -362,7 +371,6 @@ public:
     unsigned sdclk_rises;
     bool last_sdclk;
     std::vector<uint64_t> rise_cycles;
-    std::vector<unsigned> drain_rises;
 };
 
 TEST_F(SDHCITest, ResetValues)
@@ -657,11 +665,69 @@ TEST_F(SDHCITest, MultiBlockReadStopsClockUntilDrained)
     power_on();
     init_card(true);
 
-    // The CPU is slow to drain the buffer: the clock must be stopped
-    // between blocks so the card doesn't overrun the single buffer.
-    auto data = read_blocks(40, 3, TM_MULTI | TM_BCE | TM_AUTO12, 20000);
-    EXPECT_EQ(data, disk_blocks(40, 3));
-    EXPECT_EQ(drain_rises, (std::vector<unsigned>{0, 0}));
+    // Nothing drains the buffer: the card must be stopped once the eight
+    // block buffer is full rather than overrunning it.
+    setup_xfer(12, TM_READ | TM_MULTI | TM_BCE | TM_AUTO12);
+    send_cmd(18, 40, RESP_R1 | CMD_DATA);
+    cycle(100000);
+    auto rises = sdclk_rises;
+    cycle(20000);
+    EXPECT_EQ(sdclk_rises, rises);
+    EXPECT_TRUE(read32(REG_PRESENT_STATE) & PS_BUF_RD_EN);
+
+    // Draining restarts the clock and every block arrives intact.
+    std::vector<uint8_t> data;
+    while (data.size() < 12 * SDCardModel::block_size) {
+        auto status = wait_int(INT_BUF_RD_READY);
+        ASSERT_TRUE(status & INT_BUF_RD_READY) << std::hex << status;
+        write32(REG_INT_STATUS, INT_BUF_RD_READY);
+        while (data.size() < 12 * SDCardModel::block_size &&
+               (read32(REG_PRESENT_STATE) & PS_BUF_RD_EN)) {
+            auto blk = read_buffer_block();
+            data.insert(data.end(), blk.begin(), blk.end());
+        }
+    }
+    wait_xfer_complete();
+    EXPECT_EQ(data, disk_blocks(40, 12));
+}
+
+TEST_F(SDHCITest, MultiBlockBuffering)
+{
+    power_on();
+    init_card(true);
+
+    // Reads run ahead of the CPU: several blocks are ready at once.
+    setup_xfer(4, TM_READ | TM_MULTI | TM_BCE | TM_AUTO12);
+    send_cmd(18, 90, RESP_R1 | CMD_DATA);
+    cycle(100000);
+    // Transfer complete waits for the buffer to be drained.
+    EXPECT_FALSE(read32(REG_INT_STATUS) & INT_XFER_COMPLETE);
+    std::vector<uint8_t> data;
+    for (int b = 0; b < 4; ++b) {
+        EXPECT_TRUE(read32(REG_PRESENT_STATE) & PS_BUF_RD_EN) << b;
+        auto blk = read_buffer_block();
+        data.insert(data.end(), blk.begin(), blk.end());
+    }
+    EXPECT_FALSE(read32(REG_PRESENT_STATE) & PS_BUF_RD_EN);
+    wait_xfer_complete();
+    EXPECT_EQ(data, disk_blocks(90, 4));
+
+    // Writes: the CPU can fill eight blocks before space runs out.
+    auto wdata = random_blocks(10, 11);
+    setup_xfer(10, TM_MULTI | TM_BCE | TM_AUTO12);
+    send_cmd(25, 100, RESP_R1 | CMD_DATA);
+    unsigned b = 0;
+    while (read32(REG_PRESENT_STATE) & PS_BUF_WR_EN)
+        write_buffer_block(&wdata[b++ * SDCardModel::block_size]);
+    EXPECT_GE(b, 8u);
+    while (b < 10) {
+        wait_int(INT_BUF_WR_READY);
+        write32(REG_INT_STATUS, INT_BUF_WR_READY);
+        while (b < 10 && (read32(REG_PRESENT_STATE) & PS_BUF_WR_EN))
+            write_buffer_block(&wdata[b++ * SDCardModel::block_size]);
+    }
+    wait_xfer_complete();
+    EXPECT_EQ(disk_blocks(100, 10), wdata);
 }
 
 TEST_F(SDHCITest, MultiBlockReadManualStop)
@@ -810,10 +876,13 @@ TEST_F(SDHCITest, AutoCMD12Error)
     card.no_response.insert(12);
     setup_xfer(2, TM_READ | TM_MULTI | TM_BCE | TM_AUTO12);
     send_cmd(18, 0, RESP_R1 | CMD_DATA);
-    for (int b = 0; b < 2; ++b) {
+    for (int b = 0; b < 2;) {
         wait_int(INT_BUF_RD_READY);
         write32(REG_INT_STATUS, INT_BUF_RD_READY);
-        read_buffer_block();
+        while (b < 2 && (read32(REG_PRESENT_STATE) & PS_BUF_RD_EN)) {
+            read_buffer_block();
+            ++b;
+        }
     }
     auto status = wait_int(INT_ACMD12);
     EXPECT_TRUE(status & INT_ACMD12) << std::hex << status;

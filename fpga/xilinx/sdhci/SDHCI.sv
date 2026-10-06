@@ -111,6 +111,7 @@ module SDHCI #(
     logic                     fifo_cpu_pop;
     logic         [     31:0] fifo_rdata;
     logic                     fifo_empty;
+    logic                     blk_space;
     logic                     blk_avail;
     logic                     buf_rd_en;
     logic                     buf_wr_en;
@@ -297,6 +298,7 @@ module SDHCI #(
         .fifo_pop     (fifo_eng_pop),
         .fifo_rdata   (fifo_rdata),
         .fifo_empty   (fifo_empty),
+        .blk_space    (blk_space),
         .blk_avail    (blk_avail),
         .blk_done     (blk_done),
         .active       (dat_busy),
@@ -332,6 +334,7 @@ module SDHCI #(
         .cpu_pop     (fifo_cpu_pop),
         .rdata       (fifo_rdata),
         .empty       (fifo_empty),
+        .blk_space   (blk_space),
         .blk_avail   (blk_avail),
         .buf_rd_en   (buf_rd_en),
         .buf_wr_en   (buf_wr_en)

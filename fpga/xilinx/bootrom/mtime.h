@@ -15,3 +15,23 @@ static inline uint64_t get_time(void)
 
     return ((uint64_t)hi << 32) | lo;
 }
+
+/*
+ * The timer runs at 10.140625MHz, exactly 649/64 ticks per microsecond, so
+ * conversions avoid a 64-bit division (no libgcc).
+ */
+static inline uint64_t us_to_ticks(unsigned long us)
+{
+    return ((uint64_t)us * 649) >> 6;
+}
+
+/* Return a deadline us microseconds from now for timed_out(). */
+static inline uint64_t timeout_us(unsigned long us)
+{
+    return get_time() + us_to_ticks(us);
+}
+
+static inline int timed_out(uint64_t deadline)
+{
+    return get_time() > deadline;
+}

@@ -4,10 +4,13 @@
 #include "uart.h"
 #include "sd.h"
 #include "spi.h"
+#include "mtime.h"
 #include <stdint.h>
 
 #define SD_NCR 64
 #define DATA_START_TOKEN 0xfe
+#define SD_INIT_TIMEOUT_US 1000000
+#define SD_READ_TIMEOUT_US 100000
 
 static void sd_initial_clocks(void)
 {
@@ -153,8 +156,12 @@ static int send_acmd(void)
 static int sd_wait_ready(void)
 {
     struct r1_response r1 = {};
+    uint64_t deadline = timeout_us(SD_INIT_TIMEOUT_US);
 
     do {
+        if (timed_out(deadline))
+            panic("SD: ACMD41 timeout");
+
         struct spi_cmd cmd = {
             .cmd = 0x69,
             .arg = {0x40, 0x00, 0x00, 0x00},
@@ -224,7 +231,10 @@ int read_sector(unsigned long sector, unsigned char *dst)
         return -1;
     }
 
+    uint64_t deadline = timeout_us(SD_READ_TIMEOUT_US);
     do {
+        if (timed_out(deadline))
+            panic("SD: data token timeout");
         spi_cmd_buf[0] = 0xff;
         spi_xfer(spi_cmd_buf, 1, SPI_F_HOLD_CS);
     } while (spi_cmd_buf[0] != DATA_START_TOKEN);
@@ -243,10 +253,14 @@ int read_sector(unsigned long sector, unsigned char *dst)
 void sd_init(void)
 {
     int c = -1;
+    uint64_t deadline;
 
     spi_init();
 
+    deadline = timeout_us(SD_INIT_TIMEOUT_US);
     while (c != 0) {
+        if (timed_out(deadline))
+            panic("SD: CMD0 timeout");
         sd_initial_clocks();
         c = send_reset();
     }

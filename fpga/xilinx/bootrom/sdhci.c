@@ -41,6 +41,7 @@
 /* Present state */
 #define SDHCI_CMD_INHIBIT (1 << 0)
 #define SDHCI_DAT_INHIBIT (1 << 1)
+#define SDHCI_BUF_RD_EN (1 << 11)
 #define SDHCI_CARD_DETECT (1 << 18)
 
 /* Host control and power */
@@ -164,6 +165,26 @@ static uint32_t sdhci_wait_int(uint32_t mask, unsigned long us, const char *what
     return sdhci_wait_set(SDHCI_INT_STATUS, mask | SDHCI_INT_ERROR, us, what);
 }
 
+/*
+ * Several blocks may be buffered behind a single Buffer Read Ready interrupt
+ * so wait for Buffer Read Enable instead, or an error.
+ */
+static uint32_t sdhci_wait_read_ready(void)
+{
+    uint64_t deadline = timeout_us(SD_READ_TIMEOUT_US);
+    uint32_t status;
+
+    while (!(sdhci_readl(SDHCI_PRESENT_STATE) & SDHCI_BUF_RD_EN)) {
+        status = sdhci_readl(SDHCI_INT_STATUS);
+        if (status & SDHCI_INT_ERROR)
+            return status;
+        if (timed_out(deadline))
+            panic("SD: buffer read ready timeout");
+    }
+
+    return 0;
+}
+
 static int sdhci_send_cmd(unsigned index,
                           uint32_t arg,
                           unsigned flags,
@@ -246,11 +267,9 @@ static int sdhci_read_blocks(unsigned index,
         return -1;
 
     for (n = 0; n < count; ++n) {
-        status = sdhci_wait_int(SDHCI_INT_BUF_RD_READY, SD_READ_TIMEOUT_US,
-                                "SD: buffer read ready timeout");
-        if (status & SDHCI_INT_ERROR)
+        status = sdhci_wait_read_ready();
+        if (status)
             return sdhci_error(status);
-        sdhci_writel(SDHCI_INT_BUF_RD_READY, SDHCI_INT_STATUS);
 
         sdhci_read_buffer(dst, blksz);
         dst += blksz;
@@ -260,7 +279,8 @@ static int sdhci_read_blocks(unsigned index,
                             "SD: transfer complete timeout");
     if (status & SDHCI_INT_ERROR)
         return sdhci_error(status);
-    sdhci_writel(SDHCI_INT_XFER_COMPLETE, SDHCI_INT_STATUS);
+    sdhci_writel(SDHCI_INT_XFER_COMPLETE | SDHCI_INT_BUF_RD_READY,
+                 SDHCI_INT_STATUS);
 
     return 0;
 }

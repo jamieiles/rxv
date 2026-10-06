@@ -14,14 +14,22 @@ set_property BITSTREAM.CONFIG.CONFIGRATE 50 [current_design]
 
 set_property INTERNAL_VREF 0.675 [get_iobanks 34]
 
-set_property PACKAGE_PIN U18 [get_ports sd_sck]
-set_property PACKAGE_PIN U17 [get_ports sd_miso]
-set_property PACKAGE_PIN V16 [get_ports sd_mosi]
-set_property PACKAGE_PIN U15 [get_ports sd_ncs]
-set_property IOSTANDARD LVCMOS33 [get_ports sd_sck]
-set_property IOSTANDARD LVCMOS33 [get_ports sd_miso]
-set_property IOSTANDARD LVCMOS33 [get_ports sd_mosi]
-set_property IOSTANDARD LVCMOS33 [get_ports sd_ncs]
+# Pmod MicroSD on JC in native SD mode
+set_property PACKAGE_PIN U15 [get_ports {sd_dat[3]}]
+set_property PACKAGE_PIN V16 [get_ports sd_cmd]
+set_property PACKAGE_PIN U17 [get_ports {sd_dat[0]}]
+set_property PACKAGE_PIN U18 [get_ports sd_clk]
+set_property PACKAGE_PIN U16 [get_ports {sd_dat[1]}]
+set_property PACKAGE_PIN P13 [get_ports {sd_dat[2]}]
+set_property PACKAGE_PIN R13 [get_ports sd_cd_n]
+set_property IOSTANDARD LVCMOS33 [get_ports {sd_clk sd_cmd sd_dat[*] sd_cd_n}]
+set_property PULLUP TRUE [get_ports {sd_cmd sd_dat[*] sd_cd_n}]
+# The controller drives and samples the bus from registers relative to its
+# own SDCLK strobes so pack them into the IOBs for consistent timing; the
+# paths through the pads are fixed so don't time them.
+set_property IOB TRUE [get_ports {sd_clk sd_cmd sd_dat[*]}]
+set_false_path -to [get_ports {sd_clk sd_cmd sd_dat[*]}]
+set_false_path -from [get_ports {sd_cmd sd_dat[*] sd_cd_n}]
 
 set_property PACKAGE_PIN V15 [get_ports eth_int]
 set_property PACKAGE_PIN R11 [get_ports eth_sck]

@@ -27,7 +27,7 @@ set script_folder [_tcl::get_script_folder]
 
 # The design that will be created by this Tcl script contains the following 
 # module references:
-# RXVCLINT, RXVCoreAXISynthTop
+# RXVCLINT, RXVCoreAXISynthTop, SDHCIAXI
 
 # Please add the sources of those modules before sourcing this Tcl script.
 
@@ -151,6 +151,7 @@ if { $bCheckModules == 1 } {
    set list_check_mods "\ 
 RXVCLINT\
 RXVCoreAXISynthTop\
+SDHCIAXI\
 "
 
    set list_mods_missing ""
@@ -255,9 +256,18 @@ proc create_root_design { parentCell } {
  ] $reset_rtl_0
   set spi_miso [ create_bd_port -dir I -type data spi_miso ]
   set spi_mosi [ create_bd_port -dir O -type data spi_mosi ]
-  set spi_ncs [ create_bd_port -dir O -from 1 -to 0 spi_ncs ]
+  set spi_ncs [ create_bd_port -dir O -from 0 -to 0 spi_ncs ]
   set spi_sck [ create_bd_port -dir O -type clk spi_sck ]
   set mmio_rst [ create_bd_port -dir O -type data mmio_rst ]
+  set sd_clk [ create_bd_port -dir O sd_clk ]
+  set sd_cmd_o [ create_bd_port -dir O sd_cmd_o ]
+  set sd_cmd_t [ create_bd_port -dir O sd_cmd_t ]
+  set sd_cmd_i [ create_bd_port -dir I sd_cmd_i ]
+  set sd_dat_o [ create_bd_port -dir O -from 3 -to 0 sd_dat_o ]
+  set sd_dat_t [ create_bd_port -dir O -from 3 -to 0 sd_dat_t ]
+  set sd_dat_i [ create_bd_port -dir I -from 3 -to 0 sd_dat_i ]
+  set sd_cd_n [ create_bd_port -dir I sd_cd_n ]
+  set sd_activity [ create_bd_port -dir O sd_activity ]
 
   # Create instance: RXVCLINT_0, and set properties
   set block_name RXVCLINT
@@ -281,6 +291,17 @@ proc create_root_design { parentCell } {
      return 1
    }
   
+  # Create instance: SDHCIAXI_0, and set properties
+  set block_name SDHCIAXI
+  set block_cell_name SDHCIAXI_0
+  if { [catch {set SDHCIAXI_0 [create_bd_cell -type module -reference $block_name $block_cell_name] } errmsg] } {
+     catch {common::send_gid_msg -ssname BD::TCL -id 2095 -severity "ERROR" "Unable to add referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   } elseif { $SDHCIAXI_0 eq "" } {
+     catch {common::send_gid_msg -ssname BD::TCL -id 2096 -severity "ERROR" "Unable to referenced block <$block_name>. Please add the files for ${block_name}'s definition into the project."}
+     return 1
+   }
+  
   # Create instance: axi_intc_0, and set properties
   set axi_intc_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:axi_intc:4.1 axi_intc_0 ]
   set_property -dict [ list \
@@ -292,7 +313,7 @@ proc create_root_design { parentCell } {
   set_property -dict [ list \
    CONFIG.C_BYTE_LEVEL_INTERRUPT_EN {0} \
    CONFIG.C_FIFO_DEPTH {256} \
-   CONFIG.C_NUM_SS_BITS {2} \
+   CONFIG.C_NUM_SS_BITS {1} \
    CONFIG.C_NUM_TRANSFER_BITS {8} \
    CONFIG.C_SCK_RATIO {4} \
    CONFIG.C_SPI_MODE {0} \
@@ -327,7 +348,7 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } M00_Buffer { AR_SIZE 32\
 AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
 } }}\
    } \
-   CONFIG.NUM_MI {5} \
+   CONFIG.NUM_MI {6} \
  ] $smartconnect_0
 
  set_property -dict [ list CONFIG.ADVANCED_PROPERTIES { __experimental_features__ {disable_low_area_mode 1 }} ] [get_bd_cells smartconnect_0]
@@ -335,7 +356,7 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
   # Create instance: xlconcat_0, and set properties
   set xlconcat_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:xlconcat:2.1 xlconcat_0 ]
   set_property -dict [ list \
-   CONFIG.NUM_PORTS {3} \
+   CONFIG.NUM_PORTS {4} \
  ] $xlconcat_0
 
   # Create interface connections
@@ -348,6 +369,7 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_intf_net -intf_net smartconnect_0_M02_AXI [get_bd_intf_pins axi_quad_spi_0/AXI_LITE] [get_bd_intf_pins smartconnect_0/M02_AXI]
   connect_bd_intf_net -intf_net smartconnect_0_M03_AXI [get_bd_intf_pins RXVCLINT_0/s_axi] [get_bd_intf_pins smartconnect_0/M03_AXI]
   connect_bd_intf_net -intf_net smartconnect_0_M04_AXI [get_bd_intf_pins axi_intc_0/s_axi] [get_bd_intf_pins smartconnect_0/M04_AXI]
+  connect_bd_intf_net -intf_net smartconnect_0_M05_AXI [get_bd_intf_pins SDHCIAXI_0/s_axi] [get_bd_intf_pins smartconnect_0/M05_AXI]
 
   # Create port connections
   connect_bd_net -net RXVCLINT_0_mtime [get_bd_pins RXVCLINT_0/mtime] [get_bd_pins RXVCoreAXISynthTop_0/mtime]
@@ -359,8 +381,14 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_net -net axi_quad_spi_0_ss_o [get_bd_ports spi_ncs] [get_bd_pins axi_quad_spi_0/ss_o]
   connect_bd_net -net axi_uart16550_0_ip2intc_irpt [get_bd_pins axi_uart16550_0/ip2intc_irpt] [get_bd_pins xlconcat_0/In1]
   connect_bd_net -net eth_int_1 [get_bd_ports eth_int] [get_bd_pins xlconcat_0/In2]
+  connect_bd_net -net SDHCIAXI_0_irq [get_bd_pins SDHCIAXI_0/irq] [get_bd_pins xlconcat_0/In3]
+  connect_bd_net -net SDHCIAXI_0_activity [get_bd_ports sd_activity] [get_bd_pins SDHCIAXI_0/activity]
+  connect_bd_net -net SDHCIAXI_0_sd_clk [get_bd_ports sd_clk] [get_bd_pins SDHCIAXI_0/sd_clk]
+  foreach pin {sd_cmd_o sd_cmd_t sd_cmd_i sd_dat_o sd_dat_t sd_dat_i sd_cd_n} {
+    connect_bd_net -net ${pin}_1 [get_bd_ports $pin] [get_bd_pins SDHCIAXI_0/$pin]
+  }
   connect_bd_net -net clint_refclk_1 [get_bd_ports clint_refclk] [get_bd_pins RXVCLINT_0/refclk]
-  connect_bd_net -net ui_clk_1 [get_bd_ports ui_clk] [get_bd_pins RXVCLINT_0/s_axi_aclk] [get_bd_pins RXVCoreAXISynthTop_0/clk] [get_bd_pins axi_intc_0/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins axi_uart16550_0/s_axi_aclk] [get_bd_pins bootrom_ctrl/s_axi_aclk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins smartconnect_0/aclk]
+  connect_bd_net -net ui_clk_1 [get_bd_ports ui_clk] [get_bd_pins RXVCLINT_0/s_axi_aclk] [get_bd_pins RXVCoreAXISynthTop_0/clk] [get_bd_pins SDHCIAXI_0/s_axi_aclk] [get_bd_pins axi_intc_0/s_axi_aclk] [get_bd_pins axi_quad_spi_0/ext_spi_clk] [get_bd_pins axi_quad_spi_0/s_axi_aclk] [get_bd_pins axi_uart16550_0/s_axi_aclk] [get_bd_pins bootrom_ctrl/s_axi_aclk] [get_bd_pins rst_clk_wiz_100M/slowest_sync_clk] [get_bd_pins smartconnect_0/aclk]
   connect_bd_net -net ddr_ready_1 [get_bd_ports ddr_ready] [get_bd_pins rst_clk_wiz_100M/dcm_locked]
   foreach pin {ddr_calib_complete ddr_app_addr ddr_app_cmd ddr_app_en ddr_app_rdy \
                ddr_app_wdf_data ddr_app_wdf_mask ddr_app_wdf_wren ddr_app_wdf_end \
@@ -370,13 +398,14 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_net -net mmio_rst_1 [get_bd_ports mmio_rst] [get_bd_pins RXVCLINT_0/sys_reset]
   connect_bd_net -net reset_rtl_0_1 [get_bd_ports reset_rtl_0] [get_bd_pins rst_clk_wiz_100M/ext_reset_in]
   connect_bd_net -net rst_clk_wiz_100M_interconnect_aresetn [get_bd_pins rst_clk_wiz_100M/interconnect_aresetn] [get_bd_pins smartconnect_0/aresetn]
-  connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins RXVCLINT_0/s_axi_aresetn] [get_bd_pins axi_intc_0/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn] [get_bd_pins bootrom_ctrl/s_axi_aresetn] [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn]
+  connect_bd_net -net rst_clk_wiz_100M_peripheral_aresetn [get_bd_pins RXVCLINT_0/s_axi_aresetn] [get_bd_pins SDHCIAXI_0/s_axi_aresetn] [get_bd_pins axi_intc_0/s_axi_aresetn] [get_bd_pins axi_quad_spi_0/s_axi_aresetn] [get_bd_pins axi_uart16550_0/s_axi_aresetn] [get_bd_pins bootrom_ctrl/s_axi_aresetn] [get_bd_pins rst_clk_wiz_100M/peripheral_aresetn]
   connect_bd_net -net rst_clk_wiz_100M_peripheral_reset [get_bd_pins RXVCoreAXISynthTop_0/reset] [get_bd_pins rst_clk_wiz_100M/peripheral_reset]
   connect_bd_net -net spi_miso_1 [get_bd_ports spi_miso] [get_bd_pins axi_quad_spi_0/io1_i]
   connect_bd_net -net xlconcat_0_dout [get_bd_pins axi_intc_0/intr] [get_bd_pins xlconcat_0/dout]
 
   # Create address segments
   assign_bd_address -offset 0xF0000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs RXVCLINT_0/s_axi/reg0] -force
+  assign_bd_address -offset 0xFFFC0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs SDHCIAXI_0/s_axi/reg0] -force
   assign_bd_address -offset 0xFFFD0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs axi_intc_0/S_AXI/Reg] -force
   assign_bd_address -offset 0xFFFE0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs axi_quad_spi_0/AXI_LITE/Reg] -force
   assign_bd_address -offset 0xFFFF0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs axi_uart16550_0/S_AXI/Reg] -force
@@ -385,6 +414,7 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
 
   # Exclude Address Segments
   exclude_bd_addr_seg -offset 0xF0000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs RXVCLINT_0/s_axi/reg0]
+  exclude_bd_addr_seg -offset 0xFFFC0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs SDHCIAXI_0/s_axi/reg0]
   exclude_bd_addr_seg -offset 0xFFFD0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs axi_intc_0/S_AXI/Reg]
   exclude_bd_addr_seg -offset 0xFFFE0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs axi_quad_spi_0/AXI_LITE/Reg]
   exclude_bd_addr_seg -offset 0xFFFF0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs axi_uart16550_0/S_AXI/Reg]

@@ -22,10 +22,10 @@ module Top (
     output wire        ddr3_ras_n,
     output wire        ddr3_reset_n,
     output wire        ddr3_we_n,
-    input  wire        sd_miso,
-    output wire        sd_mosi,
-    output wire        sd_ncs,
-    output wire        sd_sck,
+    output wire        sd_clk,
+    inout  wire        sd_cmd,
+    inout  wire [ 3:0] sd_dat,
+    input  wire        sd_cd_n,
     output wire        sd_busy,
     input  wire        eth_miso,
     output wire        eth_mosi,
@@ -61,28 +61,55 @@ module Top (
 
     wire        spi_miso;
     wire        spi_mosi;
-    wire [ 1:0] spi_ncs;
+    wire [ 0:0] spi_ncs;
     wire        spi_sck;
 
-    assign sd_busy   = ~sd_busy_expired;
-    assign sd_mosi   = spi_mosi;
-    assign sd_ncs    = spi_ncs[0];
-    assign sd_sck    = spi_sck;
+    wire        sd_activity;
+    wire        sd_cmd_o;
+    wire        sd_cmd_t;
+    wire        sd_cmd_i;
+    wire [ 3:0] sd_dat_o;
+    wire [ 3:0] sd_dat_t;
+    wire [ 3:0] sd_dat_i;
 
+    assign sd_busy   = ~sd_busy_expired;
+
+    // The SPI controller is dedicated to the ENC28J60.
     assign eth_mosi  = spi_mosi;
-    assign eth_ncs   = spi_ncs[1];
+    assign eth_ncs   = spi_ncs[0];
     assign eth_sck   = spi_sck;
     assign eth_reset = 1'b1;
+    assign spi_miso  = eth_miso;
 
-    assign spi_miso  = ~sd_ncs ? sd_miso : ~eth_ncs ? eth_miso : 1'b1;
+    // The SDHCI registers are packed into the IOBs, so connect them
+    // straight to the buffers.
+    IOBUF sd_cmd_iobuf (
+        .I (sd_cmd_o),
+        .T (sd_cmd_t),
+        .O (sd_cmd_i),
+        .IO(sd_cmd)
+    );
 
+    genvar sd_dat_n;
+    generate
+        for (sd_dat_n = 0; sd_dat_n < 4; sd_dat_n = sd_dat_n + 1) begin : gen_sd_dat
+            IOBUF sd_dat_iobuf (
+                .I (sd_dat_o[sd_dat_n]),
+                .T (sd_dat_t[sd_dat_n]),
+                .O (sd_dat_i[sd_dat_n]),
+                .IO(sd_dat[sd_dat_n])
+            );
+        end
+    endgenerate
+
+    // Stretch SD activity so that it is visible on the LED.
     RXVCountdown #(
         .width     (22),
         .reload_val(22'h3fffff)
     ) sd_busy_counter (
         .clk    (bootrom_bram_clk),
         .reset  (1'b0),
-        .reload (~sd_ncs),
+        .reload (sd_activity),
         .expired(sd_busy_expired)
     );
 
@@ -301,6 +328,15 @@ module Top (
         .spi_ncs            (spi_ncs),
         .spi_sck            (spi_sck),
         .eth_int            (eth_int),
+        .sd_clk             (sd_clk),
+        .sd_cmd_o           (sd_cmd_o),
+        .sd_cmd_t           (sd_cmd_t),
+        .sd_cmd_i           (sd_cmd_i),
+        .sd_dat_o           (sd_dat_o),
+        .sd_dat_t           (sd_dat_t),
+        .sd_dat_i           (sd_dat_i),
+        .sd_cd_n            (sd_cd_n),
+        .sd_activity        (sd_activity),
         .mmio_rst           (mmio_rst)
     );
 

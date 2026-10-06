@@ -28,6 +28,8 @@ module SDHCIAXI (
     (* X_INTERFACE_PARAMETER = "SENSITIVITY LEVEL_HIGH" *)
     output wire        irq,
     output wire        activity,
+    // SDCLK is a register output, not a clock in the block design.
+    (* X_INTERFACE_IGNORE = "true" *)
     output wire        sd_clk,
     output wire        sd_cmd_o,
     output wire        sd_cmd_t,

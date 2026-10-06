@@ -238,7 +238,7 @@ module SDHCI #(
         .half_period (sdclk_div),
         .sample_delay(sample_delay),
         .stop        (stop),
-        .sdclk       (sd_clk),
+        .sdclk_pin   (sd_clk),
         .drive       (drive),
         .sample      (sample)
     );

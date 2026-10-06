@@ -30,12 +30,13 @@ module SDClockGen (
     input  logic [7:0] half_period,
     input  logic [1:0] sample_delay,
     input  logic       stop,
-    output logic       sdclk,
+    output logic       sdclk_pin,
     output logic       drive,
     output logic       sample
 );
 
     logic [7:0] count;
+    logic       sdclk;
     logic [7:0] count_next;
     logic       sdclk_next;
     logic [7:0] hp;
@@ -82,6 +83,17 @@ module SDClockGen (
         .en   (1'b1),
         .d    (sdclk_next),
         .q    (sdclk)
+    );
+
+    // A copy of SDCLK that only drives the pin so that it can be packed into
+    // the IOB.
+    (* IOB = "TRUE" *)
+    RXVDFF sdclk_pin_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (sdclk_next),
+        .q    (sdclk_pin)
     );
 
 endmodule

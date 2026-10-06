@@ -5,7 +5,7 @@
 
 static int assert_partitioned(const unsigned char *mbr)
 {
-    if (mbr[0x1fe] != 0x55 && mbr[0x1ff] != 0xaa) {
+    if (mbr[0x1fe] != 0x55 || mbr[0x1ff] != 0xaa) {
         putstr("ERROR: card not partitioned, no MBR\n");
         return -1;
     }

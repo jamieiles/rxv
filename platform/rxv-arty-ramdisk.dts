@@ -1,104 +1,22 @@
 // SPDX-License-Identifier: GPL-2.0+
 /dts-v1/;
 
+/include/ "rxv-arty.dts"
+
 / {
-	#address-cells = <1>;
-	#size-cells = <1>;
-	compatible = "jamieiles,rxv-arty";
+    chosen {
+        bootargs = "console=ttyS0,115200 earlycon phram.phram=rootfs,0x88000000,64Mi root=/dev/mtdblock0 rw panic_on_warn=1 systemd.unit=multi-user.target";
+    };
 
-	aliases {
-		serial0 = &uart0;
-	};
+    reserved-memory {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
 
-	chosen {
-		bootargs = "console=ttyS0,115200 earlycon phram.phram=rootfs,0x88000000,64Mi root=/dev/mtdblock0 rw panic_on_warn=1 systemd.unit=multi-user.target";
-		stdout-path = "serial0:115200n8";
-	};
-
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		timebase-frequency = <10000000>;
-		cpu0: cpu@0 {
-			device_type = "cpu";
-			compatible = "jamieiles,rxv", "riscv";
-			reg = <0>;
-			riscv,isa = "rv32ima";
-			mmu-type = "riscv,sv32";
-			d-cache-block-size = <32>;
-			d-cache-sets = <128>;
-			d-cache-size = <16384>;
-			i-cache-block-size = <32>;
-			i-cache-sets = <128>;
-			i-cache-size = <16384>;
-			tlb-split;
-			i-tlb-size = <8>;
-			i-tlb-sets = <1>;
-			d-tlb-size = <8>;
-			d-tlb-sets = <1>;
-
-			cpu0_intc: interrupt-controller {
-				#interrupt-cells = <1>;
-				#address-cells = <0>;
-				interrupt-controller;
-				compatible = "riscv,cpu-intc";
-			};
-		};
-	};
-
-	clint0: clint@f0000000 {
-		compatible = "riscv,clint0";
-		interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7 >;
-		reg = <0xf0000000 0x10000>;
-	};
-
-	sram: memory@80000000 {
-		device_type = "memory";
-		compatible = "jamieiles,rxv-sdram";
-		reg = <0x80000000 0x08000000>;
-	};
-
-	spi0: spi@fffe0000 {
-		compatible = "xlnx,xps-spi-2.00.a";
-		reg = <0xfffe0000 0x10000>;
-		xlnx,num-ss-bits = <0x1>;
-		xlnx,num-transfer-bits = <8>;
-		status = "okay";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupt-parent = <&intc>;
-		interrupts = <0>;
-
-		slot@0 {
-			compatible = "mmc-spi-slot";
-			reg = <0>;
-			voltage-ranges = <3300 3300>;
-			spi-max-frequency = <25000000>;
-			broken-cd;
-		};
-	};
-
-	intc: interrupt-controller@fffd0000 {
-		#interrupt-cells = <0x1>;
-		#address-cells = <0>;
-		compatible = "xlnx,xps-intc-1.00.a";
-		interrupt-controller;
-		interrupt-parent = <&cpu0_intc>;
-		interrupts-extended = <&cpu0_intc 9>;
-		reg = <0xfffd0000 0x10000>;
-		xlnx,kind-of-intr = <0x0>;
-		xlnx,num-intr-inputs = <0x2>;
-	};
-
-	uart0: serial@ffff1000 {
-		compatible = "ns16550a";
-		reg = <0xffff1000 0x1000>;
-		clock-frequency = <81247969>;
-		reg-shift = <2>;
-		reg-io-width = <4>;
-		interrupt-parent = <&intc>;
-		interrupts = <1>;
-		status = "okay";
-		current-speed = <115200>;
-	};
+        // The root filesystem image, preloaded for phram.
+        rootfs@88000000 {
+            reg = <0x88000000 0x4000000>;
+            no-map;
+        };
+    };
 };

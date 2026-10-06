@@ -42,6 +42,16 @@ ys_formal(TOP RXVIntExec
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
 
+foreach(sdhci_top SDClockGen SDCmdEngine SDDataEngine SDDataFifo SDHCIRegs)
+    ys_formal(TOP ${sdhci_top}
+              DEPTH 2
+              SKIP 0
+              DEFINES "FORMAL_${sdhci_top}"
+              INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+              SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/${sdhci_top}.sv
+              ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
+endforeach()
+
 add_executable(rtl-unittest
     main.cpp
     fixtures/BusTransactorDPI.cpp
@@ -67,7 +77,9 @@ add_executable(rtl-unittest
     TestRXVICache.cpp
     TestRXVCoreEmulWrapper.cpp
     TestStaticArbiter.cpp
-    TestMIGFrontend.cpp)
+    TestMIGFrontend.cpp
+    TestSDHCI.cpp
+    fixtures/SDCardModel.cpp)
 target_link_libraries(rtl-unittest
                       PRIVATE gtest gmock RXVCoreEmul fmt)
 add_test(rtl-unittest rtl-unittest)
@@ -504,3 +516,22 @@ verilate(rtl-unittest
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
     TOP_MODULE MIGFrontendWrapper
     TRACE_FST TRACE_STRUCTS)
+
+verilate(rtl-unittest
+         VERILATOR_ARGS ${VERILATOR_FLAGS}
+         PREFIX VSDHCIWrapper
+         SOURCES
+         ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/SDHCIWrapper.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDHCI.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDHCIRegs.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDClockGen.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDCmdEngine.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDDataEngine.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDDataFifo.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitSync.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVADFF.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+         INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+         TOP_MODULE SDHCIWrapper
+         TRACE_FST TRACE_STRUCTS)

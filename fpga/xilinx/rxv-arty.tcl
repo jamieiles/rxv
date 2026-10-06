@@ -1,7 +1,7 @@
 set script_dir [file dirname [file normalize [info script]]]
 set origin_dir "${script_dir}/../.."
 
-create_project -part xc7s50csga324-2 RXVArty build
+create_project -in_memory -part xc7s50csga324-2 RXVArty
 
 set_property source_mgmt_mode All [current_project]
 

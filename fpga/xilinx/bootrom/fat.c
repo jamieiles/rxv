@@ -1,7 +1,7 @@
 #include "common.h"
 #include "string.h"
 #include "disk.h"
-#include "sd.h"
+#include "sdhci.h"
 #include "fat.h"
 #include "uart.h"
 #include "printk.h"
@@ -263,6 +263,8 @@ static unsigned long fat_read_from_cluster(struct fat_superblock *sb,
 {
     unsigned long cluster_addr = 0;
     unsigned long data_sector_base;
+    unsigned long nr_sectors = len / BLOCK_SIZE;
+    unsigned long tail = len % BLOCK_SIZE;
 
     data_sector_base =
         (sb->reserved_sectors + sb->nr_fats * sb->sectors_per_fat);
@@ -277,7 +279,15 @@ static unsigned long fat_read_from_cluster(struct fat_superblock *sb,
     cluster_addr =
         data_sector_base * sb->bytes_per_sector +
         (cluster - 2) * sb->sectors_per_cluster * sb->bytes_per_sector;
-    if (fat_read(sb, dst, len, cluster_addr, 0)) {
+    /*
+     * Clusters are sector aligned so whole sectors are read with a single
+     * multi-block read straight into the destination.
+     */
+    if ((nr_sectors &&
+         read_sectors(sb->partition_lba + cluster_addr / BLOCK_SIZE,
+                      nr_sectors, dst)) ||
+        (tail && fat_read(sb, dst + nr_sectors * BLOCK_SIZE, tail,
+                          cluster_addr + nr_sectors * BLOCK_SIZE, 0))) {
         putstr("failed to read from cluster\n");
         return 0;
     }

@@ -13,8 +13,7 @@ add_executable(bootrom
 	       root.c
 	       uart.c
 	       printk.c
-	       spi.c
-	       sd.c
+	       sdhci.c
 		   tinflate.c
 		   progress.c
 	       string.c)

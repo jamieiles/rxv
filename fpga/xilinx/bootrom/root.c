@@ -4,8 +4,7 @@
 #include "uart.h"
 #include "fat.h"
 #include "disk.h"
-#include "sd.h"
-#include "spi.h"
+#include "sdhci.h"
 #include <stdint.h>
 
 static const char *banner =

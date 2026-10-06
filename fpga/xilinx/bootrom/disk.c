@@ -1,7 +1,7 @@
 #include "common.h"
 #include "string.h"
 #include "disk.h"
-#include "sd.h"
+#include "sdhci.h"
 
 static int assert_partitioned(const unsigned char *mbr)
 {

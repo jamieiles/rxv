@@ -34,7 +34,8 @@
             device_type = "cpu";
             compatible = "jamieiles,rxv", "riscv";
             reg = <0>;
-            riscv,isa = "rv32ima_sstc_sscofpmf";
+            riscv,isa = "rv32ima_zicbom_sstc_sscofpmf";
+            riscv,cbom-block-size = <64>;
             mmu-type = "riscv,sv32";
             d-cache-block-size = <64>;
             d-cache-sets = <128>;
@@ -115,6 +116,8 @@
         reg = <0xfffc0000 0x10000>;
         clocks = <&sdclk>, <&sdclk>;
         clock-names = "clk_xin", "clk_ahb";
+        // SDMA is not coherent with the CPU caches, Zicbom is used instead.
+        dma-noncoherent;
         interrupt-parent = <&intc>;
         // Level-high
         interrupts = <3 4>;

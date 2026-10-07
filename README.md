@@ -245,6 +245,15 @@ built with Quartus Prime Lite (tested with 25.1std) from an empty directory:
     quartus_sh -t ../../../../../fpga/intel/de0-cv/de0cv.tcl
     quartus_pgm -m JTAG -o "p;DE0CVTop.sof"
 
+There is no serial port, so the console UART at 0xffff1000 keeps what is
+written to it in an 8KB buffer read over JTAG; OpenSBI needs a console and
+the kernel logs to it as well as the framebuffer:
+
+    quartus_stp -t fpga/intel/de0-cv/jtag-console.tcl [follow]
+
+and `debug-probe.tcl` samples the core's PC, privilege level, mcause, mepc,
+mtval and last call site for when it hangs.
+
 The boot ROM shows its progress on the VGA output and loads OPENSBI.BIN,
 IMAGEGZ.BIN (the gzipped kernel Image, optional) and DE0CV.DTB from a bootable
 FAT16 first partition on the microSD card, the second partition is the root
@@ -264,7 +273,7 @@ The DE0-CV configuration has:
   - RISC-V PLIC
   - SDHCI 2.00 compatible SD host controller with SDMA, as on the Arty
   - Two PS/2 ports compatible with the Altera University Program PS/2 core
-  - LEDs and seven segment displays for debug
+  - Console UART read over JTAG, and LEDs and seven segment displays for debug
   - 32KB dual port boot ROM
 
 `TestDE0CVSoC` and `TestDE0CVBoot` in the RTL unit tests run the whole system

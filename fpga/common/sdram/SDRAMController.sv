@@ -150,6 +150,13 @@ module SDRAMController #(
 
     assign {s_cs_n, s_ras_n, s_cas_n, s_we_n} = cmd;
 
+    // Power up as NOP: the controller is only reset after configuration
+    // and all zeros is LOAD MODE REGISTER.
+    initial begin
+        cmd     = CMD_NOP;
+        s_dq_oe = 1'b0;
+    end
+
     always_comb begin
         req_ready  = state == STATE_IDLE && !refresh_pending && rc_timer == '0 && timer == '0 &&
             init_done;

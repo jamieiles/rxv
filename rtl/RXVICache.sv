@@ -62,6 +62,9 @@ module RXVICache #(
     logic [                  way_bits-1:0] lru;
     logic                                  lru_update;
     logic [                  way_bits-1:0] lru_way_sel;
+    // The victim is latched when the fill starts: the PLRU state can be
+    // updated during a fill so it can't be used for every beat.
+    logic [                  way_bits-1:0] fill_way;
     logic [                index_bits-1:0] tag_ram_index;
     logic [                index_bits-1:0] invalidate_index;
     logic [                    tag_bits:0] tag_write_val;
@@ -167,8 +170,8 @@ module RXVICache #(
             busy ? addr_index(phys_in) : addr_index(address);
 
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
-            tag_write_en[i] = invalidating || (filling && bus_complete && way_bits'(i) == lru);
-            way_write_en[i] = way_bits'(i) == lru && (bus_beat_ack);
+            tag_write_en[i] = invalidating || (filling && bus_complete && way_bits'(i) == fill_way);
+            way_write_en[i] = way_bits'(i) == fill_way && (bus_beat_ack);
             way_hit[i]      = way_valid[i] && way_tag[i] == addr_tag(phys_in);
         end
 
@@ -176,7 +179,7 @@ module RXVICache #(
         lru_way_sel = hit_way;
         if (|tag_write_en) begin
             lru_update  = 1'b1;
-            lru_way_sel = lru;
+            lru_way_sel = fill_way;
         end
     end
 
@@ -214,6 +217,16 @@ module RXVICache #(
         .en   (invalidating_update),
         .d    (invalidate),
         .q    (invalidating)
+    );
+
+    RXVDFF #(
+        .width(way_bits)
+    ) fill_way_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (need_fill),
+        .d    (lru),
+        .q    (fill_way)
     );
 
     RXVDFF filling_dff (

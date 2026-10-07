@@ -81,6 +81,7 @@ module RXVLSUWrapper #(
     logic         [31:0] dcache_wdata;
     logic                dcache_invalidate;
     logic                dcache_clean;
+    logic                dcache_flush;
     logic                dcache_phys_valid;
     // verilator lint_off UNUSED
     logic         [31:2] dcache_phys_in;
@@ -112,6 +113,7 @@ module RXVLSUWrapper #(
         .dout                (dcache_rdata),
         .invalidate          (dcache_invalidate),
         .clean               (dcache_clean),
+        .flush               (dcache_flush),
         .bus                 (mem_bus.Manager),
         .phys_in             (dcache_phys_in),
         .phys_valid          (dcache_phys_valid),

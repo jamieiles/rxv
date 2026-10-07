@@ -25,6 +25,7 @@ import RXVCSR::CAUSE_id;
 import RXVCSR::privilege_t;
 import RXVCSR::mstatus_t;
 import RXVCSR::stperms_t;
+import RXVCSR::envcfg_t;
 
 module RXVDecode (
     input  logic                              clk,
@@ -53,6 +54,8 @@ module RXVDecode (
     // verilator lint_off UNUSED
     input  mstatus_t                          mstatus_in,
     // verilator lint_on UNUSED
+    input  envcfg_t                           menvcfg_in,
+    input  envcfg_t                           senvcfg_in,
     // Register write snoop
     input  phys_reg_tag                       reg_wr_addr,
     input  logic                              reg_wr_en,
@@ -353,7 +356,10 @@ module RXVDecode (
             end
             RXVTypes::OPC_MISC_MEM: begin
                 exec_pipe_en[EXEC_PIPE_INT] = funct3 == 3'b000;  // FENCE
-                exec_pipe_en[EXEC_PIPE_LSU] = funct3 == 3'b001;  // FENCE.I
+                // FENCE.I, CBO.*
+                exec_pipe_en[EXEC_PIPE_LSU] = funct3 == 3'b001 || funct3 == 3'b010;
+                // CBO.* take the cache block address from rs1
+                have_rs1                    = funct3 == 3'b010;
 
                 opc_misc_mem                = 1'b1;
             end
@@ -659,6 +665,26 @@ module RXVDecode (
             25'b0000_0000_0000_0000_0001_0000_0: begin  // FENCE.I
                 misc_mem_uop           = RXVTypes::UOP_FENCEI;
                 misc_mem_illegal_instr = 1'b0;
+            end
+            25'b0000_0000_0001_zzzz_z010_0000_0,  // CBO.CLEAN
+            25'b0000_0000_0010_zzzz_z010_0000_0: begin  // CBO.FLUSH
+                misc_mem_uop           = RXVTypes::UOP_CBO_FLUSH;
+                misc_mem_illegal_instr = 1'b0;
+
+                if (current_privilege != RXVCSR::PRIV_M && !menvcfg_in.cbcfe)
+                    misc_mem_illegal_instr = 1'b1;
+                if (current_privilege == RXVCSR::PRIV_U && !senvcfg_in.cbcfe)
+                    misc_mem_illegal_instr = 1'b1;
+            end
+            25'b0000_0000_0000_zzzz_z010_0000_0: begin  // CBO.INVAL
+                // Always performed as a flush, CBIE only controls trapping
+                misc_mem_uop           = RXVTypes::UOP_CBO_FLUSH;
+                misc_mem_illegal_instr = 1'b0;
+
+                if (current_privilege != RXVCSR::PRIV_M && ~|menvcfg_in.cbie)
+                    misc_mem_illegal_instr = 1'b1;
+                if (current_privilege == RXVCSR::PRIV_U && ~|senvcfg_in.cbie)
+                    misc_mem_illegal_instr = 1'b1;
             end
             default: misc_mem_illegal_instr = 1'b1;
         endcase

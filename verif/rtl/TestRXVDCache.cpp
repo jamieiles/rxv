@@ -100,6 +100,41 @@ public:
         cycle();
     }
 
+    // Cache-block flush: an access with flush set in the tag compare cycle
+    void flush(uint32_t addr)
+    {
+        after_n_cycles(0, [&] {
+            this->dut.address = addr >> 2;
+            this->dut.valid = 1;
+            this->dut.invalidate = 0;
+            this->dut.wren = 0;
+
+            after_n_cycles(1, [&] {
+                this->dut.valid = 0;
+                this->dut.flush = 1;
+                this->dut.phys_in = addr >> 2;
+                this->dut.phys_valid = 1;
+            });
+        });
+        cycle();
+
+        int i = 0;
+        do {
+            cycle();
+        } while (this->dut.busy && ++i < 256);
+        after_n_cycles(0, [&] { this->dut.flush = 0; });
+        cycle();
+
+        EXPECT_LT(i, 256);
+    }
+
+    void expect_line_fill(uint32_t addr, uint32_t base)
+    {
+        for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+            EXPECT_CALL(*this->bus, read(addr + i * 4, false))
+                .WillOnce(::testing::Return(base + i));
+    }
+
     void invalidate()
     {
         after_n_cycles(0, [&] {
@@ -555,4 +590,80 @@ TEST_F(DCacheTestbench, UncachedWriteSubWord)
     EXPECT_CALL(*this->bus, write(0xf0000000, 0xf00ff00f, 0x1));
     write(0xf0000000, 0xf00ff00f, 0x1);
     cycle(8);
+}
+
+TEST_F(DCacheTestbench, FlushDirtyWritesBackAndInvalidates)
+{
+    ::testing::InSequence seq;
+
+    expect_line_fill(32, 0xa5a50000);
+    for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+        EXPECT_CALL(*this->bus,
+                    write(32 + i * 4, i == 1 ? 0xf00ff00f : 0xa5a50000 + i, 0xf));
+    // The line is no longer present so the next read refills it
+    expect_line_fill(32, 0x5a5a0000);
+
+    write(36, 0xf00ff00f);
+    // Any address within the line selects it
+    flush(40);
+
+    EXPECT_EQ(read(36), 0x5a5a0001);
+}
+
+TEST_F(DCacheTestbench, FlushCleanInvalidatesWithoutWriteback)
+{
+    ::testing::InSequence seq;
+
+    expect_line_fill(32, 0xa5a50000);
+    expect_line_fill(32, 0x5a5a0000);
+
+    EXPECT_EQ(read(32), 0xa5a50000);
+    flush(32);
+    EXPECT_EQ(read(32), 0x5a5a0000);
+
+    // The flush is neither a read nor a write access
+    EXPECT_EQ(2, rd_access_count);
+    EXPECT_EQ(2, rd_miss_count);
+    EXPECT_EQ(0, wr_access_count);
+}
+
+TEST_F(DCacheTestbench, FlushMissNoBusAccess)
+{
+    // Strict mock: any fill or write-back fails the test
+    flush(64);
+    cycle(32);
+}
+
+TEST_F(DCacheTestbench, FlushDeviceMemoryNoBusAccess)
+{
+    flush(0xf0000000);
+    cycle(32);
+}
+
+TEST_F(DCacheTestbench, FlushOnlyHitWay)
+{
+    ::testing::InSequence seq;
+
+    for (size_t i = 0; i < 4; ++i)
+        expect_line_fill(4096 * i, i << 16);
+
+    for (size_t i = 0; i < 4; ++i)
+        EXPECT_EQ(read(4096 * i), i << 16);
+    for (size_t i = 0; i < 4; ++i)
+        write(4096 * i, 0xf00ff00f + i);
+
+    for (size_t j = 0; j < line_size_bytes / sizeof(uint32_t); ++j)
+        EXPECT_CALL(*this->bus,
+                    write(4096 * 2 + j * 4, j == 0 ? 0xf00ff011 : (2 << 16) | j, 0xf));
+    flush(4096 * 2);
+
+    // The other ways are still present and dirty
+    for (size_t i = 0; i < 4; ++i) {
+        if (i != 2) {
+            EXPECT_EQ(read(4096 * i), 0xf00ff00f + i);
+        }
+    }
+
+    expect_line_fill(4096 * 2, 0x22220000);
+    EXPECT_EQ(read(4096 * 2), 0x22220000);
 }

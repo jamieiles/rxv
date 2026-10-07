@@ -1682,3 +1682,285 @@ TEST_F(RXVCoreEmulWrapperTest, BranchCounts)
 
     run_until(0x80000038);
 }
+TEST_F(RXVCoreEmulWrapperTest, CBOFlushWritesBackLine)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0020a223                sw      x2,4(x1)
+        80000010:       0420a023                sw      x2,64(x1)
+        80000014:       0020a00f                cbo.flush       (x1)
+        80000018:       0040a183                lw      x3,4(x1)
+        8000001c:       00000013                nop
+        80000020:       00000013                nop
+    )objdump");
+
+    run_until(0x80000020);
+
+    // Only the line containing the address is written back.
+    EXPECT_EQ(bus->read(0x80001004), 0xdeadbeef);
+    EXPECT_EQ(bus->read(0x80001040), 0u);
+    // The line is refilled for the following load.
+    EXPECT_EQ(tracer->read_reg(3), 0xdeadbeef);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOInvalIsFlush)
+{
+    load(R"objdump(
+        80000000:       800010b7                lui     x1,0x80001
+        80000004:       deadc137                lui     x2,0xdeadc
+        80000008:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+        8000000c:       0020a423                sw      x2,8(x1)
+        80000010:       00808293                addi    x5,x1,8
+        80000014:       0002a00f                cbo.inval       (x5)
+        80000018:       0080a183                lw      x3,8(x1)
+        8000001c:       00000013                nop
+        80000020:       00000013                nop
+    )objdump");
+
+    run_until(0x80000020);
+
+    // Dirty data is written back rather than discarded.
+    EXPECT_EQ(bus->read(0x80001008), 0xdeadbeef);
+    EXPECT_EQ(tracer->read_reg(3), 0xdeadbeef);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, EnvcfgCBOFields)
+{
+    load(R"objdump(
+        80000000:       02000093                li      x1,32
+        80000004:       30a09073                csrw    menvcfg,x1
+        80000008:       30a02573                csrr    x10,menvcfg
+        8000000c:       03000093                li      x1,48
+        80000010:       30a09073                csrw    menvcfg,x1
+        80000014:       30a025f3                csrr    x11,menvcfg
+        80000018:       fff00093                li      x1,-1
+        8000001c:       30a09073                csrw    menvcfg,x1
+        80000020:       30a02673                csrr    x12,menvcfg
+        80000024:       10a09073                csrw    senvcfg,x1
+        80000028:       10a026f3                csrr    x13,senvcfg
+        8000002c:       05000093                li      x1,80
+        80000030:       10a09073                csrw    senvcfg,x1
+        80000034:       10a02773                csrr    x14,senvcfg
+        80000038:       31a027f3                csrr    x15,menvcfgh
+        8000003c:       00000013                nop
+    )objdump");
+
+    run_until(0x8000003c);
+
+    // CBIE=2'b10 is reserved and reads back as 2'b00
+    EXPECT_EQ(tracer->read_reg(10), 0x00u);
+    EXPECT_EQ(tracer->read_reg(11), 0x30u);
+    // Only CBCFE and CBIE are writable
+    EXPECT_EQ(tracer->read_reg(12), 0x70u);
+    EXPECT_EQ(tracer->read_reg(13), 0x70u);
+    EXPECT_EQ(tracer->read_reg(14), 0x50u);
+    EXPECT_EQ(tracer->read_reg(15), 0x00u);
+}
+
+// Enters S-mode with menvcfg from 0x80002000 and executes CBO.CLEAN at
+// 0x80000054 then CBO.INVAL at 0x8000005c, the M-mode handler captures
+// mcause/mepc/mtval in x11-x13.
+static const std::string s_cbo_test = R"objdump(
+80000000:       00000097                auipc   x1,0x0
+80000004:       06808093                addi    x1,x1,104 # 0x80000068
+80000008:       30509073                csrw    mtvec,x1
+8000000c:       800024b7                lui     x9,0x80002
+80000010:       0004a503                lw      x10,0(x9)
+80000014:       0044a583                lw      x11,4(x9)
+80000018:       30a51073                csrw    menvcfg,x10
+8000001c:       000022b7                lui     x5,0x2
+80000020:       80028293                addi    x5,x5,-2048 # 0x1800
+80000024:       3002b073                csrc    mstatus,x5
+80000028:       000012b7                lui     x5,0x1
+8000002c:       80028293                addi    x5,x5,-2048 # 0x800
+80000030:       3002a073                csrs    mstatus,x5
+80000034:       00000097                auipc   x1,0x0
+80000038:       01c08093                addi    x1,x1,28 # 0x80000050
+8000003c:       34109073                csrw    mepc,x1
+80000040:       80001337                lui     x6,0x80001
+80000044:       deadc137                lui     x2,0xdeadc
+80000048:       eef10113                addi    x2,x2,-273 # 0xdeadbeef
+8000004c:       30200073                mret
+80000050:       00232023                sw      x2,0(x6)
+80000054:       0013200f                cbo.clean       (x6)
+80000058:       001a0a13                addi    x20,x20,1
+8000005c:       0003200f                cbo.inval       (x6)
+80000060:       001a8a93                addi    x21,x21,1
+80000064:       0000006f                j       0x80000064
+80000068:       342025f3                csrr    x11,mcause
+8000006c:       34102673                csrr    x12,mepc
+80000070:       343026f3                csrr    x13,mtval
+80000074:       0000006f                j       0x80000074
+)objdump";
+
+TEST_F(RXVCoreEmulWrapperTest, CBOSupervisorTrapsWithoutCBCFE)
+{
+    load(s_cbo_test);
+    bus->write(0x80002000, uint32_t(0x00000000), 0xf);
+
+    run_until(0x80000074);
+
+    EXPECT_EQ(tracer->read_reg(11), ILLEGAL_INSTRUCTION);
+    EXPECT_EQ(tracer->read_reg(12), 0x80000054u);
+    EXPECT_EQ(tracer->read_reg(13), 0x0013200fu);
+    EXPECT_EQ(tracer->read_reg(20), 0u);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOSupervisorInvalTrapsWithoutCBIE)
+{
+    load(s_cbo_test);
+    bus->write(0x80002000, uint32_t(0x00000040), 0xf);
+
+    run_until(0x80000074);
+
+    // CBO.CLEAN is permitted and wrote the line back.
+    EXPECT_EQ(tracer->read_reg(20), 1u);
+    EXPECT_EQ(bus->read(0x80001000), 0xdeadbeef);
+    // CBO.INVAL is not.
+    EXPECT_EQ(tracer->read_reg(11), ILLEGAL_INSTRUCTION);
+    EXPECT_EQ(tracer->read_reg(12), 0x8000005cu);
+    EXPECT_EQ(tracer->read_reg(13), 0x0003200fu);
+    EXPECT_EQ(tracer->read_reg(21), 0u);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOSupervisorPermittedCBIEFlush)
+{
+    load(s_cbo_test);
+    bus->write(0x80002000, uint32_t(0x40 | 0x10), 0xf);
+
+    run_until(0x80000064);
+
+    EXPECT_EQ(tracer->read_reg(20), 1u);
+    EXPECT_EQ(tracer->read_reg(21), 1u);
+    EXPECT_EQ(bus->read(0x80001000), 0xdeadbeef);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOSupervisorPermittedCBIEInval)
+{
+    load(s_cbo_test);
+    bus->write(0x80002000, uint32_t(0x40 | 0x30), 0xf);
+
+    run_until(0x80000064);
+
+    EXPECT_EQ(tracer->read_reg(20), 1u);
+    EXPECT_EQ(tracer->read_reg(21), 1u);
+    EXPECT_EQ(bus->read(0x80001000), 0xdeadbeef);
+}
+
+// Enters U-mode with menvcfg/senvcfg from 0x80002000/0x80002004 and executes
+// CBO.FLUSH at 0x80000040.
+static const std::string u_cbo_test = R"objdump(
+80000000:       00000097                auipc   x1,0x0
+80000004:       04c08093                addi    x1,x1,76 # 0x8000004c
+80000008:       30509073                csrw    mtvec,x1
+8000000c:       800024b7                lui     x9,0x80002
+80000010:       0004a503                lw      x10,0(x9)
+80000014:       0044a583                lw      x11,4(x9)
+80000018:       30a51073                csrw    menvcfg,x10
+8000001c:       10a59073                csrw    senvcfg,x11
+80000020:       000022b7                lui     x5,0x2
+80000024:       80028293                addi    x5,x5,-2048 # 0x1800
+80000028:       3002b073                csrc    mstatus,x5
+8000002c:       00000097                auipc   x1,0x0
+80000030:       01408093                addi    x1,x1,20 # 0x80000040
+80000034:       34109073                csrw    mepc,x1
+80000038:       80001337                lui     x6,0x80001
+8000003c:       30200073                mret
+80000040:       0023200f                cbo.flush       (x6)
+80000044:       001a0a13                addi    x20,x20,1
+80000048:       0000006f                j       0x80000048
+8000004c:       342025f3                csrr    x11,mcause
+80000050:       34102673                csrr    x12,mepc
+80000054:       343026f3                csrr    x13,mtval
+80000058:       0000006f                j       0x80000058
+)objdump";
+
+TEST_F(RXVCoreEmulWrapperTest, CBOUserTrapsWithoutMenvcfg)
+{
+    load(u_cbo_test);
+    bus->write(0x80002000, uint32_t(0x00), 0xf);
+    bus->write(0x80002004, uint32_t(0x40), 0xf);
+
+    run_until(0x80000058);
+
+    EXPECT_EQ(tracer->read_reg(11), ILLEGAL_INSTRUCTION);
+    EXPECT_EQ(tracer->read_reg(12), 0x80000040u);
+    EXPECT_EQ(tracer->read_reg(13), 0x0023200fu);
+    EXPECT_EQ(tracer->read_reg(20), 0u);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOUserTrapsWithoutSenvcfg)
+{
+    load(u_cbo_test);
+    bus->write(0x80002000, uint32_t(0x40), 0xf);
+    bus->write(0x80002004, uint32_t(0x00), 0xf);
+
+    run_until(0x80000058);
+
+    EXPECT_EQ(tracer->read_reg(11), ILLEGAL_INSTRUCTION);
+    EXPECT_EQ(tracer->read_reg(12), 0x80000040u);
+    EXPECT_EQ(tracer->read_reg(13), 0x0023200fu);
+    EXPECT_EQ(tracer->read_reg(20), 0u);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOUserPermitted)
+{
+    load(u_cbo_test);
+    bus->write(0x80002000, uint32_t(0x40), 0xf);
+    bus->write(0x80002004, uint32_t(0x40), 0xf);
+
+    run_until(0x80000048);
+
+    EXPECT_EQ(tracer->read_reg(20), 1u);
+}
+
+TEST_F(RXVCoreEmulWrapperTest, CBOPagePermissions)
+{
+    load(R"objdump(
+        80000000:       00000097                auipc   x1,0x0
+        80000004:       06408093                addi    x1,x1,100 # 0x80000064
+        80000008:       30509073                csrw    mtvec,x1
+        8000000c:       04000293                li      x5,64
+        80000010:       30a29073                csrw    menvcfg,x5
+        80000014:       800820b7                lui     x1,0x80082
+        80000018:       18009073                csrw    satp,x1
+        8000001c:       000022b7                lui     x5,0x2
+        80000020:       80028293                addi    x5,x5,-2048 # 0x1800
+        80000024:       3002b073                csrc    mstatus,x5
+        80000028:       000012b7                lui     x5,0x1
+        8000002c:       80028293                addi    x5,x5,-2048 # 0x800
+        80000030:       3002a073                csrs    mstatus,x5
+        80000034:       00000097                auipc   x1,0x0
+        80000038:       01c08093                addi    x1,x1,28 # 0x80000050
+        8000003c:       34109073                csrw    mepc,x1
+        80000040:       80400337                lui     x6,0x80400
+        80000044:       808003b7                lui     x7,0x80800
+        80000048:       02438393                addi    x7,x7,36 # 0x80800024
+        8000004c:       30200073                mret
+        80000050:       0023200f                cbo.flush       (x6)
+        80000054:       001a0a13                addi    x20,x20,1
+        80000058:       0023a00f                cbo.flush       (x7)
+        8000005c:       001a8a93                addi    x21,x21,1
+        80000060:       0000006f                j       0x80000060
+        80000064:       342025f3                csrr    x11,mcause
+        80000068:       34102673                csrr    x12,mepc
+        8000006c:       343026f3                csrr    x13,mtval
+        80000070:       0000006f                j       0x80000070
+    )objdump");
+
+    set_megapage_at(0x80000000, 0x80000000, pte_read | pte_exec | pte_accessed);
+    // Read-only and not dirty: a cache-block operation is permitted.
+    set_megapage_at(0x80400000, 0x80400000, pte_read | pte_accessed);
+    // Execute-only: no load or store permission.
+    set_megapage_at(0x80800000, 0x80800000, pte_exec | pte_accessed);
+
+    run_until(0x80000070);
+
+    EXPECT_EQ(tracer->read_reg(20), 1u);
+    EXPECT_EQ(tracer->read_reg(21), 0u);
+    EXPECT_EQ(tracer->read_reg(11), STORE_PAGE_FAULT);
+    EXPECT_EQ(tracer->read_reg(12), 0x80000058u);
+    EXPECT_EQ(tracer->read_reg(13), 0x80800024u);
+}

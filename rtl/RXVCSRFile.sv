@@ -72,6 +72,9 @@ import RXVCSR::pack_stperms;
 import RXVCSR::unpack_stperms;
 import RXVCSR::pack_scountovf;
 import RXVCSR::unpack_scountovf;
+import RXVCSR::envcfg_t;
+import RXVCSR::pack_envcfg;
+import RXVCSR::unpack_envcfg;
 import RXVCSR::RXVException;
 import RXVCSR::MINT_id;
 import RXVCSR::mtvec_dest;
@@ -164,7 +167,10 @@ module RXVCSRFile #(
     output logic        [                 31:12] translation_base,
     output logic        [         asid_bits-1:0] active_asid,
     output logic                                 i_tlb_enabled,
-    output logic                                 d_tlb_enabled
+    output logic                                 d_tlb_enabled,
+    // Cache-block management operation controls
+    output envcfg_t                              menvcfg_out,
+    output envcfg_t                              senvcfg_out
 );
 
     localparam counter_bits = $clog2(num_event_counters);
@@ -233,6 +239,10 @@ module RXVCSRFile #(
     logic                                            stimecmp_wren;
     logic                                            stimecmph_wren;
     scountovf_t                                      scountovf_reg;
+    envcfg_t                                         menvcfg_reg;
+    logic                                            menvcfg_wren;
+    envcfg_t                                         senvcfg_reg;
+    logic                                            senvcfg_wren;
 
     logic                                            exception_write;
     mepc_t                                           mepc_next;
@@ -421,6 +431,8 @@ module RXVCSRFile #(
             RXVCSR::CSR_STIMECMPH: rd_data_next = stimecmp_reg[63:32];
             [RXVCSR::CSR_PMPADDR0:RXVCSR::CSR_PMPADDR0 + 12'(num_pmps - 1)]: rd_data_next = pmp_addr;
             RXVCSR::CSR_SCOUNTOVF: rd_data_next = unpack_scountovf(scountovf_reg);
+            RXVCSR::CSR_MENVCFG: rd_data_next = unpack_envcfg(menvcfg_reg);
+            RXVCSR::CSR_SENVCFG: rd_data_next = unpack_envcfg(senvcfg_reg);
             default: rd_data_next = 32'b0;
         endcase
 
@@ -521,6 +533,8 @@ module RXVCSRFile #(
         sscratch_wren = wr_en && wr_addr == RXVCSR::CSR_SSCRATCH;
         stimecmp_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMP;
         stimecmph_wren = wr_en && wr_addr == RXVCSR::CSR_STIMECMPH;
+        menvcfg_wren = wr_en && wr_addr == RXVCSR::CSR_MENVCFG;
+        senvcfg_wren = wr_en && wr_addr == RXVCSR::CSR_SENVCFG;
 
         update_mstatus = mstatus_wren | sstatus_wren;
         update_mie = mie_wren | sie_wren;
@@ -694,6 +708,8 @@ module RXVCSRFile #(
 
     always_comb begin
         mstatus_out = mstatus_reg;
+        menvcfg_out = menvcfg_reg;
+        senvcfg_out = senvcfg_reg;
     end
 
     always_comb begin
@@ -944,6 +960,10 @@ module RXVCSRFile #(
                 trace_write_csr(trace_id, RXVCSR::CSR_STIMECMP, wr_data);
             if (wr_en && wr_addr == RXVCSR::CSR_STIMECMPH)
                 trace_write_csr(trace_id, RXVCSR::CSR_STIMECMPH, wr_data);
+            if (menvcfg_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_MENVCFG, unpack_envcfg(pack_envcfg(wr_data)));
+            if (senvcfg_wren)
+                trace_write_csr(trace_id, RXVCSR::CSR_SENVCFG, unpack_envcfg(pack_envcfg(wr_data)));
 
             for (evt_i = 0; evt_i < num_event_counters; ++evt_i) begin
                 if (mhpmevent_wren[counter_bits'(evt_i)])
@@ -1244,6 +1264,26 @@ module RXVCSRFile #(
         .en   (1'b1),
         .d    (stimecmp_next),
         .q    (stimecmp_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(menvcfg_reg))
+    ) menvcfg_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (menvcfg_wren),
+        .d    (pack_envcfg(wr_data)),
+        .q    (menvcfg_reg)
+    );
+
+    RXVDFF #(
+        .width($bits(senvcfg_reg))
+    ) senvcfg_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (senvcfg_wren),
+        .d    (pack_envcfg(wr_data)),
+        .q    (senvcfg_reg)
     );
 
     genvar i;

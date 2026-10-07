@@ -22,6 +22,7 @@ module RXVDCacheArb (
     input  logic        lsu_dcache_phys_valid,
     input  logic        lsu_dcache_invalidate,
     input  logic        lsu_dcache_clean,
+    input  logic        lsu_dcache_flush,
     // From MMU
     input  logic [31:2] mmu_dcache_address,
     input  logic        mmu_dcache_valid,
@@ -41,7 +42,8 @@ module RXVDCacheArb (
     output logic [31:2] dcache_phys_in,
     output logic        dcache_phys_valid,
     output logic        dcache_invalidate,
-    output logic        dcache_clean
+    output logic        dcache_clean,
+    output logic        dcache_flush
 );
 
     localparam int dcache_latency = 2;
@@ -95,6 +97,7 @@ module RXVDCacheArb (
         dcache_invalidate = lsu_dcache_grant ? lsu_dcache_invalidate : 1'b0;
         dcache_clean      = lsu_dcache_grant ? lsu_dcache_clean : 1'b0;
         dcache_wren       = lsu_dcache_grant_sync ? lsu_dcache_wren : 1'b0;
+        dcache_flush      = lsu_dcache_grant_sync ? lsu_dcache_flush : 1'b0;
         dcache_bytesel    = lsu_dcache_grant_sync ? lsu_dcache_bytesel : 4'b0;
         dcache_wdata      = lsu_dcache_grant_sync ? lsu_dcache_wdata : 32'b0;
         dcache_phys_in    = lsu_dcache_grant_sync ? lsu_dcache_phys_in : mmu_dcache_phys_in;

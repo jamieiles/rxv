@@ -768,6 +768,32 @@ package RXVCSR;
         end
     endfunction
 
+    // menvcfg/senvcfg: only the Zicbom controls are implemented, FIOM and
+    // CBZE are read-only zero.  CBIE gates whether CBO.INVAL traps, when it
+    // doesn't trap CBO.INVAL is always performed as a flush.
+    typedef struct packed {
+        logic cbcfe;
+        logic [1:0] cbie;
+    } envcfg_t;
+
+    function envcfg_t pack_envcfg;
+        // verilator lint_off UNUSED
+        input logic [31:0] v;
+        // verilator lint_on UNUSED
+        begin
+            pack_envcfg.cbcfe = v[6];
+            // 2'b10 is reserved, keep the field legal by mapping it to 2'b00
+            pack_envcfg.cbie  = v[5:4] == 2'b10 ? 2'b00 : v[5:4];
+        end
+    endfunction
+
+    function logic [31:0] unpack_envcfg;
+        input envcfg_t v;
+        begin
+            unpack_envcfg = {25'b0, v.cbcfe, v.cbie, 4'b0};
+        end
+    endfunction
+
     typedef struct packed {
         logic [28:0] hpm;
         logic ir;

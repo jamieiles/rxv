@@ -55,6 +55,7 @@ module RXVLSU #(
     output logic         [            31:0] dcache_wdata,
     output logic                            dcache_invalidate,
     output logic                            dcache_clean,
+    output logic                            dcache_flush,
     output logic         [            31:2] dcache_phys,
     output logic                            dcache_phys_valid,
     input  logic                            dcache_device_memory,
@@ -112,6 +113,7 @@ module RXVLSU #(
         logic is_store;
         logic is_load;
         logic is_amo;
+        logic is_cbo;
         logic reservation_held;
         logic [31:0] address;
         logic [31:2] pc;
@@ -143,6 +145,7 @@ module RXVLSU #(
     logic                               is_store;
     logic                               is_fencei;
     logic                               is_sfence_vma;
+    logic                               is_cbo;
     logic        [                 3:0] next_read_mask;
     lsu_op                              op_stage1_next;
     lsu_op                              op_stage1;
@@ -201,6 +204,9 @@ module RXVLSU #(
             if ((op_stage1.is_store || op_stage1.is_amo) &&
                     (!lsu_translation.write || !lsu_translation.dirty))
                 tlb_access_okay = 1'b0;
+            // Cache-block management needs either load or store permission
+            if (op_stage1.is_cbo && !(lsu_translation.read || lsu_translation.write))
+                tlb_access_okay = 1'b0;
             // User access to supervisor page
             if (effective_privilege(
                     mstatus, current_privilege
@@ -223,6 +229,9 @@ module RXVLSU #(
             if (current_privilege != RXVCSR::PRIV_M && op_stage1.is_store && !lsu_translation.pmp.write)
                 pmp_access_okay = 1'b0;
             if (current_privilege != RXVCSR::PRIV_M && op_stage1.is_amo && !(lsu_translation.pmp.read && lsu_translation.write))
+                pmp_access_okay = 1'b0;
+            if (current_privilege != RXVCSR::PRIV_M && op_stage1.is_cbo &&
+                !(lsu_translation.pmp.read || lsu_translation.pmp.write))
                 pmp_access_okay = 1'b0;
             if (current_privilege != RXVCSR::PRIV_M && op_stage1.valid && lsu_access_fault)
                 pmp_access_okay = 1'b0;
@@ -329,6 +338,8 @@ module RXVLSU #(
     always_comb begin
         unique case (exec_uop)
             RXVTypes::UOP_LB, RXVTypes::UOP_LBU, RXVTypes::UOP_SB: is_unaligned = 1'b0;
+            // The cache block address ignores the offset within the block
+            RXVTypes::UOP_CBO_FLUSH: is_unaligned = 1'b0;
             RXVTypes::UOP_LH, RXVTypes::UOP_LHU, RXVTypes::UOP_SH: is_unaligned = address[0];
             default: is_unaligned = |address[1:0];
         endcase
@@ -375,6 +386,7 @@ module RXVLSU #(
             end
         endcase
 
+        is_cbo         = exec_uop == RXVTypes::UOP_CBO_FLUSH;
         is_invalid_amo = op_stage1.valid && op_stage1.is_amo && dcache_device_memory;
 
         unique case (exec_uop)
@@ -388,13 +400,15 @@ module RXVLSU #(
         op_stage1_next.id = exec_id;
         op_stage1_next.read_mask = next_read_mask;
         op_stage1_next.addr_offset = address[1:0];
-        op_stage1_next.valid = (((is_load | is_store) & ~is_unaligned) | is_fencei | is_sfence_vma) & valid;
+        op_stage1_next.valid = (((is_load | is_store) & ~is_unaligned) | is_cbo | is_fencei |
+                                is_sfence_vma) & valid;
         op_stage1_next.width = width;
         op_stage1_next.is_signed = exec_uop == RXVTypes::UOP_LB || exec_uop == RXVTypes::UOP_LH;
         op_stage1_next.is_sc = exec_uop == RXVTypes::UOP_SC;
         op_stage1_next.is_lr = exec_uop == RXVTypes::UOP_LR;
         op_stage1_next.is_store = is_store;
         op_stage1_next.is_load = is_load;
+        op_stage1_next.is_cbo = is_cbo;
         op_stage1_next.reservation_held = 1'b1;
         op_stage1_next.address = address;
         op_stage1_next.pc = exec_pc;
@@ -458,11 +472,11 @@ module RXVLSU #(
 
     always_comb begin
         page_fault = op_stage1.valid &&
-            (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo) &&
+            (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo || op_stage1.is_cbo) &&
             ((tlb_stalling && !lsu_tlb_busy && !lsu_translation.valid) ||
              (!lsu_tlb_busy && op_stage1.valid && !tlb_access_okay()));
         pmp_fault = (lsu_access_fault || !page_fault) && op_stage1.valid &&
-            (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo) &&
+            (op_stage1.is_load || op_stage1.is_store || op_stage1.is_amo || op_stage1.is_cbo) &&
             ((tlb_stalling && !lsu_tlb_busy && !lsu_translation.valid) ||
              (!lsu_tlb_busy && op_stage1.valid && !pmp_access_okay()));
     end
@@ -478,10 +492,10 @@ module RXVLSU #(
             lsu_exception_next.cause = is_store ? RXVCSR::CAUSE_STORE_MISALIGN :
                 RXVCSR::CAUSE_LOAD_MISALIGN;
         if (page_fault)
-            lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo ?
+            lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo || op_stage1.is_cbo ?
                 RXVCSR::CAUSE_STORE_PAGE_FAULT : RXVCSR::CAUSE_LOAD_PAGE_FAULT;
         if (pmp_fault)
-            lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo ?
+            lsu_exception_next.cause = op_stage1.is_store || op_stage1.is_amo || op_stage1.is_cbo ?
                 RXVCSR::CAUSE_STORE_ACCESS_FAULT : RXVCSR::CAUSE_LOAD_ACCESS_FAULT;
         if (is_invalid_amo) lsu_exception_next.cause = RXVCSR::CAUSE_STORE_ACCESS_FAULT;
 
@@ -514,6 +528,8 @@ module RXVLSU #(
 
     always_comb begin
         dcache_wren = op_stage1.valid & op_stage1.is_store;
+        // Write back and invalidate the line if it is present
+        dcache_flush = op_stage1.valid & op_stage1.is_cbo;
         dcache_phys = {lsu_translation.pa, op_stage1.address[11:2]};
 
         dcache_phys_valid = op_stage1.valid & ~lsu_tlb_busy & lsu_translation.valid &
@@ -522,7 +538,7 @@ module RXVLSU #(
     end
 
     always_comb begin
-        dcache_valid = (is_load | is_store) & valid & ~is_unaligned;
+        dcache_valid = ((is_load | is_store) & ~is_unaligned | is_cbo) & valid;
         // Replay a load/store after successful translation
         if (tlb_stalling && !lsu_tlb_busy && tlb_access_okay()) dcache_valid = 1'b1;
     end

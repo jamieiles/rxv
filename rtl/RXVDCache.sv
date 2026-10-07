@@ -11,6 +11,10 @@
 //
 // Uncached accesses or a miss may take longer in which case the data will be
 // valid one cycle after busy goes low to match hits
+//
+// An access with flush set in the tag compare cycle is a cache-block flush:
+// if the line is present it is written back when dirty and then invalidated,
+// a miss or device memory access completes with no effect.
 module RXVDCache #(
     parameter nr_lines        = 4,
     parameter nr_ways         = 4,
@@ -31,6 +35,7 @@ module RXVDCache #(
     output logic                [31:0] dout,
     input  logic                       invalidate,
     input  logic                       clean,
+    input  logic                       flush,
     input  logic                [31:2] phys_in,
     output logic                       pmu_dcache_wr_access,
     output logic                       pmu_dcache_wr_miss,
@@ -43,15 +48,16 @@ module RXVDCache #(
     input  logic                       device_memory
 );
 
-    typedef enum bit [2:0] {
-        STATE_RUN = 3'b000,
-        STATE_MISS = 3'b001,
-        STATE_FLUSH = 3'b010,
-        STATE_FILL = 3'b011,
-        STATE_INVAL = 3'b100,
-        STATE_CLEAN = 3'b101,
-        STATE_UNCACHED = 3'b110,
-        STATE_ACCESS_COMPLETE = 3'b111
+    typedef enum bit [3:0] {
+        STATE_RUN = 4'b0000,
+        STATE_MISS = 4'b0001,
+        STATE_FLUSH = 4'b0010,
+        STATE_FILL = 4'b0011,
+        STATE_INVAL = 4'b0100,
+        STATE_CLEAN = 4'b0101,
+        STATE_UNCACHED = 4'b0110,
+        STATE_ACCESS_COMPLETE = 4'b0111,
+        STATE_LINE_FLUSH = 4'b1000
     } state_t;
 
     localparam offset_bits = $clog2(line_size_bytes / 4);
@@ -85,6 +91,8 @@ module RXVDCache #(
     logic   [                  tag_bits-1:0] way_tag                [0:nr_ways-1];
     logic   [                   nr_ways-1:0] way_valid;
     logic                                    miss;
+    logic                                    flush_hit;
+    logic                                    line_flush_done;
     logic                                    tag_compare_valid;
     logic   [                   nr_ways-1:0] way_hit;
     logic   [                  way_bits-1:0] hit_way;
@@ -228,11 +236,12 @@ module RXVDCache #(
             way_hit[i] = way_valid[i] && phys_valid && way_tag[i] == addr_tag(phys_in);
         end
 
-        miss     = tag_compare_valid && ~|way_hit && ~(bus_complete && device_memory);
-        phys_out = phys_in;
+        miss      = tag_compare_valid && ~|way_hit && ~(bus_complete && device_memory) && ~flush;
+        flush_hit = tag_compare_valid && |way_hit && flush;
+        phys_out  = phys_in;
 
         unique case (state)
-            STATE_RUN: busy = miss && phys_valid;
+            STATE_RUN: busy = (miss || flush_hit) && phys_valid;
             STATE_UNCACHED: busy = ~bus_complete;
             default: busy = 1'b1;
         endcase
@@ -260,6 +269,10 @@ module RXVDCache #(
                     dirty_wren[i] = bus_complete && way_bits'(i) == fill_way;
                     dirty_next    = 1'b0;
                 end
+                STATE_LINE_FLUSH: begin
+                    dirty_wren[i] = line_flush_done && way_bits'(i) == fill_way;
+                    dirty_next    = 1'b0;
+                end
                 default: begin
                     dirty_wren[i] = 1'b0;
                     dirty_next    = 1'b0;
@@ -270,19 +283,22 @@ module RXVDCache #(
 
     always_comb begin
         cmo_active = state == STATE_INVAL || state == STATE_CLEAN || clean || invalidate;
+        // Clean lines are invalidated immediately, dirty lines once written back
+        line_flush_done = state == STATE_LINE_FLUSH && (bus_complete || !dirty[fill_way]);
     end
 
     // Tag RAM control
     always_comb begin
         integer i;
 
-        tag_write_val = {state != STATE_INVAL, addr_tag(phys_in)};
+        tag_write_val = {state != STATE_INVAL && state != STATE_LINE_FLUSH, addr_tag(phys_in)};
         tag_ram_index = cmo_active ? (|dirty ? cmo_index : cmo_index_next) :
             busy ? addr_index(phys_in) : addr_index(address);
         for (i = 0; i < nr_ways; i = i + 1'b1) begin
             unique case (state)
                 STATE_INVAL: tag_write_en[i] = 1'b1;
                 STATE_FILL: tag_write_en[i] = bus_complete && way_bits'(i) == fill_way;
+                STATE_LINE_FLUSH: tag_write_en[i] = line_flush_done && way_bits'(i) == fill_way;
                 default: tag_write_en[i] = 1'b0;
             endcase
         end
@@ -295,7 +311,8 @@ module RXVDCache #(
 
     // LRU update
     always_comb begin
-        lru_update  = |tag_write_en | (tag_compare_valid & phys_valid & !miss);
+        lru_update  = (|tag_write_en & state != STATE_LINE_FLUSH) |
+                      (tag_compare_valid & phys_valid & !miss & !flush);
         lru_way_sel = |tag_write_en ? fill_way : hit_way;
     end
 
@@ -312,6 +329,14 @@ module RXVDCache #(
             end
             STATE_FLUSH: begin
                 bus_valid   = 1'b1 & ~bus_complete;
+                bus_wren    = 1'b1;
+                bus_len     = fill_beats;
+                bus_address = {way_tag[fill_way], addr_index(phys_in), offset_bits'('b0)};
+                bus_wdata   = dout_cached;
+                bus_bytesel = 4'b1111;
+            end
+            STATE_LINE_FLUSH: begin
+                bus_valid   = ~bus_complete & dirty[fill_way];
                 bus_wren    = 1'b1;
                 bus_len     = fill_beats;
                 bus_address = {way_tag[fill_way], addr_index(phys_in), offset_bits'('b0)};
@@ -364,7 +389,7 @@ module RXVDCache #(
                 data_offset = bus_beat_ack ? offset_bits'(bus_beat_num_next) :
                     offset_bits'(bus_beat_num);
             end
-            STATE_FLUSH: begin
+            STATE_FLUSH, STATE_LINE_FLUSH: begin
                 data_write_en = 1'b0;
                 data_write_bytesel = bytesel;
                 data_way_sel = fill_way;
@@ -373,7 +398,8 @@ module RXVDCache #(
                     offset_bits'(bus_beat_num);
             end
             STATE_RUN: begin
-                data_write_en      = tag_compare_valid & phys_valid & ~miss & wren & ~device_memory;
+                data_write_en      = tag_compare_valid & phys_valid & ~miss & wren & ~device_memory &
+                    ~flush;
                 data_write_bytesel = bytesel;
                 data_way_sel       = hit_way;
                 data_din           = din;
@@ -427,6 +453,8 @@ module RXVDCache #(
 
         // First fill empty ways, then fall back to LRU
         fill_way_next = fill_way;
+        // A flush operates on the way that hit
+        if (state == STATE_RUN && flush_hit) fill_way_next = hit_way;
         if (state == STATE_MISS) begin
             fill_way_next = lru;
             if (~&way_valid) begin
@@ -443,14 +471,15 @@ module RXVDCache #(
         pmu_dcache_wr_access = tag_compare_valid && !busy && wren;
         pmu_dcache_wr_miss   = (state == STATE_MISS ||
                                 (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory)) && wren;
-        pmu_dcache_rd_access = tag_compare_valid && !busy && !wren;
+        pmu_dcache_rd_access = tag_compare_valid && !busy && !wren && !flush;
         pmu_dcache_rd_miss   = (state == STATE_MISS ||
-                                (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory)) && !wren;
+                                (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory)) && !wren &&
+                               !flush;
     end
 
     RXVAssert device_not_cached (
         .clk      (clk),
-        .en       (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory),
+        .en       (state == STATE_RUN && tag_compare_valid && phys_valid && device_memory && !flush),
         .condition(miss)
     );
 
@@ -465,7 +494,12 @@ module RXVDCache #(
                 if (invalidate) next_state = STATE_INVAL;
                 if (clean) next_state = STATE_CLEAN;
                 if (miss && phys_valid) next_state = STATE_MISS;
-                if (tag_compare_valid && phys_valid && device_memory) next_state = STATE_UNCACHED;
+                if (flush_hit && phys_valid) next_state = STATE_LINE_FLUSH;
+                if (tag_compare_valid && phys_valid && device_memory && !flush)
+                    next_state = STATE_UNCACHED;
+            end
+            STATE_LINE_FLUSH: begin
+                next_state = line_flush_done ? STATE_RUN : STATE_LINE_FLUSH;
             end
             STATE_MISS: begin
                 next_state = dirty[fill_way_next] ? STATE_FLUSH : STATE_FILL;

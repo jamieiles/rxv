@@ -72,6 +72,7 @@ module RXVMMUTopWrapper (
         .dout                (dcache_dout),
         .invalidate          (dcache_invalidate),
         .clean               (1'b0),
+        .flush               (1'b0),
         .bus                 (mem_bus.Manager),
         .phys_in             (dcache_phys_in),
         .phys_valid          (dcache_phys_valid),

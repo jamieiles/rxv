@@ -162,7 +162,9 @@ package RXVTypes;
         UOP_SFENCE_VMA_ALL,
         UOP_SFENCE_VMA_ASID,
         UOP_SFENCE_VMA_ADDR,
-        UOP_SFENCE_VMA_ASID_ADDR
+        UOP_SFENCE_VMA_ASID_ADDR,
+        // CBO.CLEAN, CBO.FLUSH and CBO.INVAL are all performed as a flush
+        UOP_CBO_FLUSH
     } rxv_uop  /* verilator public */;
 
     // verilator lint_off UNUSED

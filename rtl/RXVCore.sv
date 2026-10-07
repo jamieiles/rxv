@@ -24,6 +24,7 @@ import RXVCSR::mcause_t;
 import RXVCSR::mstatus_t;
 import RXVCSR::privilege_t;
 import RXVCSR::stperms_t;
+import RXVCSR::envcfg_t;
 import RXVMMU::translation_t;
 import RXVMMU::tlb_inv_op;
 import RXVMMU::asid_bits;
@@ -145,6 +146,8 @@ module RXVCore #(
     logic          [                  31:2] mepc_val;
     logic          [                  31:2] sepc_val;
     mstatus_t                               mstatus_val;
+    envcfg_t                                menvcfg_val;
+    envcfg_t                                senvcfg_val;
     RXVException                            exec_exception;
     logic          [      commit_width-1:0] exec_except_id;
     logic                                   do_mret;
@@ -208,6 +211,7 @@ module RXVCore #(
     logic                                   lsu_dcache_phys_valid;
     logic                                   lsu_dcache_invalidate;
     logic                                   lsu_dcache_clean;
+    logic                                   lsu_dcache_flush;
     translation_t                           lsu_translation;
     logic                                   lsu_access_fault;
     logic                                   lsu_tlb_busy;
@@ -248,6 +252,7 @@ module RXVCore #(
     logic          [                  31:0] dcache_dout;
     logic                                   dcache_invalidate;
     logic                                   dcache_clean;
+    logic                                   dcache_flush;
     logic          [                  31:2] dcache_phys_in;
     logic                                   dcache_phys_valid;
     logic          [                  31:2] dcache_phys_out;
@@ -450,6 +455,8 @@ module RXVCore #(
         .decode_fe_stall            (decode_fe_stall),
         .decode_csr_addr            (decode_csr_addr),
         .mstatus_in                 (mstatus_val),
+        .menvcfg_in                 (menvcfg_val),
+        .senvcfg_in                 (senvcfg_val),
         .valid_csr_in               (decode_valid_csr),
         .reg_wr_addr                (reg_wr_addr),
         .reg_wr_en                  (reg_wr_en),
@@ -627,6 +634,7 @@ module RXVCore #(
         .dcache_wdata        (lsu_dcache_din),
         .dcache_invalidate   (lsu_dcache_invalidate),
         .dcache_clean        (lsu_dcache_clean),
+        .dcache_flush        (lsu_dcache_flush),
         .dcache_phys         (lsu_dcache_phys_in),
         .dcache_phys_valid   (lsu_dcache_phys_valid),
         .dcache_device_memory(dcache_device_memory),
@@ -732,7 +740,9 @@ module RXVCore #(
         .translation_base     (translation_base),
         .active_asid          (active_asid),
         .i_tlb_enabled        (i_tlb_enabled),
-        .d_tlb_enabled        (d_tlb_enabled)
+        .d_tlb_enabled        (d_tlb_enabled),
+        .menvcfg_out          (menvcfg_val),
+        .senvcfg_out          (senvcfg_val)
     );
 
     RXVRenameFile RXVRenameFile (
@@ -780,6 +790,7 @@ module RXVCore #(
         .wren                (dcache_wren),
         .bytesel             (dcache_bytesel),
         .clean               (dcache_clean),
+        .flush               (dcache_flush),
         .phys_in             (dcache_phys_in),
         .pmu_dcache_wr_access(pmu_l1d_read),
         .pmu_dcache_wr_miss  (pmu_l1d_read_miss),
@@ -806,6 +817,7 @@ module RXVCore #(
         .lsu_dcache_phys_valid(lsu_dcache_phys_valid),
         .lsu_dcache_invalidate(lsu_dcache_invalidate),
         .lsu_dcache_clean     (lsu_dcache_clean),
+        .lsu_dcache_flush     (lsu_dcache_flush),
         .mmu_dcache_address   (mmu_dcache_address),
         .mmu_dcache_valid     (mmu_dcache_valid),
         .mmu_dcache_busy      (mmu_dcache_busy),
@@ -823,7 +835,8 @@ module RXVCore #(
         .dcache_phys_in       (dcache_phys_in),
         .dcache_phys_valid    (dcache_phys_valid),
         .dcache_invalidate    (dcache_invalidate),
-        .dcache_clean         (dcache_clean)
+        .dcache_clean         (dcache_clean),
+        .dcache_flush         (dcache_flush)
     );
 
     RXVPMP #(

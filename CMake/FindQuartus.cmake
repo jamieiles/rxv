@@ -3,7 +3,8 @@ include(FindPackageHandleStandardArgs)
 set(QUARTUS_PATHS
     /opt/altera/quartus/bin/
     /opt/altera/21.1/quartus/bin/
-    $ENV{HOME}/tools/intelFPGA_lite/21.1/quartus/bin)
+    $ENV{HOME}/tools/intelFPGA_lite/21.1/quartus/bin
+    $ENV{HOME}/tools/intelFPGA_lite/quartus/bin)
 
 find_program(QUARTUS_SH_EXECUTABLE NAMES quartus_sh
              PATHS ${QUARTUS_PATHS})

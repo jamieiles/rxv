@@ -44,6 +44,7 @@ module RXVPMP #(
     // verilator lint_off UNUSED
     logic       [7:0] pmp_cfg_update[4];
     // verilator lint_on UNUSED
+    logic       [addr_bits-1:0] cfg_read_entry;
 
     function logic [31:2] pmp_mask;
         // verilator lint_off UNUSED
@@ -142,12 +143,13 @@ module RXVPMP #(
         cfg_read_data = 32'b0;
 
         for (int i = 0; i < 4; ++i) begin
+            cfg_read_entry = addr_bits'({cfg_read_idx, 2'(i)});
             cfg_read_data[i*8+:8] = {
                 3'b0,
-                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].enabled ? 2'b11 : 2'b00,
-                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].perms.exec,
-                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].perms.write,
-                pmps[{cfg_read_idx, 2'(i)}[addr_bits-1:0]].perms.read
+                pmps[cfg_read_entry].enabled ? 2'b11 : 2'b00,
+                pmps[cfg_read_entry].perms.exec,
+                pmps[cfg_read_entry].perms.write,
+                pmps[cfg_read_entry].perms.read
             };
         end
     end

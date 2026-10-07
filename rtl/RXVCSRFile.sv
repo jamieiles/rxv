@@ -177,6 +177,10 @@ module RXVCSRFile #(
     localparam pmp_addr_bits = $clog2(num_pmps);
     localparam pmp_cfg_bits = num_pmps <= 4 ? 1 : $clog2(num_pmps / 4);
 
+    function automatic logic is_pmpaddr_csr(input logic [11:0] addr);
+        is_pmpaddr_csr = addr >= RXVCSR::CSR_PMPADDR0 && addr <= RXVCSR::CSR_PMPADDR0 + 12'(num_pmps - 1);
+    endfunction
+
     localparam logic [31:0] misa_u = 32'd1 << 20;
     localparam logic [31:0] misa_s = 32'd1 << 18;
     localparam logic [31:0] misa_m = 32'd1 << 12;
@@ -386,7 +390,7 @@ module RXVCSRFile #(
     );
 
     always_comb begin
-        unique case (rd_addr) inside
+        unique case (rd_addr)
             RXVCSR::CSR_MISA: rd_data_next = misa;
             RXVCSR::CSR_MVENDORID: rd_data_next = vendorid;
             RXVCSR::CSR_MARCHID: rd_data_next = archid;
@@ -429,12 +433,14 @@ module RXVCSRFile #(
             RXVCSR::CSR_PMPCFG1: rd_data_next = pmp_cfg;
             RXVCSR::CSR_STIMECMP: rd_data_next = stimecmp_reg[31:0];
             RXVCSR::CSR_STIMECMPH: rd_data_next = stimecmp_reg[63:32];
-            [RXVCSR::CSR_PMPADDR0:RXVCSR::CSR_PMPADDR0 + 12'(num_pmps - 1)]: rd_data_next = pmp_addr;
             RXVCSR::CSR_SCOUNTOVF: rd_data_next = unpack_scountovf(scountovf_reg);
             RXVCSR::CSR_MENVCFG: rd_data_next = unpack_envcfg(menvcfg_reg);
             RXVCSR::CSR_SENVCFG: rd_data_next = unpack_envcfg(senvcfg_reg);
             default: rd_data_next = 32'b0;
         endcase
+
+        // Ranges in a case statement (case inside) aren't supported by Quartus.
+        if (is_pmpaddr_csr(rd_addr)) rd_data_next = pmp_addr;
 
 	for (logic [11:0] i = 0; i < num_event_counters; ++i) begin
             unique case (rd_addr)
@@ -742,7 +748,7 @@ module RXVCSRFile #(
 
     // verilog_format: off
     always_comb begin
-        unique case (rd_addr) inside
+        unique case (rd_addr)
             // Debug
             RXVCSR::CSR_TSELECT, RXVCSR::CSR_TDATA1, RXVCSR::CSR_TDATA2, RXVCSR::CSR_TDATA3,
             // Machine
@@ -766,12 +772,13 @@ module RXVCSRFile #(
             RXVCSR::CSR_UINSTRET, RXVCSR::CSR_UINSTRETH:
             valid_csr_out = 1'b1;
             RXVCSR::CSR_PMPCFG1: valid_csr_out = (num_pmps > 4);
-            [RXVCSR::CSR_PMPADDR0:RXVCSR::CSR_PMPADDR0 + 12'(num_pmps - 1)]: valid_csr_out = 1'b1;
             // SATP special case for TVM
             RXVCSR::CSR_SATP:
             valid_csr_out = current_privilege == RXVCSR::PRIV_M || (current_privilege == RXVCSR::PRIV_S && !mstatus_reg.tvm);
             default: valid_csr_out = 1'b0;
         endcase
+
+        if (is_pmpaddr_csr(rd_addr)) valid_csr_out = 1'b1;
 
 	for (logic [11:0] i = 0; i < num_event_counters; ++i) begin
             unique case (rd_addr)

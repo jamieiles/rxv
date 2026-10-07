@@ -160,6 +160,26 @@ public:
                 writeback(ways[way].lines[idx], idx);
     }
 
+    // Write back the line containing addr if it is dirty and then
+    // invalidate it.
+    void flush(uint32_t addr)
+    {
+        if (is_noncacheable(addr))
+            return;
+
+        auto addr_index = index(addr);
+        auto addr_tag = tag(addr);
+
+        for (size_t i = 0; i < num_ways; ++i) {
+            auto &line = ways[i].lines[addr_index];
+            if (line.valid && line.tag == addr_tag) {
+                writeback(line, addr_index);
+                line.valid = false;
+                line.dirty = false;
+            }
+        }
+    }
+
     void invalidate()
     {
         for (size_t way = 0; way < num_ways; ++way) {
@@ -506,6 +526,42 @@ public:
     {
         dcache.clean();
         icache.invalidate();
+    }
+
+    // Cache-block flush: permitted if either a load or a store to the block
+    // would be, faults are reported as store faults.
+    bool do_cbo_flush(uint32_t addr)
+    {
+        uint32_t phys;
+
+        if (need_translation(false)) {
+            struct translation *translation;
+
+            if (!translate(addr, &translation)) {
+                mem_abort_cause = STORE_ACCESS_FAULT;
+                return false;
+            }
+
+            if (!access_valid(translation, true, false, false) &&
+                !access_valid(translation, false, true, false)) {
+                mem_abort_cause = STORE_PAGE_FAULT;
+                return false;
+            }
+
+            phys = translation->phys;
+        } else {
+            phys = addr;
+        }
+
+        if (!pmp_access_allowed(phys, PMP::PMP_READ) &&
+            !pmp_access_allowed(phys, PMP::PMP_WRITE)) {
+            mem_abort_cause = STORE_ACCESS_FAULT;
+            return false;
+        }
+
+        dcache.flush(phys);
+
+        return true;
     }
 
     bool step();

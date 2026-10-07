@@ -44,6 +44,8 @@ enum CSRID {
     MIE            = 0x0304,
     MTVEC          = 0x0305,
     MCOUNTEREN     = 0x0306,
+    MENVCFG        = 0x030a,
+    MENVCFGH       = 0x031a,
     MCOUNTINHIBIT  = 0x0320,
     MSCRATCH       = 0x0340,
     MEPC           = 0x0341,
@@ -66,6 +68,7 @@ enum CSRID {
     SIE            = 0x0104,
     STVEC          = 0x0105,
     SCOUNTEREN     = 0x0106,
+    SENVCFG        = 0x010a,
     SSCRATCH       = 0x0140,
     SEPC           = 0x0141,
     SCAUSE         = 0x0142,
@@ -109,6 +112,8 @@ static const struct CSRDef csr_defs[] = {
     { "mtvec",         0xfffffffd, 0x00000000, MTVEC },
     { "mcounteren",    0x00000007, 0x00000000, MCOUNTEREN },
     { "mcountinhibit", 0x00000005, 0x00000000, MCOUNTINHIBIT },
+    { "menvcfg",       0x00000070, 0x00000000, MENVCFG },
+    { "menvcfgh",      0x00000000, 0x00000000, MENVCFGH },
     { "mscratch",      0xffffffff, 0x00000000, MSCRATCH },
     { "mepc",          0xfffffffc, 0x00000000, MEPC },
     { "mcause",        0xffffffff, 0x00000000, MCAUSE },
@@ -122,6 +127,7 @@ static const struct CSRDef csr_defs[] = {
     { "sie",           0xffffffff, 0x00000000, SIE },
     { "stvec",         0xfffffffd, 0x00000000, STVEC },
     { "scounteren",    0x00000000, 0x00000000, SCOUNTEREN },
+    { "senvcfg",       0x00000070, 0x00000000, SENVCFG },
     { "sscratch",      0xffffffff, 0x00000000, SSCRATCH },
     { "sepc",          0xfffffffc, 0x00000000, SEPC },
     { "scause",        0xffffffff, 0x00000000, SCAUSE },
@@ -167,6 +173,9 @@ static const struct CSRDef csr_defs[] = {
 };
 // clang-format on
 
+constexpr uint32_t envcfg_cbie_shift = 4;
+constexpr uint32_t envcfg_cbie_mask = (0x3 << envcfg_cbie_shift);
+constexpr uint32_t envcfg_cbcfe = (1 << 6);
 constexpr uint32_t mie_meie = (1 << 11);
 constexpr uint32_t mie_mtie = (1 << 7);
 constexpr uint32_t mie_msie = (1 << 3);
@@ -441,6 +450,14 @@ void RXVSim::do_write_csr(int r, uint32_t v)
         insns_retired &= 0xffffffffLU;
         insns_retired |= static_cast<uint64_t>(v) << 32;
 	inhibit_insns_retired_update = true;
+        break;
+    case MENVCFG:
+    case SENVCFG:
+        // Only CBCFE and CBIE are implemented, CBIE=2'b10 is reserved
+        v &= wr_mask;
+        if ((v & envcfg_cbie_mask) == (2 << envcfg_cbie_shift))
+            v &= ~envcfg_cbie_mask;
+        csrs[id].val = v;
         break;
     case RXV_EMUCTL:
         std::cerr << "rxvemu: received simulation exit CSR write (" << std::hex
@@ -1310,6 +1327,27 @@ bool RXVSim::step()
             if (funct3 == 0x1) {
                 dcache.clean();
                 icache.invalidate();
+            } else if (funct3 == 0x2) {
+                // CBO.INVAL, CBO.CLEAN and CBO.FLUSH are all performed as a
+                // flush, the envcfg controls only decide whether they trap.
+                bool inval = i_immed == 0x000;
+                bool clean_flush = i_immed == 0x001 || i_immed == 0x002;
+                auto menvcfg = read_csr(MENVCFG);
+                auto senvcfg = read_csr(SENVCFG);
+
+                if (rd != 0 || (!inval && !clean_flush)) {
+                    illegal_instruction = true;
+                } else if (clean_flush &&
+                           ((privilege_level != M && !(menvcfg & envcfg_cbcfe)) ||
+                            (privilege_level == U && !(senvcfg & envcfg_cbcfe)))) {
+                    illegal_instruction = true;
+                } else if (inval &&
+                           ((privilege_level != M && !(menvcfg & envcfg_cbie_mask)) ||
+                            (privilege_level == U && !(senvcfg & envcfg_cbie_mask)))) {
+                    illegal_instruction = true;
+                } else if (!do_cbo_flush(read_reg(rs1))) {
+                    do_exception(mem_abort_cause, read_reg(rs1));
+                }
             }
             break; // FENCE
         case 0x73:

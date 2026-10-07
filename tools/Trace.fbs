@@ -32,6 +32,7 @@ enum CSRId : uint16 {
     MIE            = 0x0304,
     MTVEC          = 0x0305,
     MCOUNTEREN     = 0x0306,
+    MENVCFG        = 0x030a,
     MSTATUSH       = 0x0310,
     MCOUNTINHIBIT  = 0x0320,
     MHPMEVENT3     = 0x0323,

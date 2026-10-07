@@ -279,9 +279,14 @@ module RXVCore #(
     logic          [      commit_width-1:0] commit_id;
     //verilator lint_on UNUSED
     logic                                   retired;
+    // exception_cleanup and exception_busy_wait are only used for tracing
+    // verilator lint_off UNUSEDSIGNAL
     logic                                   exception_cleanup;
+    // verilator lint_on UNUSEDSIGNAL
     logic                                   exception_priv_change;
+    // verilator lint_off UNUSEDSIGNAL
     logic                                   exception_busy_wait;
+    // verilator lint_on UNUSEDSIGNAL
     logic                                   exception_resteer;
     logic          [                  31:2] exception_resteer_tgt;
 
@@ -1113,7 +1118,7 @@ module RXVCore #(
         .condition((3'(int_exec_resteer) + 3'(lsu_resteer)) + 3'(irq_resteer) + 3'(exception_resteer) <= 3'b1)
     );
 
-`ifdef verilator
+`ifdef RXV_TRACE
     generate
         if (banked_register_file == 0) begin : gen_non_banked
             always_ff @(posedge clk) begin
@@ -1147,6 +1152,6 @@ module RXVCore #(
             end
         end
     endgenerate
-`endif  // verilator
+`endif  // RXV_TRACE
 
 endmodule

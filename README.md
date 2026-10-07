@@ -233,3 +233,40 @@ The default Arty S7 configuration has:
   - Xilinx AXI memory adapter connecting to the BootROM
 
 The Arty [Device Tree](platform/rxv-arty.dts) has the memory map for these components.
+
+### Terasic DE0-CV
+
+The DE0-CV (Cyclone V 5CEBA4F23C7) port has a VGA framebuffer console and PS/2
+keyboard and mouse instead of a serial port, and no networking.  The boot ROM
+is built in the container with the rest of the tree, then the bitstream is
+built with Quartus Prime Lite (tested with 25.1std) from an empty directory:
+
+    mkdir -p _build/fpga/intel/de0-cv/hw && cd _build/fpga/intel/de0-cv/hw
+    quartus_sh -t ../../../../../fpga/intel/de0-cv/de0cv.tcl
+    quartus_pgm -m JTAG -o "p;DE0CVTop.sof"
+
+The boot ROM shows its progress on the VGA output and loads OPENSBI.BIN,
+IMAGEGZ.BIN (the gzipped kernel Image, optional) and DE0CV.DTB from a bootable
+FAT16 first partition on the microSD card, the second partition is the root
+filesystem.  The kernel is configured with [linux-defconfig](platform/linux-defconfig)
+merged with [linux-de0cv.config](platform/linux-de0cv.config) and needs no
+patches, the [Device Tree](platform/rxv-de0cv.dts) has the memory map.  The
+PS/2 keyboard is on the first port of the connector and the mouse on the
+second, through a Y cable.
+
+The DE0-CV configuration has:
+
+  - RXV Core at 60MHz with the same caches and TLBs as the Arty
+  - 64MB SDR SDRAM with a burst length 1 controller, the top 1MB is the
+    framebuffer, also mapped uncached at 0xf8000000
+  - 640x480 RGB565 VGA scanout from the framebuffer to the 4-bit DAC,
+    described to Linux as a simple-framebuffer
+  - RISC-V PLIC
+  - SDHCI 2.00 compatible SD host controller with SDMA, as on the Arty
+  - Two PS/2 ports compatible with the Altera University Program PS/2 core
+  - LEDs and seven segment displays for debug
+  - 32KB dual port boot ROM
+
+`TestDE0CVSoC` and `TestDE0CVBoot` in the RTL unit tests run the whole system
+in simulation, the latter booting from a simulated SD card (set DE0CV_FB_DUMP
+to a file name to save the screen as a PPM).

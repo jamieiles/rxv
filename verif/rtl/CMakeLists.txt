@@ -78,6 +78,7 @@ add_executable(rtl-unittest
     TestRXVCoreEmulWrapper.cpp
     TestStaticArbiter.cpp
     TestMIGFrontend.cpp
+    TestSDRAMFrontend.cpp
     TestSDHCI.cpp
     fixtures/SDCardModel.cpp)
 target_link_libraries(rtl-unittest
@@ -515,6 +516,24 @@ verilate(rtl-unittest
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
     TOP_MODULE MIGFrontendWrapper
+    TRACE_FST TRACE_STRUCTS)
+
+verilate(rtl-unittest
+    VERILATOR_ARGS ${VERILATOR_FLAGS}
+    PREFIX VSDRAMFrontendWrapper
+    SOURCES
+    fixtures/SDRAMFrontendWrapper.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdram/SDRAMController.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdram/SDRAMFrontend.sv
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+    TOP_MODULE SDRAMFrontendWrapper
     TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest

@@ -38,20 +38,40 @@ module RXVPMU #(
     // verilog_format: on
 );
 
+    // The events come straight from execute (e.g. the branch compare) so
+    // register them, along with the mode they occurred in, before the
+    // counters to keep the counter enables and overflow off the critical
+    // path.  The programmable counters lag by a cycle, mcycle and minstret
+    // are counted directly.
+    pmu_evt_bus pmu_events_q;
+    logic       m_mode_q;
+    logic       s_mode_q;
+    logic       u_mode_q;
+
+    RXVDFF #(
+        .width($bits(pmu_evt_bus) + 3)
+    ) pmu_events_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    ({pmu_events, m_mode, s_mode, u_mode}),
+        .q    ({pmu_events_q, m_mode_q, s_mode_q, u_mode_q})
+    );
+
     genvar i;
     generate
         for (i = 0; i < num_event_counters; ++i) begin : evt_counter
             RXVEventCounter counter (
                 .clk        (clk),
                 .reset      (reset),
-                .event_bus  (pmu_events),
+                .event_bus  (pmu_events_q),
                 .sel        (pmu_event_sel[i]),
                 .inhibit    (pmu_event_inhibit[i]),
-                .m_mode     (m_mode),
+                .m_mode     (m_mode_q),
                 .m_inhibit  (pmu_m_inhibit[i]),
-                .s_mode     (s_mode),
+                .s_mode     (s_mode_q),
                 .s_inhibit  (pmu_s_inhibit[i]),
-                .u_mode     (u_mode),
+                .u_mode     (u_mode_q),
                 .u_inhibit  (pmu_u_inhibit[i]),
                 .count_wren (pmu_count_wren[i]),
                 .counth_wren(pmu_counth_wren[i]),

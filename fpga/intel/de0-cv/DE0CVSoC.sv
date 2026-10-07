@@ -69,7 +69,17 @@ module DE0CVSoC #(
     output logic        vga_vsync,
     // Debug
     output logic [ 9:0] leds,
-    output logic [41:0] hex_n
+    output logic [41:0] hex_n,
+    // For a JTAG probe:
+    //   [255:224] the PC of the last jump and link
+    //   [223:192] mtval
+    //   [191:160] mepc
+    //   [159:128] mcause
+    //   [127:96]  counts of data and instruction bus requests (16 bits each)
+    //   [95:64]   the address of the last device bus access
+    //   [63:32]   {27'b0, mouse, kbd, sdhci, mtime and PLIC S interrupts}
+    //   [31:0]    {the PC in execute, the privilege level}
+    output logic [255:0] debug_probe
 );
 
     localparam int num_slaves = 6;
@@ -108,6 +118,7 @@ module DE0CVSoC #(
     // verilator lint_off UNUSEDSIGNAL
     logic [ 1:0] plic_irq;
     // verilator lint_on UNUSEDSIGNAL
+    logic [159:0] debug_state;
 
     RXVCore #(
         .icache_nr_ways        (8),
@@ -128,8 +139,10 @@ module DE0CVSoC #(
         .mtime          (mtime),
         .mtime_irq      (mtime_irq),
         // The S-mode context of the PLIC, the M-mode one is unused.
-        .ext_irq        (plic_irq[1])
+        .ext_irq        (plic_irq[1]),
+        .debug_state    (debug_state)
     );
+
 
     MemSplit #(
         .match_base(32'h80000000),
@@ -576,5 +589,24 @@ module DE0CVSoC #(
         // There is no card detect on the DE0-CV.
         .cd_n         (1'b0)
     );
+
+    // ------------------------------------------------------------------
+    // Debug probe
+    // ------------------------------------------------------------------
+    logic [31:0] last_dev_addr;
+    logic [15:0] i_requests;
+    logic [15:0] d_requests;
+
+    always_ff @(posedge clk) begin
+        if (dev_bus.arvalid && dev_bus.arready) last_dev_addr <= dev_bus.raddr;
+        if (dev_bus.awvalid && dev_bus.awready) last_dev_addr <= dev_bus.waddr;
+        if (i_mem_bus.arvalid && i_mem_bus.arready) i_requests <= i_requests + 1'b1;
+        if ((d_mem_bus.arvalid && d_mem_bus.arready) || (d_mem_bus.awvalid && d_mem_bus.awready))
+            d_requests <= d_requests + 1'b1;
+    end
+
+    assign debug_probe = {debug_state[159:32], d_requests, i_requests, last_dev_addr,
+                          27'b0, mouse_irq, kbd_irq, sdhci_irq, mtime_irq, plic_irq[1],
+                          debug_state[31:0]};
 
 endmodule

@@ -47,7 +47,10 @@ module RXVCoreEmulWrapper (
         .data_bus       (dmem_bus.Manager),
         .mtime          (mtime),
         .mtime_irq      (mtime_irq),
-        .ext_irq        (ext_irq)
+        .ext_irq        (ext_irq),
+        // verilator lint_off PINCONNECTEMPTY
+        .debug_state    ()
+        // verilator lint_on PINCONNECTEMPTY
     );
 
 endmodule

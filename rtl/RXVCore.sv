@@ -58,7 +58,10 @@ module RXVCore #(
           MemInterface.Manager        data_bus,
     input logic                [63:0] mtime,
     input logic                       mtime_irq,
-    input logic                       ext_irq
+    input logic                       ext_irq,
+    // For board debug: {the PC of the last jump and link, mtval, mepc,
+    // mcause, the PC in execute, the current privilege level}
+    output logic              [159:0] debug_state
 );
     localparam                              pmp_addr_bits = $clog2(num_pmps);
     localparam                              pmp_cfg_bits = num_pmps <= 4 ? 1 : $clog2(num_pmps / 4);
@@ -692,6 +695,8 @@ module RXVCore #(
         .wr_data              (exec_csr_wr_data),
         .wr_en                (exec_csr_wr_en),
         .mepc_out             (mepc_val),
+        .debug_mcause         (debug_mcause),
+        .debug_mtval          (debug_mtval),
         .sepc_out             (sepc_val),
         .mstatus_out          (mstatus_val),
         .exception_resteer_tgt(exception_resteer_tgt),
@@ -1117,6 +1122,21 @@ module RXVCore #(
         .en(1'b1),
         .condition((3'(int_exec_resteer) + 3'(lsu_resteer)) + 3'(irq_resteer) + 3'(exception_resteer) <= 3'b1)
     );
+
+    logic [31:0] debug_mcause;
+    logic [31:0] debug_mtval;
+    logic [31:2] debug_last_call;
+
+    // A jump that writes a register is a call, the last one is where a hang
+    // was called from.
+    always_ff @(posedge clk) begin
+        if (int_exec_valid && !kill_valid && exec_have_writeback &&
+            (exec_uop == RXVTypes::UOP_JAL || exec_uop == RXVTypes::UOP_JALR))
+            debug_last_call <= exec_pc;
+    end
+
+    assign debug_state = {debug_last_call, 2'b0, debug_mtval, mepc_val, 2'b0, debug_mcause,
+                          exec_pc, 2'(current_privilege)};
 
 `ifdef RXV_TRACE
     generate

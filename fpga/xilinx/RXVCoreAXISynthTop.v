@@ -308,7 +308,8 @@ module RXVCoreAXISynthTop (
         .data_bus       (d_mem_bus.Manager),
         .mtime          (mtime),
         .mtime_irq      (mtime_irq),
-        .ext_irq        (ext_irq)
+        .ext_irq        (ext_irq),
+        .debug_state    ()
     );
 
 endmodule

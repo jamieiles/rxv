@@ -115,7 +115,10 @@ module RXVCoreSynthTop (
         .data_bus       (d_mem_bus.Manager),
         .mtime          (mtime),
         .mtime_irq      (mtime_irq),
-        .ext_irq        (1'b0)
+        .ext_irq        (1'b0),
+        // verilator lint_off PINCONNECTEMPTY
+        .debug_state    ()
+        // verilator lint_on PINCONNECTEMPTY
     );
 
 endmodule

@@ -166,7 +166,25 @@ module DE0CVTop #(
         .vga_hsync    (VGA_HS),
         .vga_vsync    (VGA_VS),
         .leds         (LEDR),
-        .hex_n        (hex_n)
+        .hex_n        (hex_n),
+        .debug_probe  (debug_probe)
+    );
+
+    // Read over JTAG with quartus_stp, see debug-probe.tcl.
+    wire [255:0] debug_probe;
+
+    altsource_probe #(
+        .sld_auto_instance_index("YES"),
+        .instance_id            ("RXV"),
+        .probe_width            (256),
+        .source_width           (1),
+        .source_initial_value   ("0"),
+        .enable_metastability   ("YES")
+    ) debug_probe_jtag (
+        .probe     (debug_probe),
+        .source    (),
+        .source_clk(sys_clk),
+        .source_ena(1'b1)
     );
 
 endmodule

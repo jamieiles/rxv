@@ -108,6 +108,9 @@ module RXVCSRFile #(
     output logic                                 valid_csr_out,
     // Exception handling
     output logic        [                  31:2] mepc_out,
+    // The last machine mode trap cause and value, for board debug
+    output logic        [                  31:0] debug_mcause,
+    output logic        [                  31:0] debug_mtval,
     output logic        [                  31:2] sepc_out,
     output mstatus_t                             mstatus_out,
     output logic        [                  31:2] exception_resteer_tgt,
@@ -840,6 +843,8 @@ module RXVCSRFile #(
 
     always_comb begin
         mepc_out = mepc_reg.addr;
+        debug_mcause = unpack_mcause(mcause_reg);
+        debug_mtval = unpack_mtval(mtval_reg);
     end
 
     always_comb begin

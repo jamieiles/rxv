@@ -8,7 +8,9 @@ module RXVCLINT (
     input  wire        s_axi_awvalid,
     output reg         s_axi_awready,
     input  wire [31:0] s_axi_wdata,
+    // verilator lint_off UNUSEDSIGNAL
     input  wire [ 3:0] s_axi_wstrb,
+    // verilator lint_on UNUSEDSIGNAL
     input  wire        s_axi_wvalid,
     output reg         s_axi_wready,
     output reg  [ 1:0] s_axi_bresp,

@@ -82,6 +82,7 @@ add_executable(rtl-unittest
     TestPLIC.cpp
     TestAltPS2.cpp
     TestVGAScanout.cpp
+    TestDE0CVSoC.cpp
     TestSDHCI.cpp
     fixtures/SDCardModel.cpp)
 target_link_libraries(rtl-unittest
@@ -572,6 +573,107 @@ verilate(rtl-unittest
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
     TOP_MODULE VGAScanoutWrapper
+    TRACE_FST TRACE_STRUCTS)
+
+# A test program for the DE0-CV boot ROM
+add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/soctest.hex
+    COMMAND riscv64-unknown-elf-gcc -march=rv32ima_zicsr_zifencei_zicbom -mabi=ilp32
+            -nostdlib -T ${CMAKE_CURRENT_SOURCE_DIR}/de0cv/soctest.x
+            -o ${CMAKE_CURRENT_BINARY_DIR}/soctest.elf
+            ${CMAKE_CURRENT_SOURCE_DIR}/de0cv/soctest.S
+    COMMAND riscv64-unknown-elf-objcopy -O binary ${CMAKE_CURRENT_BINARY_DIR}/soctest.elf
+            ${CMAKE_CURRENT_BINARY_DIR}/soctest.bin
+    COMMAND xxd -e -c 4 -g4 ${CMAKE_CURRENT_BINARY_DIR}/soctest.bin | awk \'{print $$2}\'
+            > ${CMAKE_CURRENT_BINARY_DIR}/soctest.hex
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/de0cv/soctest.S ${CMAKE_CURRENT_SOURCE_DIR}/de0cv/soctest.x)
+add_custom_target(soctest_hex DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/soctest.hex)
+add_dependencies(rtl-unittest soctest_hex)
+
+verilate(rtl-unittest
+    VERILATOR_ARGS ${VERILATOR_FLAGS}
+        "-Gbootrom_init=\"${CMAKE_CURRENT_BINARY_DIR}/soctest.hex\""
+        -Gsdram_init_wait_ns=2000
+    PREFIX VDE0CVSoC
+    SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTypes.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVTrace.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVMMU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVCSR.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/StaticArbiter.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVALU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCore.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDecode.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVFetch.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVBranchPredictor.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitBuffer.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCommitter.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRFile.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCache.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDCacheArb.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDiv.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVDivExec.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVEventCounter.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVICache.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVIntExec.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVLSU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMMUTop.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMul.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVMulExec.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMP.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPMU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVPTWalker.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterAllocator.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFile.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileBanked.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRegisterFileDFF.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVRenameFile.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScheduler.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVScoreboard.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVTLB.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFFPipe.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitPLRU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/DPRAM.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/Fifo.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/MemInterface.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotEncode.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/OneHotDecode.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/PosedgeDetect.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAM.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RAMBE.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/TLBPLRU.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/CacheRAM.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitSync.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVADFF.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/MemSplit.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/BootROM.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/BootROMPort.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/AXILiteDecoder.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/AXILiteRegs.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/RXVCLINT.v
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/PLIC.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/DebugRegs.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/PS2Host.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/AltPS2.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/video/VGAScanout.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdram/SDRAMController.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdram/SDRAMFrontend.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDHCI.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDHCIRegs.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDClockGen.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDCmdEngine.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDDataEngine.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDDataFifo.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDHCIDMA.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/intel/de0-cv/DE0CVSoC.sv
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+    TOP_MODULE DE0CVSoC
+    THREADS 1
+    OPT_GLOBAL "-O3"
     TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest

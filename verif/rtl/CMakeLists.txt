@@ -80,6 +80,7 @@ add_executable(rtl-unittest
     TestMIGFrontend.cpp
     TestSDRAMFrontend.cpp
     TestPLIC.cpp
+    TestAltPS2.cpp
     TestSDHCI.cpp
     fixtures/SDCardModel.cpp)
 target_link_libraries(rtl-unittest
@@ -544,6 +545,18 @@ verilate(rtl-unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/PLIC.sv
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
     TOP_MODULE PLIC
+    TRACE_FST TRACE_STRUCTS)
+
+verilate(rtl-unittest
+    VERILATOR_ARGS ${VERILATOR_FLAGS}
+    PREFIX VAltPS2
+    SOURCES
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVADFF.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitSync.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/PS2Host.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/AltPS2.sv
+    INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
+    TOP_MODULE AltPS2
     TRACE_FST TRACE_STRUCTS)
 
 verilate(rtl-unittest

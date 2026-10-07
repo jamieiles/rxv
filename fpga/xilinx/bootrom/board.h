@@ -10,3 +10,6 @@
  */
 #define BOARD_TIMER_HZ 10140625
 #define BOARD_US_TO_TICKS(us) (((uint64_t)(us) * 649) >> 6)
+
+/* The SD host controller's base clock, the MIG UI clock. */
+#define BOARD_SDHCI_BASE_KHZ 81248

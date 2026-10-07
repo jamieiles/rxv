@@ -1,4 +1,5 @@
 #include "common.h"
+#include "board.h"
 #include "printk.h"
 #include "string.h"
 #include "mtime.h"
@@ -58,7 +59,7 @@
 #define SDHCI_RESET_CMD (1 << 25)
 #define SDHCI_RESET_DAT (1 << 26)
 
-/* SDCLK = 81.25MHz / (2 * div) */
+/* SDCLK = base clock / (2 * div) */
 #define SDHCI_DIV_400K 0x80
 #define SDHCI_DIV_25M 0x02
 #define SDHCI_DIV_50M 0x01
@@ -383,6 +384,7 @@ void sd_init(void)
         sdhci_set_clock(SDHCI_DIV_50M);
     }
 
-    printk("SD: %s card, 4-bit, %s\n", sd_block_addressed ? "SDHC" : "SDSC",
-           high_speed ? "high speed 40.6MHz" : "default speed 20.3MHz");
+    unsigned long khz = BOARD_SDHCI_BASE_KHZ / (2 * (high_speed ? SDHCI_DIV_50M : SDHCI_DIV_25M));
+    printk("SD: %s card, 4-bit, %s %u.%uMHz\n", sd_block_addressed ? "SDHC" : "SDSC",
+           high_speed ? "high speed" : "default speed", khz / 1000, (khz % 1000) / 100);
 }

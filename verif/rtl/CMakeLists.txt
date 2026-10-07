@@ -48,7 +48,7 @@ foreach(sdhci_top SDClockGen SDCmdEngine SDDataEngine SDDataFifo SDHCIRegs SDHCI
               SKIP 0
               DEFINES "FORMAL_${sdhci_top}"
               INCLUDES ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
-              SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/${sdhci_top}.sv
+              SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/${sdhci_top}.sv
               ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
 endforeach()
 
@@ -510,7 +510,7 @@ verilate(rtl-unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BusAdapter.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVAssert.sv
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/MemSplit.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/MemSplit.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/MIGFrontend.sv
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/fixtures
     INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib
@@ -522,13 +522,13 @@ verilate(rtl-unittest
          PREFIX VSDHCIWrapper
          SOURCES
          ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/SDHCIWrapper.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDHCI.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDHCIRegs.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDClockGen.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDCmdEngine.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDDataEngine.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDDataFifo.sv
-         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDHCIDMA.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDHCI.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDHCIRegs.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDClockGen.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDCmdEngine.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDDataEngine.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDDataFifo.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/sdhci/SDHCIDMA.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitSync.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVADFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv

@@ -8,6 +8,9 @@ standard extensions include:
 
   - SSTC (supervisor timer compare)
   - Sscofpmf (supervisor PMU + filter)
+  - Zicbom (cache-block management), CBO.CLEAN, CBO.FLUSH and CBO.INVAL all
+    write back the line if dirty and then invalidate it, menvcfg/senvcfg
+    CBCFE/CBIE only control whether the instructions trap
 
 ![Linux](documentation/images/rxv-cowsay.gif)
 
@@ -224,6 +227,8 @@ The default Arty S7 configuration has:
   - Xilinx AXI interrupt controller
   - Xilinx AXI 16550A UART
   - Xilinx AXI SPI master with 1 chip select and 256 byte FIFO
+  - SDHCI 2.00 compatible SD host controller with SDMA, the DMA goes into DRAM
+    through the MIG frontend and is not coherent with the CPU caches
   - Xilinx AXI4 SmartConnect
   - Xilinx AXI memory adapter connecting to the BootROM
 

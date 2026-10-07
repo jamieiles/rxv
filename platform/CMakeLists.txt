@@ -12,8 +12,12 @@ add_custom_command(OUTPUT rxv-arty-nonet.dtb
 add_custom_command(OUTPUT rxv-emul.dtb
 		   COMMAND dtc -I dts ${CMAKE_CURRENT_SOURCE_DIR}/rxv-emul.dts -O dtb -o ${CMAKE_CURRENT_BINARY_DIR}/rxv-emul.dtb
 		   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rxv-emul.dts)
+add_custom_command(OUTPUT rxv-de0cv.dtb
+		   COMMAND dtc -I dts ${CMAKE_CURRENT_SOURCE_DIR}/rxv-de0cv.dts -O dtb -o ${CMAKE_CURRENT_BINARY_DIR}/rxv-de0cv.dtb
+		   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/rxv-de0cv.dts)
 add_custom_target(dtbs ALL
 		  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/rxv-emul.dtb
 		  ${CMAKE_CURRENT_BINARY_DIR}/rxv-arty.dtb
 		  ${CMAKE_CURRENT_BINARY_DIR}/rxv-arty-nonet.dtb
-		  ${CMAKE_CURRENT_BINARY_DIR}/rxv-arty-ramdisk.dtb)
+		  ${CMAKE_CURRENT_BINARY_DIR}/rxv-arty-ramdisk.dtb
+		  ${CMAKE_CURRENT_BINARY_DIR}/rxv-de0cv.dtb)

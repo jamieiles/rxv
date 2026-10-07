@@ -1,0 +1,165 @@
+// SPDX-License-Identifier: GPL-2.0+
+/dts-v1/;
+
+/ {
+    #address-cells = <1>;
+    #size-cells = <1>;
+    compatible = "jamieiles,rxv-de0cv";
+
+    chosen {
+        bootargs = "console=tty0 root=/dev/mmcblk0p2 ro rootwait";
+        rng-seed = <0xb1 0xdf 0x02 0x6c 0xcf 0xc2 0xb5 0xaa 0xe5 0xba 0xd7 0x58 0xdf 0xcd 0x09 0xe1 0xf9 0x1c 0xef 0x72 0xc9 0xa8 0xb4 0x41 0x17 0xc0 0x7f 0x84 0xf3 0x93 0x74 0xdc 0x93 0x9f 0xf4 0x34 0x95 0xa5 0x32 0x69 0x35 0x56 0x02 0xe1 0x1d 0xdc 0x18 0x19 0x1e 0x26 0xa5 0xa5 0x4f 0xe1 0xbe 0x6f 0xc7 0x36 0x37 0x1b 0xfc 0x02 0x06 0x89 0x78 0x3b 0x0d 0xaf 0x21 0xec 0x46 0x07 0x40 0xa3 0x12 0xb2 0x11 0x2f 0x11 0x86 0xe0 0x9c 0x3b 0x17 0x1d 0xbf 0xdb 0x0b 0xae 0x9a 0x2b 0x99 0x48 0xf2 0xee 0x86 0x6d 0x46 0x48 0xcb 0x1d 0x9e 0xe8 0x35 0xc4 0x5b 0x4b 0xce 0xf8 0x36 0x0d 0xd4 0x31 0xc7 0x62 0x9a 0x79 0x72 0x82 0x69 0x42 0x67 0x28 0x17 0xab 0x69 0xf8 0x52>;
+
+        opensbi-domains {
+            compatible = "opensbi,domain,config";
+
+            mmio0: mmio {
+                compatible = "opensbi,domain,memregion";
+                base = <0xf0000000>;
+                order = <16>;
+            };
+        };
+    };
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        timebase-frequency = <10000000>;
+        cpu0: cpu@0 {
+            device_type = "cpu";
+            compatible = "jamieiles,rxv", "riscv";
+            reg = <0>;
+            riscv,isa = "rv32ima_zicbom_sstc_sscofpmf";
+            riscv,cbom-block-size = <64>;
+            mmu-type = "riscv,sv32";
+            d-cache-block-size = <64>;
+            d-cache-sets = <128>;
+            d-cache-size = <32768>;
+            i-cache-block-size = <64>;
+            i-cache-sets = <128>;
+            i-cache-size = <32768>;
+            tlb-split;
+            i-tlb-size = <16>;
+            i-tlb-sets = <16>;
+            d-tlb-size = <16>;
+            d-tlb-sets = <16>;
+
+            cpu0_intc: interrupt-controller {
+                #interrupt-cells = <1>;
+                #address-cells = <0>;
+                interrupt-controller;
+                compatible = "riscv,cpu-intc";
+            };
+        };
+    };
+
+    pmu0: pmu {
+        compatible = "riscv,pmu";
+        interrupts-extended = <&cpu0_intc 13>;
+        riscv,event-to-mhpmevent = <0x00001 0x00000000 0x00000001> /* Cycles */,
+                                   <0x00002 0x00000000 0x00000002> /* Instructions Retired */,
+                                   <0x00005 0x00000000 0x00000003> /* Branches */,
+                                   <0x00006 0x00000000 0x00000004> /* Branch Mispredict */,
+                                   <0x00008 0x00000000 0x00000005> /* Frontend Stall */,
+                                   <0x00009 0x00000000 0x00000006> /* Backend Stall */,
+                                   <0x10000 0x00000000 0x00000007> /* L1D Read */,
+                                   <0x10001 0x00000000 0x00000008> /* L1D Read Miss */,
+                                   <0x10002 0x00000000 0x00000009> /* L1D Write */,
+                                   <0x10003 0x00000000 0x0000000a> /* L1D Write Miss */,
+                                   <0x10008 0x00000000 0x0000000b> /* L1I Read */,
+                                   <0x10009 0x00000000 0x0000000c> /* L1I Read Miss */,
+                                   <0x10018 0x00000000 0x0000000d> /* DTLB Read */,
+                                   <0x10019 0x00000000 0x0000000e> /* DTLB Read Miss */,
+                                   <0x10020 0x00000000 0x0000000f> /* ITLB Read */,
+                                   <0x10021 0x00000000 0x00000010> /* ITLB Read Miss */;
+        riscv,event-to-mhpmcounters = <0x00001 0x10181 0x00000078>;
+    };
+
+    clint0: clint@f0000000 {
+        compatible = "riscv,clint0";
+        interrupts-extended = <&cpu0_intc 3 &cpu0_intc 7 >;
+        reg = <0xf0000000 0xc000>;
+    };
+
+    syscon: syscon@f000c000 {
+        compatible = "rxv,syscon", "syscon";
+        reg = <0xf000c000 0x1000>;
+
+        reboot {
+            compatible = "syscon-reboot";
+            regmap = <&syscon>;
+            offset = <0x00000000>;
+            mask = <0x00000001>;
+            value = <0x00000001>;
+        };
+    };
+
+    // 64MB, the top 1MB is the framebuffer.
+    sram: memory@80000000 {
+        device_type = "memory";
+        compatible = "jamieiles,rxv-sdram";
+        reg = <0x80000000 0x03f00000>;
+    };
+
+    // The top 1MB of the SDRAM through an uncached window, scanned out to
+    // VGA as 640x480 RGB565.
+    framebuffer@f8000000 {
+        compatible = "simple-framebuffer";
+        reg = <0xf8000000 0x96000>;
+        width = <640>;
+        height = <480>;
+        stride = <1280>;
+        format = "r5g6b5";
+    };
+
+    sdclk: clock-60000000 {
+        compatible = "fixed-clock";
+        #clock-cells = <0>;
+        clock-frequency = <60000000>;
+    };
+
+    mmc0: mmc@fffc0000 {
+        compatible = "arasan,sdhci-8.9a";
+        reg = <0xfffc0000 0x10000>;
+        clocks = <&sdclk>, <&sdclk>;
+        clock-names = "clk_xin", "clk_ahb";
+        // SDMA is not coherent with the CPU caches, Zicbom is used instead.
+        dma-noncoherent;
+        interrupt-parent = <&plic>;
+        interrupts = <1>;
+        bus-width = <4>;
+        cap-sd-highspeed;
+        max-frequency = <30000000>;
+        no-1-8-v;
+        disable-wp;
+        no-sdio;
+        no-mmc;
+        broken-cd;
+    };
+
+    ps2_kbd: ps2@fffa0000 {
+        compatible = "altr,ps2-1.0";
+        reg = <0xfffa0000 0x8>;
+        interrupt-parent = <&plic>;
+        interrupts = <2>;
+    };
+
+    ps2_mouse: ps2@fffb0000 {
+        compatible = "altr,ps2-1.0";
+        reg = <0xfffb0000 0x8>;
+        interrupt-parent = <&plic>;
+        interrupts = <3>;
+    };
+
+    // The core only has an S-mode external interrupt, the M-mode context
+    // is not connected.
+    plic: interrupt-controller@fc000000 {
+        compatible = "sifive,plic-1.0.0";
+        reg = <0xfc000000 0x400000>;
+        #address-cells = <0>;
+        #interrupt-cells = <1>;
+        interrupt-controller;
+        interrupts-extended = <&cpu0_intc 11>, <&cpu0_intc 9>;
+        riscv,ndev = <3>;
+    };
+};

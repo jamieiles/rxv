@@ -76,6 +76,154 @@ const uint16_t TM_MULTI = 1 << 5;
 
 const int max_wait = 4000000;
 
+// SDMA
+const uint32_t REG_SDMA_ADDR = 0x00;
+const uint16_t TM_DMA = 1 << 0;
+const uint32_t INT_DMA = 1 << 3;
+const uint32_t CAP_SDMA = 1 << 22;
+const uint32_t dma_base = 0x80000000;
+
+// AXI4 subordinate memory for the SDMA manager.  The DMA only issues whole,
+// line aligned, 16 beat INCR bursts and that is checked here.  Handshakes are
+// sampled before the clock edge and the outputs for the next cycle are driven
+// after it.  ready/valid are randomly withheld to exercise backpressure.
+class AXIMemory
+{
+public:
+    explicit AXIMemory(VSDHCIWrapper &dut, size_t size = 1 << 20)
+        : dut(dut), mem(size, 0), rng(99)
+    {
+    }
+
+    void setup()
+    {
+        if (dut.m_axi_arvalid && dut.m_axi_arready) {
+            check_burst(dut.m_axi_araddr, dut.m_axi_arlen, dut.m_axi_arsize,
+                        dut.m_axi_arburst);
+            EXPECT_FALSE(r_active);
+            r_active = true;
+            r_addr = dut.m_axi_araddr;
+            r_beat = 0;
+            ++read_bursts;
+        }
+        if (dut.m_axi_rvalid && dut.m_axi_rready) {
+            if (++r_beat == 16)
+                r_active = false;
+        }
+        if (dut.m_axi_awvalid && dut.m_axi_awready) {
+            check_burst(dut.m_axi_awaddr, dut.m_axi_awlen, dut.m_axi_awsize,
+                        dut.m_axi_awburst);
+            EXPECT_FALSE(w_active || b_pending);
+            w_active = true;
+            w_addr = dut.m_axi_awaddr;
+            w_beat = 0;
+            ++write_bursts;
+        }
+        if (dut.m_axi_wvalid && dut.m_axi_wready) {
+            EXPECT_TRUE(w_active);
+            EXPECT_EQ(bool(dut.m_axi_wlast), w_beat == 15) << "beat " << w_beat;
+            uint32_t a = w_addr + w_beat * 4;
+            for (int b = 0; b < 4; ++b) {
+                if (dut.m_axi_wstrb & (1 << b)) {
+                    if (in_range(a + b) && !is_error(a))
+                        mem[a + b - dma_base] = dut.m_axi_wdata >> (b * 8);
+                    ++bytes_written;
+                }
+            }
+            if (is_error(a))
+                b_error = true;
+            if (++w_beat == 16) {
+                w_active = false;
+                b_pending = true;
+            }
+        }
+        if (dut.m_axi_bvalid && dut.m_axi_bready) {
+            b_pending = false;
+            b_error = false;
+        }
+    }
+
+    void capture()
+    {
+        bool stall = backpressure && (rng() % 4) == 0;
+
+        dut.m_axi_arready = !r_active && !stall;
+        dut.m_axi_rvalid = r_active && !stall;
+        if (r_active) {
+            uint32_t a = r_addr + r_beat * 4;
+            uint32_t v = 0;
+            for (int b = 0; b < 4; ++b)
+                v |= uint32_t(in_range(a + b) ? mem[a + b - dma_base] : 0) << (b * 8);
+            dut.m_axi_rdata = v;
+            dut.m_axi_rlast = r_beat == 15;
+            dut.m_axi_rresp = is_error(a) ? 2 : 0;
+        }
+        dut.m_axi_awready = !w_active && !b_pending && !stall;
+        dut.m_axi_wready = w_active && !stall && !hold_w;
+        dut.m_axi_bvalid = b_pending;
+        dut.m_axi_bresp = b_error ? 2 : 0;
+    }
+
+    bool idle() const
+    {
+        return !r_active && !w_active && !b_pending;
+    }
+
+    uint8_t *at(uint32_t addr)
+    {
+        return &mem[addr - dma_base];
+    }
+
+    std::vector<uint8_t> read(uint32_t addr, size_t len)
+    {
+        return std::vector<uint8_t>(at(addr), at(addr) + len);
+    }
+
+    void write(uint32_t addr, const std::vector<uint8_t> &data)
+    {
+        std::copy(data.begin(), data.end(), at(addr));
+    }
+
+    bool backpressure = true;
+    bool hold_w = false;
+    uint32_t error_base = 0;
+    uint32_t error_len = 0;
+    unsigned read_bursts = 0;
+    unsigned write_bursts = 0;
+    unsigned bytes_written = 0;
+
+private:
+    void check_burst(uint32_t addr, unsigned len, unsigned size, unsigned burst)
+    {
+        EXPECT_EQ(addr & 63, 0u) << std::hex << addr;
+        EXPECT_EQ(len, 15u);
+        EXPECT_EQ(size, 2u);
+        EXPECT_EQ(burst, 1u);
+    }
+
+    bool in_range(uint32_t a) const
+    {
+        return a >= dma_base && a - dma_base < mem.size();
+    }
+
+    bool is_error(uint32_t a) const
+    {
+        return a >= error_base && a - error_base < error_len;
+    }
+
+    VSDHCIWrapper &dut;
+    std::vector<uint8_t> mem;
+    std::mt19937 rng;
+    bool r_active = false;
+    uint32_t r_addr = 0;
+    unsigned r_beat = 0;
+    bool w_active = false;
+    bool b_pending = false;
+    bool b_error = false;
+    uint32_t w_addr = 0;
+    unsigned w_beat = 0;
+};
+
 } // namespace
 
 class SDHCITest
@@ -83,7 +231,7 @@ class SDHCITest
     , public ::testing::Test
 {
 public:
-    SDHCITest() : card(256), sdclk_rises(0), last_sdclk(false)
+    SDHCITest() : card(256), axi_mem(dut), sdclk_rises(0), last_sdclk(false)
     {
         dut.s_axi_bready = 1;
         dut.s_axi_rready = 1;
@@ -101,6 +249,9 @@ public:
             }
             last_sdclk = dut.sd_clk;
         });
+
+        periodic(ClockSetup, [this] { axi_mem.setup(); });
+        periodic(ClockCapture, [this] { axi_mem.capture(); });
 
         reset();
         // Let card detect debounce.
@@ -352,6 +503,38 @@ public:
         wait_xfer_complete();
     }
 
+    // As the Linux SDMA path: system address, block size with the SDMA buffer
+    // boundary, block count and transfer mode with DMA enabled.
+    void setup_dma_xfer(uint32_t addr, unsigned blocks, uint16_t mode,
+                        uint16_t boundary = 0x7000,
+                        uint16_t blksz = SDCardModel::block_size)
+    {
+        write32(REG_SDMA_ADDR, addr);
+        write16(REG_BLOCK_SIZE, boundary | blksz);
+        write16(REG_BLOCK_COUNT, blocks);
+        write16(REG_TRANSFER_MODE, mode | TM_DMA);
+    }
+
+    uint32_t dma_read_blocks(uint32_t addr, uint32_t start, unsigned n,
+                             uint16_t mode, uint16_t boundary = 0x7000)
+    {
+        setup_dma_xfer(addr, n, mode | TM_READ, boundary);
+        send_cmd(n > 1 ? 18 : 17, start, RESP_R1 | CMD_DATA);
+        auto status = wait_int(INT_XFER_COMPLETE);
+        write32(REG_INT_STATUS, status);
+        return status;
+    }
+
+    uint32_t dma_write_blocks(uint32_t addr, uint32_t start, unsigned n,
+                              uint16_t mode, uint16_t boundary = 0x7000)
+    {
+        setup_dma_xfer(addr, n, mode, boundary);
+        send_cmd(n > 1 ? 25 : 24, start, RESP_R1 | CMD_DATA);
+        auto status = wait_int(INT_XFER_COMPLETE);
+        write32(REG_INT_STATUS, status);
+        return status;
+    }
+
     std::vector<uint8_t> disk_blocks(uint32_t start, unsigned n)
     {
         auto first = card.disk.begin() + start * SDCardModel::block_size;
@@ -368,6 +551,7 @@ public:
     }
 
     SDCardModel card;
+    AXIMemory axi_mem;
     unsigned sdclk_rises;
     bool last_sdclk;
     std::vector<uint64_t> rise_cycles;
@@ -375,8 +559,8 @@ public:
 
 TEST_F(SDHCITest, ResetValues)
 {
-    // 3.3V, high speed, TMCLK 1MHz, no DMA, base clock from the platform.
-    EXPECT_EQ(read32(REG_CAPABILITIES), 0x01200081u);
+    // 3.3V, SDMA, high speed, TMCLK 1MHz, base clock from the platform.
+    EXPECT_EQ(read32(REG_CAPABILITIES), 0x01600081u);
     EXPECT_EQ(read32(REG_CAPABILITIES + 4), 0u);
     EXPECT_EQ(read32(REG_MAX_CURRENT), 50u);
     EXPECT_EQ(read16(REG_HOST_VERSION), 0x0001u);
@@ -432,7 +616,7 @@ TEST_F(SDHCITest, ByteLaneWrites)
     EXPECT_EQ(read32(REG_CLOCK_CONTROL), 0x000e8000u);
 
     write32(REG_INT_ENABLE, 0xffffffff);
-    EXPECT_EQ(read32(REG_INT_ENABLE), 0x017f00f3u);
+    EXPECT_EQ(read32(REG_INT_ENABLE), 0x017f00fbu);
     write16(REG_SIGNAL_ENABLE + 2, 0xffff);
     EXPECT_EQ(read32(REG_SIGNAL_ENABLE), 0x017f0000u);
 
@@ -933,3 +1117,232 @@ TEST_F(SDHCITest, CardDetect)
     EXPECT_EQ(read32(REG_INT_STATUS), INT_CARD_INSERT);
 }
 
+// ----------------------------------------------------------------------
+// SDMA
+// ----------------------------------------------------------------------
+TEST_F(SDHCITest, DMACapability)
+{
+    EXPECT_TRUE(read32(REG_CAPABILITIES) & CAP_SDMA);
+    // No ADMA2 or 64-bit addressing
+    EXPECT_FALSE(read32(REG_CAPABILITIES) & ((1 << 19) | (1 << 28)));
+
+    write32(REG_SDMA_ADDR, 0x81234564);
+    EXPECT_EQ(read32(REG_SDMA_ADDR), 0x81234564u);
+}
+
+TEST_F(SDHCITest, DMASingleBlockRead)
+{
+    power_on();
+    init_card(true);
+
+    auto status = dma_read_blocks(dma_base + 0x1000, 5, 1, 0);
+    EXPECT_EQ(status & (INT_XFER_COMPLETE | INT_BUF_RD_READY | INT_DMA | INT_ERROR),
+              INT_XFER_COMPLETE)
+        << std::hex << status;
+    EXPECT_EQ(axi_mem.read(dma_base + 0x1000, 512), disk_blocks(5, 1));
+    EXPECT_EQ(axi_mem.write_bursts, 8u);
+    // The address register reads back as the next system address
+    EXPECT_EQ(read32(REG_SDMA_ADDR), dma_base + 0x1200);
+    EXPECT_FALSE(read32(REG_PRESENT_STATE) & PS_DAT_INHIBIT);
+
+    // PIO still works after a DMA transfer
+    EXPECT_EQ(read_blocks(6, 1, 0), disk_blocks(6, 1));
+}
+
+TEST_F(SDHCITest, DMAMultiBlockReadAutoCMD12)
+{
+    power_on();
+    init_card(true);
+
+    auto status = dma_read_blocks(dma_base + 0x4000, 10, 16,
+                                  TM_MULTI | TM_BCE | TM_AUTO12);
+    EXPECT_EQ(status & (INT_XFER_COMPLETE | INT_BUF_RD_READY | INT_DMA | INT_ERROR),
+              INT_XFER_COMPLETE)
+        << std::hex << status;
+    EXPECT_EQ(axi_mem.read(dma_base + 0x4000, 16 * 512), disk_blocks(10, 16));
+    EXPECT_EQ(read16(REG_BLOCK_COUNT), 0u);
+}
+
+TEST_F(SDHCITest, DMAMultiBlockWrite)
+{
+    power_on();
+    init_card(true);
+
+    auto data = random_blocks(12, 77);
+    axi_mem.write(dma_base + 0x8000, data);
+
+    auto status = dma_write_blocks(dma_base + 0x8000, 40, 12,
+                                   TM_MULTI | TM_BCE | TM_AUTO12);
+    EXPECT_EQ(status & (INT_XFER_COMPLETE | INT_BUF_WR_READY | INT_DMA | INT_ERROR),
+              INT_XFER_COMPLETE)
+        << std::hex << status;
+    EXPECT_EQ(disk_blocks(40, 12), data);
+    EXPECT_EQ(axi_mem.read_bursts, 12u * 8);
+    EXPECT_EQ(axi_mem.write_bursts, 0u);
+    EXPECT_EQ(read32(REG_SDMA_ADDR), dma_base + 0x8000 + 12 * 512);
+}
+
+// A buffer that isn't line aligned is accessed with whole line bursts, only
+// the bytes of the buffer are written.
+TEST_F(SDHCITest, DMAUnalignedBuffer)
+{
+    power_on();
+    init_card(true);
+
+    std::vector<uint8_t> sentinel(0x500, 0xa5);
+    axi_mem.write(dma_base + 0x2000, sentinel);
+
+    dma_read_blocks(dma_base + 0x2024, 20, 2, TM_MULTI | TM_BCE | TM_AUTO12);
+    EXPECT_EQ(axi_mem.read(dma_base + 0x2024, 1024), disk_blocks(20, 2));
+    EXPECT_EQ(axi_mem.read(dma_base + 0x2000, 0x24), std::vector<uint8_t>(0x24, 0xa5));
+    EXPECT_EQ(axi_mem.read(dma_base + 0x2424, 0xdc), std::vector<uint8_t>(0xdc, 0xa5));
+    EXPECT_EQ(axi_mem.bytes_written, 1024u);
+
+    auto data = random_blocks(1, 78);
+    axi_mem.write(dma_base + 0x3014, data);
+    dma_write_blocks(dma_base + 0x3014, 30, 1, 0);
+    EXPECT_EQ(disk_blocks(30, 1), data);
+}
+
+// A partial line transfer: the 64 byte switch function status.
+TEST_F(SDHCITest, DMASwitchFunction)
+{
+    power_on();
+    init_card(true);
+
+    setup_dma_xfer(dma_base + 0x6010, 1, TM_READ, 0x7000, 64);
+    send_cmd(6, 0x80fffff1, RESP_R1 | CMD_DATA);
+    auto status = wait_int(INT_XFER_COMPLETE);
+    EXPECT_EQ(status & (INT_XFER_COMPLETE | INT_BUF_RD_READY | INT_ERROR),
+              INT_XFER_COMPLETE)
+        << std::hex << status;
+    EXPECT_EQ(*axi_mem.at(dma_base + 0x6010 + 16) & 0xf, 1u);
+    EXPECT_TRUE(card.high_speed);
+    EXPECT_EQ(axi_mem.bytes_written, 64u);
+    EXPECT_EQ(axi_mem.write_bursts, 2u);
+}
+
+// The DMA stops at an SDMA buffer boundary with the DMA interrupt and
+// continues from the address written by the driver.
+TEST_F(SDHCITest, DMAReadBoundaryRestart)
+{
+    power_on();
+    init_card(true);
+
+    // 4KB boundary, the first block ends on it.
+    setup_dma_xfer(dma_base + 0x0e00, 4, TM_READ | TM_MULTI | TM_BCE | TM_AUTO12, 0x0000);
+    send_cmd(18, 50, RESP_R1 | CMD_DATA);
+
+    auto status = wait_int(INT_DMA);
+    EXPECT_EQ(status & (INT_DMA | INT_XFER_COMPLETE | INT_ERROR), INT_DMA) << std::hex << status;
+    EXPECT_EQ(read32(REG_SDMA_ADDR), dma_base + 0x1000);
+
+    // Stopped until the address is written.
+    cycle(4000);
+    EXPECT_EQ(axi_mem.bytes_written, 512u);
+    EXPECT_FALSE(read32(REG_INT_STATUS) & INT_XFER_COMPLETE);
+
+    write32(REG_INT_STATUS, INT_DMA);
+    write32(REG_SDMA_ADDR, dma_base + 0x10000);
+    status = wait_int(INT_XFER_COMPLETE);
+    EXPECT_EQ(status & (INT_DMA | INT_XFER_COMPLETE | INT_ERROR), INT_XFER_COMPLETE)
+        << std::hex << status;
+
+    auto disk = disk_blocks(50, 4);
+    EXPECT_EQ(axi_mem.read(dma_base + 0x0e00, 512),
+              std::vector<uint8_t>(disk.begin(), disk.begin() + 512));
+    EXPECT_EQ(axi_mem.read(dma_base + 0x10000, 1536),
+              std::vector<uint8_t>(disk.begin() + 512, disk.end()));
+    EXPECT_EQ(axi_mem.bytes_written, 2048u);
+}
+
+TEST_F(SDHCITest, DMAWriteBoundaryRestart)
+{
+    power_on();
+    init_card(true);
+
+    auto data = random_blocks(2, 79);
+    axi_mem.write(dma_base + 0x0e00, std::vector<uint8_t>(data.begin(), data.begin() + 512));
+    axi_mem.write(dma_base + 0x5000, std::vector<uint8_t>(data.begin() + 512, data.end()));
+
+    setup_dma_xfer(dma_base + 0x0e00, 2, TM_MULTI | TM_BCE | TM_AUTO12, 0x0000);
+    send_cmd(25, 70, RESP_R1 | CMD_DATA);
+
+    auto status = wait_int(INT_DMA);
+    EXPECT_EQ(status & (INT_DMA | INT_XFER_COMPLETE | INT_ERROR), INT_DMA) << std::hex << status;
+    write32(REG_INT_STATUS, INT_DMA);
+    write32(REG_SDMA_ADDR, dma_base + 0x5000);
+
+    status = wait_int(INT_XFER_COMPLETE);
+    EXPECT_EQ(status & (INT_DMA | INT_XFER_COMPLETE | INT_ERROR), INT_XFER_COMPLETE)
+        << std::hex << status;
+    EXPECT_EQ(disk_blocks(70, 2), data);
+}
+
+// No DMA interrupt when the transfer completes on a boundary.
+TEST_F(SDHCITest, DMAEndOnBoundaryNoInterrupt)
+{
+    power_on();
+    init_card(true);
+
+    auto status = dma_read_blocks(dma_base + 0x1c00, 80, 2,
+                                  TM_MULTI | TM_BCE | TM_AUTO12, 0x0000);
+    EXPECT_EQ(status & (INT_DMA | INT_XFER_COMPLETE | INT_ERROR), INT_XFER_COMPLETE)
+        << std::hex << status;
+    EXPECT_EQ(axi_mem.read(dma_base + 0x1c00, 1024), disk_blocks(80, 2));
+}
+
+TEST_F(SDHCITest, DMABusErrorReported)
+{
+    power_on();
+    init_card(true);
+
+    axi_mem.error_base = dma_base + 0x7000;
+    axi_mem.error_len = 0x1000;
+
+    setup_dma_xfer(dma_base + 0x7000, 1, TM_READ);
+    send_cmd(17, 3, RESP_R1 | CMD_DATA);
+    // Reported as a data timeout, there is no SDMA error in version 2.00 and
+    // Linux expects an ADMA descriptor table for ADMA Error.
+    auto status = wait_int(INT_DAT_TIMEOUT);
+    EXPECT_EQ(status & 0xffff0000u, INT_DAT_TIMEOUT) << std::hex << status;
+    EXPECT_TRUE(status & INT_ERROR) << std::hex << status;
+
+    // As the driver does: reset the DAT circuit and carry on.
+    write8(REG_SOFTWARE_RESET, 0x04);
+    write32(REG_INT_STATUS, 0xffffffff);
+    axi_mem.error_len = 0;
+    status = dma_read_blocks(dma_base + 0x9000, 3, 1, 0);
+    EXPECT_EQ(status & (INT_XFER_COMPLETE | INT_ERROR), INT_XFER_COMPLETE) << std::hex << status;
+    EXPECT_EQ(axi_mem.read(dma_base + 0x9000, 512), disk_blocks(3, 1));
+}
+
+// A DAT reset while a burst is outstanding completes the burst without
+// writing anything.
+TEST_F(SDHCITest, DMADataResetMidBurst)
+{
+    power_on();
+    init_card(true);
+
+    std::vector<uint8_t> sentinel(512, 0x5a);
+    axi_mem.write(dma_base + 0xa000, sentinel);
+    axi_mem.hold_w = true;
+
+    setup_dma_xfer(dma_base + 0xa000, 1, TM_READ);
+    send_cmd(17, 4, RESP_R1 | CMD_DATA);
+    for (int i = 0; i < max_wait && axi_mem.write_bursts == 0; ++i)
+        cycle();
+    ASSERT_EQ(axi_mem.write_bursts, 1u);
+
+    write8(REG_SOFTWARE_RESET, 0x04);
+    axi_mem.hold_w = false;
+    cycle(200);
+    EXPECT_TRUE(axi_mem.idle());
+    EXPECT_EQ(axi_mem.bytes_written, 0u);
+    EXPECT_EQ(axi_mem.read(dma_base + 0xa000, 512), sentinel);
+
+    write32(REG_INT_STATUS, 0xffffffff);
+    auto status = dma_read_blocks(dma_base + 0xb000, 4, 1, 0);
+    EXPECT_EQ(status & (INT_XFER_COMPLETE | INT_ERROR), INT_XFER_COMPLETE) << std::hex << status;
+    EXPECT_EQ(axi_mem.read(dma_base + 0xb000, 512), disk_blocks(4, 1));
+}

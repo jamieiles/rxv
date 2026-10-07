@@ -370,6 +370,10 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
   connect_bd_intf_net -intf_net smartconnect_0_M03_AXI [get_bd_intf_pins RXVCLINT_0/s_axi] [get_bd_intf_pins smartconnect_0/M03_AXI]
   connect_bd_intf_net -intf_net smartconnect_0_M04_AXI [get_bd_intf_pins axi_intc_0/s_axi] [get_bd_intf_pins smartconnect_0/M04_AXI]
   connect_bd_intf_net -intf_net smartconnect_0_M05_AXI [get_bd_intf_pins SDHCIAXI_0/s_axi] [get_bd_intf_pins smartconnect_0/M05_AXI]
+  # SDMA from the SD host controller straight into DRAM through the MIG
+  # frontend.  Point to point rather than through the SmartConnect which
+  # would cost ~2K LUTs, the DMA only addresses DRAM.
+  connect_bd_intf_net -intf_net SDHCIAXI_0_m_axi [get_bd_intf_pins SDHCIAXI_0/m_axi] [get_bd_intf_pins RXVCoreAXISynthTop_0/s_dma_axi]
 
   # Create port connections
   connect_bd_net -net RXVCLINT_0_mtime [get_bd_pins RXVCLINT_0/mtime] [get_bd_pins RXVCoreAXISynthTop_0/mtime]
@@ -411,6 +415,7 @@ AW_SIZE 32 B_SIZE 32 R_SIZE 32 W_SIZE 32 } S00_Entry { SUPPORTS_WRAP 0\
   assign_bd_address -offset 0xFFFF0000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs axi_uart16550_0/S_AXI/Reg] -force
   assign_bd_address -offset 0x40000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_d_axi] [get_bd_addr_segs bootrom_ctrl/S_AXI/Mem0] -force
   assign_bd_address -offset 0x40000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs bootrom_ctrl/S_AXI/Mem0] -force
+  assign_bd_address -offset 0x80000000 -range 0x10000000 -target_address_space [get_bd_addr_spaces SDHCIAXI_0/m_axi] [get_bd_addr_segs RXVCoreAXISynthTop_0/s_dma_axi/reg0] -force
 
   # Exclude Address Segments
   exclude_bd_addr_seg -offset 0xF0000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces RXVCoreAXISynthTop_0/m_i_axi] [get_bd_addr_segs RXVCLINT_0/s_axi/reg0]

@@ -5,7 +5,7 @@
 // SDHCI register file and AXI4-Lite subordinate.
 //
 // Implements the SD Host Controller Simplified Specification version 2.00
-// register set for a single slot without DMA.  Every register honours the
+// register set for a single slot with SDMA.  Every register honours the
 // AXI byte lanes so that drivers may use 8, 16 and 32-bit accesses.  The
 // address is decoded within a 256 byte window that is aliased across the
 // 64KB region.
@@ -88,6 +88,16 @@ module SDHCIRegs #(
     input  logic [ 31:0] buf_rdata,
     input  logic         buf_rd_en,
     input  logic         buf_wr_en,
+    // SDMA
+    output logic         tm_dma,
+    output logic [  2:0] dma_boundary,
+    output logic [ 31:0] sdma_addr_out,
+    output logic         sdma_restart,
+    input  logic         dma_active,
+    input  logic         dma_addr_update,
+    input  logic [ 31:0] dma_addr_next,
+    input  logic         dma_boundary_irq,
+    input  logic         dma_bus_error,
     // Pin levels
     input  logic         card_inserted,
     input  logic         card_stable,
@@ -116,10 +126,11 @@ module SDHCIRegs #(
     localparam logic [7:0] REG_VENDOR = 8'hf0;
     localparam logic [7:0] REG_VERSION = 8'hfc;
 
-    // Version 2.00, 3.3V only, high speed, 512 byte blocks, no DMA, the base
-    // clock is provided by the device tree.
-    localparam logic [31:0] CAPABILITIES = (32'd1 << 24) | (32'd1 << 21) | (32'd1 << 7) |
-        32'(tmclk_mhz);
+    // Version 2.00, 3.3V only, SDMA, high speed, 512 byte blocks, the base
+    // clock is provided by the device tree.  ADMA2 is not supported: its
+    // descriptors would need memory that is coherent with the CPU.
+    localparam logic [31:0] CAPABILITIES = (32'd1 << 24) | (32'd1 << 22) | (32'd1 << 21) |
+        (32'd1 << 7) | 32'(tmclk_mhz);
     // 200mA at 3.3V
     localparam logic [31:0] MAX_CURRENT = 32'd50;
     localparam logic [15:0] HOST_VERSION = 16'h0001;
@@ -127,12 +138,13 @@ module SDHCIRegs #(
     // Normal interrupt status bits
     localparam int INT_CMD_COMPLETE = 0;
     localparam int INT_XFER_COMPLETE = 1;
+    localparam int INT_DMA = 3;
     localparam int INT_BUF_WR_READY = 4;
     localparam int INT_BUF_RD_READY = 5;
     localparam int INT_CARD_INSERT = 6;
     localparam int INT_CARD_REMOVE = 7;
     localparam int INT_ERROR = 15;
-    localparam logic [15:0] NORMAL_MASK = 16'h00f3;
+    localparam logic [15:0] NORMAL_MASK = 16'h00fb;
 
     // Error interrupt status bits
     localparam int ERR_CMD_TIMEOUT = 0;
@@ -231,6 +243,7 @@ module SDHCIRegs #(
 
         blksz           = |blksz_reg[11:10] ? 10'd512 : blksz_reg[9:0];
         blkcnt          = blkcnt_reg;
+        tm_dma          = tm_reg[0];
         tm_bce          = tm_reg[1];
         tm_auto12       = tm_reg[2];
         tm_read         = tm_reg[4];
@@ -242,6 +255,9 @@ module SDHCIRegs #(
         sdclk_en        = power_ctrl[0] && clock_ctrl[0] && clock_ctrl[2];
         sdclk_div       = clock_div;
         sample_delay    = vendor_reg;
+
+        dma_boundary    = blksz_reg[14:12];
+        sdma_addr_out   = sdma_addr;
 
         buf_push        = wr_fire && waddr == REG_BUFFER;
         buf_wdata       = s_axi_wdata;
@@ -293,8 +309,10 @@ module SDHCIRegs #(
         normal_events[INT_CMD_COMPLETE]  = cmd_done && !cmd_done_auto &&
             !(cmd_err_timeout || cmd_err_crc || cmd_err_end || cmd_err_index);
         normal_events[INT_XFER_COMPLETE] = xfer_done;
-        normal_events[INT_BUF_WR_READY]  = buf_wr_en && !buf_wr_en_q;
-        normal_events[INT_BUF_RD_READY]  = buf_rd_en && !buf_rd_en_q;
+        normal_events[INT_DMA]           = dma_boundary_irq;
+        // The buffer is not accessed by the CPU for DMA transfers
+        normal_events[INT_BUF_WR_READY]  = buf_wr_en && !buf_wr_en_q && !dma_active;
+        normal_events[INT_BUF_RD_READY]  = buf_rd_en && !buf_rd_en_q && !dma_active;
         normal_events[INT_CARD_INSERT]   = card_stable && card_inserted && !card_inserted_q;
         normal_events[INT_CARD_REMOVE]   = card_stable && !card_inserted && card_inserted_q;
 
@@ -303,7 +321,10 @@ module SDHCIRegs #(
         error_events[ERR_CMD_CRC]        = cmd_done && !cmd_done_auto && cmd_err_crc;
         error_events[ERR_CMD_END]        = cmd_done && !cmd_done_auto && cmd_err_end;
         error_events[ERR_CMD_INDEX]      = cmd_done && !cmd_done_auto && cmd_err_index;
-        error_events[ERR_DAT_TIMEOUT]    = dat_err_timeout;
+        // Version 2.00 has no SDMA error so a bus error is reported as a data
+        // timeout.  Not ADMA Error: Linux dumps the ADMA descriptor table for
+        // that, which doesn't exist with SDMA.
+        error_events[ERR_DAT_TIMEOUT]    = dat_err_timeout || dma_bus_error;
         error_events[ERR_DAT_CRC]        = dat_err_crc;
         error_events[ERR_DAT_END]        = dat_err_end;
         error_events[ERR_ACMD12]         = cmd_done && cmd_done_auto &&
@@ -371,6 +392,13 @@ module SDHCIRegs #(
         buf_rd_en_q     <= buf_rd_en;
         buf_wr_en_q     <= buf_wr_en;
         card_inserted_q <= card_stable ? card_inserted : card_inserted_q;
+        // Writing the upper byte of the SDMA System Address restarts a DMA
+        // transfer stopped at a buffer boundary.
+        sdma_restart    <= wr_fire && waddr == REG_SDMA_ADDR && s_axi_wstrb[3];
+
+        // The DMA engine advances the address, the CPU only writes it while
+        // the DMA is stopped.
+        if (dma_addr_update) sdma_addr <= dma_addr_next;
 
         if (wr_fire) begin
             case (waddr)
@@ -426,6 +454,7 @@ module SDHCIRegs #(
         // Software reset for the DAT circuit clears the data related status.
         if (rst_dat) begin
             normal_status[INT_XFER_COMPLETE] <= 1'b0;
+            normal_status[INT_DMA]           <= 1'b0;
             normal_status[INT_BUF_WR_READY]  <= 1'b0;
             normal_status[INT_BUF_RD_READY]  <= 1'b0;
             buf_rd_en_q                      <= 1'b0;
@@ -457,6 +486,7 @@ module SDHCIRegs #(
             acmd12_err       <= 8'b0;
             vendor_reg       <= 2'b0;
             card_inserted_q  <= 1'b0;
+            sdma_restart     <= 1'b0;
         end
     end
 

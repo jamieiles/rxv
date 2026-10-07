@@ -57,6 +57,8 @@ module SDDataEngine #(
     output logic        fifo_pop,
     input  logic [31:0] fifo_rdata,
     input  logic        fifo_empty,
+    // DMA still writing buffered data to memory
+    input  logic        dma_busy,
     input  logic        blk_space,
     input  logic        blk_avail,
     output logic        blk_done,
@@ -417,7 +419,9 @@ module SDDataEngine #(
                 end
             end
             STATE_DRAIN: begin
-                if (fifo_empty) state_next = STATE_DONE;
+                // Transfer complete once the data has left the buffer, with
+                // DMA that is once it has been written to memory.
+                if (fifo_empty && !dma_busy) state_next = STATE_DONE;
             end
             STATE_DONE: begin
                 xfer_done  = 1'b1;

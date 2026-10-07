@@ -3,7 +3,11 @@
 `include "RXV.svh"
 
 // SD host controller compatible with the SD Host Controller Simplified
-// Specification version 2.00, PIO only.
+// Specification version 2.00 with PIO and SDMA.
+//
+// For SDMA the controller is an AXI4 manager that only issues whole, line
+// aligned bursts of dma_line_bytes (see SDHCIDMA) so that it can be connected
+// directly to the DRAM controller's DMA port.
 //
 // Everything runs in the AXI clock domain.  The SD bus outputs (SDCLK, CMD
 // and DAT with their tristate controls) are driven directly from registers
@@ -14,7 +18,9 @@ module SDHCI #(
     // Base clock / tmclk_div gives the ~1MHz data timeout clock.
     parameter int tmclk_div   = 81,
     // Card detect debounce in clock cycles (~3ms at 81MHz).
-    parameter int debounce_bits = 18
+    parameter int debounce_bits = 18,
+    // DMA burst size, the DRAM controller's line size.
+    parameter int dma_line_bytes = 64
 ) (
     input  logic        clk,
     input  logic        resetn,
@@ -38,6 +44,36 @@ module SDHCI #(
     input  logic        s_axi_rready,
     output logic        irq,
     output logic        activity,
+    // AXI4 manager for SDMA
+    output logic [31:0] m_axi_awaddr,
+    output logic [ 7:0] m_axi_awlen,
+    output logic [ 2:0] m_axi_awsize,
+    output logic [ 1:0] m_axi_awburst,
+    output logic [ 3:0] m_axi_awcache,
+    output logic [ 2:0] m_axi_awprot,
+    output logic        m_axi_awvalid,
+    input  logic        m_axi_awready,
+    output logic [31:0] m_axi_wdata,
+    output logic [ 3:0] m_axi_wstrb,
+    output logic        m_axi_wlast,
+    output logic        m_axi_wvalid,
+    input  logic        m_axi_wready,
+    input  logic [ 1:0] m_axi_bresp,
+    input  logic        m_axi_bvalid,
+    output logic        m_axi_bready,
+    output logic [31:0] m_axi_araddr,
+    output logic [ 7:0] m_axi_arlen,
+    output logic [ 2:0] m_axi_arsize,
+    output logic [ 1:0] m_axi_arburst,
+    output logic [ 3:0] m_axi_arcache,
+    output logic [ 2:0] m_axi_arprot,
+    output logic        m_axi_arvalid,
+    input  logic        m_axi_arready,
+    input  logic [31:0] m_axi_rdata,
+    input  logic [ 1:0] m_axi_rresp,
+    input  logic        m_axi_rlast,
+    input  logic        m_axi_rvalid,
+    output logic        m_axi_rready,
     // SD bus
     output logic        sd_clk,
     output logic        cmd_o,
@@ -116,6 +152,23 @@ module SDHCI #(
     logic                     buf_rd_en;
     logic                     buf_wr_en;
 
+    logic                     regs_buf_push;
+    logic         [     31:0] regs_buf_wdata;
+    logic                     regs_buf_pop;
+    logic                     tm_dma;
+    logic         [      2:0] dma_boundary;
+    logic         [     31:0] sdma_addr;
+    logic                     sdma_restart;
+    logic                     dma_active;
+    logic                     dma_busy;
+    logic                     dma_addr_update;
+    logic         [     31:0] dma_addr_next;
+    logic                     dma_boundary_irq;
+    logic                     dma_bus_error;
+    logic                     dma_fifo_push;
+    logic         [     31:0] dma_fifo_wdata;
+    logic                     dma_fifo_pop;
+
     logic                     cd_sync;
     logic                     card_inserted;
     logic                     card_valid;
@@ -129,6 +182,11 @@ module SDHCI #(
         xfer_start = cmd_start && cmd_data;
         busy_start = cmd_start && !cmd_data && &cmd_resp_type;
         activity   = cmd_busy || dat_busy;
+
+        // The DMA engine replaces the buffer data port for DMA transfers
+        fifo_cpu_push  = dma_active ? dma_fifo_push : regs_buf_push;
+        fifo_cpu_wdata = dma_active ? dma_fifo_wdata : regs_buf_wdata;
+        fifo_cpu_pop   = dma_active ? dma_fifo_pop : regs_buf_pop;
     end
 
     always_ff @(posedge clk) begin
@@ -220,12 +278,21 @@ module SDHCI #(
         .dat_err_timeout(dat_err_timeout),
         .dat_err_crc    (dat_err_crc),
         .dat_err_end    (dat_err_end),
-        .buf_push       (fifo_cpu_push),
-        .buf_wdata      (fifo_cpu_wdata),
-        .buf_pop        (fifo_cpu_pop),
+        .buf_push       (regs_buf_push),
+        .buf_wdata      (regs_buf_wdata),
+        .buf_pop        (regs_buf_pop),
         .buf_rdata      (fifo_rdata),
         .buf_rd_en      (buf_rd_en),
         .buf_wr_en      (buf_wr_en),
+        .tm_dma         (tm_dma),
+        .dma_boundary   (dma_boundary),
+        .sdma_addr_out  (sdma_addr),
+        .sdma_restart   (sdma_restart),
+        .dma_active     (dma_active),
+        .dma_addr_update(dma_addr_update),
+        .dma_addr_next  (dma_addr_next),
+        .dma_boundary_irq(dma_boundary_irq),
+        .dma_bus_error  (dma_bus_error),
         .card_inserted  (card_inserted),
         .card_stable    (card_valid && cd_sync == card_inserted),
         .dat_level      (dat_i_q),
@@ -298,6 +365,7 @@ module SDHCI #(
         .fifo_pop     (fifo_eng_pop),
         .fifo_rdata   (fifo_rdata),
         .fifo_empty   (fifo_empty),
+        .dma_busy     (dma_busy),
         .blk_space    (blk_space),
         .blk_avail    (blk_avail),
         .blk_done     (blk_done),
@@ -312,6 +380,65 @@ module SDHCI #(
         .dat_o        (dat_o),
         .dat_t        (dat_t),
         .dat_i        (dat_i_q)
+    );
+
+    SDHCIDMA #(
+        .line_bytes(dma_line_bytes)
+    ) dma (
+        .clk          (clk),
+        .reset        (reset),
+        .rst_dat      (rst_dat),
+        .xfer_start   (xfer_start),
+        .dma_en       (tm_dma),
+        .tm_read      (tm_read),
+        .tm_multi     (tm_multi),
+        .tm_bce       (tm_bce),
+        .blkcnt       (blkcnt),
+        .blksz        (blksz),
+        .boundary     (dma_boundary),
+        .sdma_addr    (sdma_addr),
+        .sdma_restart (sdma_restart),
+        .addr_update  (dma_addr_update),
+        .addr_next    (dma_addr_next),
+        .active       (dma_active),
+        .busy         (dma_busy),
+        .boundary_irq (dma_boundary_irq),
+        .bus_error    (dma_bus_error),
+        .fifo_push    (dma_fifo_push),
+        .fifo_wdata   (dma_fifo_wdata),
+        .fifo_pop     (dma_fifo_pop),
+        .fifo_rdata   (fifo_rdata),
+        .buf_rd_en    (buf_rd_en),
+        .buf_wr_en    (buf_wr_en),
+        .m_axi_awaddr (m_axi_awaddr),
+        .m_axi_awlen  (m_axi_awlen),
+        .m_axi_awsize (m_axi_awsize),
+        .m_axi_awburst(m_axi_awburst),
+        .m_axi_awcache(m_axi_awcache),
+        .m_axi_awprot (m_axi_awprot),
+        .m_axi_awvalid(m_axi_awvalid),
+        .m_axi_awready(m_axi_awready),
+        .m_axi_wdata  (m_axi_wdata),
+        .m_axi_wstrb  (m_axi_wstrb),
+        .m_axi_wlast  (m_axi_wlast),
+        .m_axi_wvalid (m_axi_wvalid),
+        .m_axi_wready (m_axi_wready),
+        .m_axi_bresp  (m_axi_bresp),
+        .m_axi_bvalid (m_axi_bvalid),
+        .m_axi_bready (m_axi_bready),
+        .m_axi_araddr (m_axi_araddr),
+        .m_axi_arlen  (m_axi_arlen),
+        .m_axi_arsize (m_axi_arsize),
+        .m_axi_arburst(m_axi_arburst),
+        .m_axi_arcache(m_axi_arcache),
+        .m_axi_arprot (m_axi_arprot),
+        .m_axi_arvalid(m_axi_arvalid),
+        .m_axi_arready(m_axi_arready),
+        .m_axi_rdata  (m_axi_rdata),
+        .m_axi_rresp  (m_axi_rresp),
+        .m_axi_rlast  (m_axi_rlast),
+        .m_axi_rvalid (m_axi_rvalid),
+        .m_axi_rready (m_axi_rready)
     );
 
     SDDataFifo fifo (

@@ -42,7 +42,7 @@ ys_formal(TOP RXVIntExec
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/RXVCSRALU.sv
           ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv)
 
-foreach(sdhci_top SDClockGen SDCmdEngine SDDataEngine SDDataFifo SDHCIRegs)
+foreach(sdhci_top SDClockGen SDCmdEngine SDDataEngine SDDataFifo SDHCIRegs SDHCIDMA)
     ys_formal(TOP ${sdhci_top}
               DEPTH 2
               SKIP 0
@@ -528,6 +528,7 @@ verilate(rtl-unittest
          ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDCmdEngine.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDDataEngine.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDDataFifo.sv
+         ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/xilinx/sdhci/SDHCIDMA.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/BitSync.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVADFF.sv
          ${CMAKE_CURRENT_SOURCE_DIR}/../../rtl/lib/RXVDFF.sv

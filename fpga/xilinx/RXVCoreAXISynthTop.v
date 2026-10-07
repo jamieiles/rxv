@@ -3,7 +3,7 @@
 module RXVCoreAXISynthTop (
     // verilog_format: off
     (* X_INTERFACE_INFO = "xilinx.com:signal:clock:1.0 core_clk CLK" *)
-    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME clk, ASSOCIATED_RESET reset, ASSOCIATED_BUSIF m_i_axi:m_d_axi" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME clk, ASSOCIATED_RESET reset, ASSOCIATED_BUSIF m_i_axi:m_d_axi:s_dma_axi" *)
     input  wire         clk,
     (* X_INTERFACE_INFO = "xilinx.com:signal:reset:1.0 RST.reset RST" *)
     (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME RST.reset, POLARITY ACTIVE_HIGH, TYPE INTERCONNECT" *)
@@ -84,6 +84,42 @@ module RXVCoreAXISynthTop (
     input  wire        m_d_axi_rlast,
     input  wire        m_d_axi_rvalid,
     output wire        m_d_axi_rready,
+    // DMA into DRAM from other bus managers.  Only whole, line aligned 16 beat
+    // INCR bursts are supported, they go straight to the MIG frontend with
+    // no coherence with the CPU caches.
+    // verilog_format: off
+    (* X_INTERFACE_INFO = "xilinx.com:interface:aximm:1.0 s_dma_axi AWADDR" *)
+    (* X_INTERFACE_PARAMETER = "XIL_INTERFACENAME s_dma_axi, PROTOCOL AXI4, DATA_WIDTH 32, ADDR_WIDTH 32, ID_WIDTH 0, MAX_BURST_LENGTH 16, SUPPORTS_NARROW_BURST 0, NUM_READ_OUTSTANDING 1, NUM_WRITE_OUTSTANDING 1, HAS_LOCK 0, HAS_CACHE 0, HAS_PROT 0, HAS_QOS 0, HAS_REGION 0" *)
+    // verilog_format: on
+    input  wire [31:0] s_dma_axi_awaddr,
+    input  wire [ 7:0] s_dma_axi_awlen,
+    // verilator lint_off UNUSED
+    input  wire [ 2:0] s_dma_axi_awsize,
+    input  wire [ 1:0] s_dma_axi_awburst,
+    // verilator lint_on UNUSED
+    input  wire        s_dma_axi_awvalid,
+    output wire        s_dma_axi_awready,
+    input  wire [31:0] s_dma_axi_wdata,
+    input  wire [ 3:0] s_dma_axi_wstrb,
+    input  wire        s_dma_axi_wlast,
+    input  wire        s_dma_axi_wvalid,
+    output wire        s_dma_axi_wready,
+    output wire [ 1:0] s_dma_axi_bresp,
+    output wire        s_dma_axi_bvalid,
+    input  wire        s_dma_axi_bready,
+    input  wire [31:0] s_dma_axi_araddr,
+    input  wire [ 7:0] s_dma_axi_arlen,
+    // verilator lint_off UNUSED
+    input  wire [ 2:0] s_dma_axi_arsize,
+    input  wire [ 1:0] s_dma_axi_arburst,
+    // verilator lint_on UNUSED
+    input  wire        s_dma_axi_arvalid,
+    output wire        s_dma_axi_arready,
+    output wire [31:0] s_dma_axi_rdata,
+    output wire [ 1:0] s_dma_axi_rresp,
+    output wire        s_dma_axi_rlast,
+    output wire        s_dma_axi_rvalid,
+    input  wire        s_dma_axi_rready,
     input  wire [63:0] mtime,
     input  wire        mtime_irq,
     input  wire        ext_irq,
@@ -109,6 +145,31 @@ module RXVCoreAXISynthTop (
     MemInterface d_dram_bus ();
     MemInterface i_axi_bus ();
     MemInterface d_axi_bus ();
+    MemInterface x_dram_bus ();
+
+    // The DMA port is a direct mapping of AXI4 (without IDs) onto the
+    // frontend, the burst length is checked there.
+    assign x_dram_bus.raddr     = s_dma_axi_araddr;
+    assign x_dram_bus.rlen      = s_dma_axi_arlen[3:0];
+    assign x_dram_bus.arvalid   = s_dma_axi_arvalid;
+    assign s_dma_axi_arready    = x_dram_bus.arready;
+    assign s_dma_axi_rdata      = x_dram_bus.rdata;
+    assign s_dma_axi_rresp      = 2'b00;
+    assign s_dma_axi_rlast      = x_dram_bus.rlast;
+    assign s_dma_axi_rvalid     = x_dram_bus.rvalid;
+    assign x_dram_bus.rready    = s_dma_axi_rready;
+    assign x_dram_bus.waddr     = s_dma_axi_awaddr;
+    assign x_dram_bus.wlen      = s_dma_axi_awlen[3:0];
+    assign x_dram_bus.awvalid   = s_dma_axi_awvalid;
+    assign s_dma_axi_awready    = x_dram_bus.awready;
+    assign x_dram_bus.wdata     = s_dma_axi_wdata;
+    assign x_dram_bus.wstb      = s_dma_axi_wstrb;
+    assign x_dram_bus.wlast     = s_dma_axi_wlast;
+    assign x_dram_bus.wvalid    = s_dma_axi_wvalid;
+    assign s_dma_axi_wready     = x_dram_bus.wready;
+    assign s_dma_axi_bresp      = 2'b00;
+    assign s_dma_axi_bvalid     = x_dram_bus.bvalid;
+    assign x_dram_bus.bready    = s_dma_axi_bready;
 
     // DRAM is always accessed as whole cache lines so it bypasses AXI and
     // goes straight to the MIG native interface, everything else (boot ROM
@@ -139,6 +200,7 @@ module RXVCoreAXISynthTop (
         .reset              (reset),
         .ibus               (i_dram_bus.Subordinate),
         .dbus               (d_dram_bus.Subordinate),
+        .xbus               (x_dram_bus.Subordinate),
         .init_calib_complete(ddr_calib_complete),
         .app_addr           (ddr_app_addr),
         .app_cmd            (ddr_app_cmd),

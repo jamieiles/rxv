@@ -7,16 +7,21 @@
 // a full cache line.  With a 4:1 PHY and x16 DDR3 each app command transfers
 // one BL8 burst of 128 bits so a line is beats_per_line commands.
 //
-// Reads: an AR is accepted from either port (alternating priority) and
+// Reads: an AR is accepted from any port (round-robin priority) and
 // beats_per_line read commands are issued back-to-back.  The MIG returns
 // read data in request order (ui_rd_data reorders) but has no backpressure
 // so data lands in a FIFO that is credited at AR time.  The FIFO is unpacked
 // to the requesting port at one 32-bit word per cycle.
 //
-// Writes: only the data port writes.  Words are packed into 128-bit beats
+// Writes: the data and DMA ports write, one line at a time with the ports
+// alternating when both are waiting.  Words are packed into 128-bit beats
 // and pushed into the MIG write data FIFO as soon as each beat is complete,
 // with the command following once the data has been accepted (the MIG allows
 // data ahead of the command).
+//
+// The DMA port (xbus) is for bus managers other than the CPU, such as the SD
+// host controller, and has the same full line restriction.  There is no
+// coherence with the CPU caches, software must clean/invalidate.
 //
 // Ordering: the MIG bank machines retire requests to the same rank/bank in
 // request order, and a line always falls in a single bank/row, so once
@@ -33,6 +38,7 @@ module MIGFrontend #(
     input  logic                             reset,
            MemInterface.Subordinate          ibus,
            MemInterface.Subordinate          dbus,
+           MemInterface.Subordinate          xbus,
     input  logic                             init_calib_complete,
     output logic        [app_addr_width-1:0] app_addr,
     output logic        [               2:0] app_cmd,
@@ -66,8 +72,19 @@ module MIGFrontend #(
     initial assert (line_size_bytes <= 64);
     initial assert (pq_order >= 1);
 
-    localparam PORT_I = 1'b0;
-    localparam PORT_D = 1'b1;
+    localparam logic [1:0] PORT_I = 2'd0;
+    localparam logic [1:0] PORT_D = 2'd1;
+    localparam logic [1:0] PORT_X = 2'd2;
+
+    // Round-robin: the first requesting port after the last granted one
+    function automatic logic [1:0] rr_grant(input logic [2:0] req, input logic [1:0] last);
+        logic [1:0] p;
+        rr_grant = last;
+        for (int k = 3; k >= 1; --k) begin
+            p = 2'((32'(last) + k) % 3);
+            if (req[p]) rr_grant = p;
+        end
+    endfunction
 
     function [app_addr_width-1:0] beat_app_addr;
         input [line_addr_bits-1:0] line;
@@ -80,13 +97,16 @@ module MIGFrontend #(
     logic                        rd_issue_active;
     logic                        rd_issue_active_next;
     logic [       beat_bits-1:0] rd_issue_beat;
+    logic [                 2:0] rd_req;
+    logic [                 1:0] rd_grant_port;
     logic [       beat_bits-1:0] rd_issue_beat_next;
     logic [  line_addr_bits-1:0] rd_issue_line;
     logic [  line_addr_bits-1:0] rd_issue_line_next;
-    logic                        rd_last_port;
-    logic                        rd_last_port_next;
+    logic [                 1:0] rd_last_port;
+    logic [                 1:0] rd_last_port_next;
     logic                        grant_i;
     logic                        grant_d;
+    logic                        grant_x;
     logic [  line_addr_bits-1:0] ar_line;
     logic                        rd_hazard;
     logic                        rd_credit_ok;
@@ -104,11 +124,11 @@ module MIGFrontend #(
     logic                        rd_fifo_empty;
     logic                        rd_fifo_pop;
     logic [               127:0] rd_fifo_head;
-    logic                        pq                      [pq_depth];
+    logic [                 1:0] pq                      [pq_depth];
     logic [          pq_order:0] pq_wr_ptr;
     logic [          pq_order:0] pq_rd_ptr;
     logic                        pq_pop;
-    logic                        out_port;
+    logic [                 1:0] out_port;
     logic [                 1:0] out_word;
     logic [       beat_bits-1:0] out_beat;
     logic                        out_valid;
@@ -143,16 +163,37 @@ module MIGFrontend #(
     logic                        wr_cmd_pending;
     logic                        wr_bvalid;
     logic                        wr_bvalid_next;
+    logic [                 1:0] wr_port;
+    logic [                 1:0] aw_grant_port;
+    logic [                 1:0] w_port;
+    logic                        wr_last_x;
+    logic                        d_aw_waiting;
+    logic                        aw_ready;
+    logic                        b_taken;
+    logic                        aw_valid;
+    // verilator lint_off UNUSEDSIGNAL
+    logic [              31:0] aw_addr;
+    // verilator lint_on UNUSEDSIGNAL
+    logic [               3:0] aw_len;
+    logic                        w_valid;
+    logic [              31:0] w_data;
+    logic [               3:0] w_strb;
+    logic                        w_last;
 
     // ------------------------------------------------------------------
     // Read address arbitration
     // ------------------------------------------------------------------
     always_comb begin
-        // Alternate priority between the ports when both are requesting
-        grant_d      = dbus.arvalid && (!ibus.arvalid || rd_last_port == PORT_I);
-        grant_i      = ibus.arvalid && !grant_d;
-        ar_line      = grant_d ? dbus.raddr[app_addr_width-1:line_bits] :
-            ibus.raddr[app_addr_width-1:line_bits];
+        rd_req        = {xbus.arvalid, dbus.arvalid, ibus.arvalid};
+        rd_grant_port = rr_grant(rd_req, rd_last_port);
+        grant_i       = rd_req[PORT_I] && rd_grant_port == PORT_I;
+        grant_d       = rd_req[PORT_D] && rd_grant_port == PORT_D;
+        grant_x       = rd_req[PORT_X] && rd_grant_port == PORT_X;
+        unique case (rd_grant_port)
+            PORT_D:  ar_line = dbus.raddr[app_addr_width-1:line_bits];
+            PORT_X:  ar_line = xbus.raddr[app_addr_width-1:line_bits];
+            default: ar_line = ibus.raddr[app_addr_width-1:line_bits];
+        endcase
 
         rd_hazard    = wr_busy && ar_line == wr_line;
         rd_credit_ok = rd_credits + (rd_fifo_order + 1)'(beats_per_line) <=
@@ -160,12 +201,13 @@ module MIGFrontend #(
         // Don't change the presented command until any write command has
         // been accepted.
         issuer_free  = !rd_issue_active && (!wr_cmd_pending || app_rdy);
-        ar_accept    = (grant_i || grant_d) && init_calib_complete && issuer_free &&
+        ar_accept    = (grant_i || grant_d || grant_x) && init_calib_complete && issuer_free &&
             !rd_hazard && rd_credit_ok;
     end
 
     assign ibus.arready = ar_accept && grant_i;
     assign dbus.arready = ar_accept && grant_d;
+    assign xbus.arready = ar_accept && grant_x;
 
     // ------------------------------------------------------------------
     // Command issue: a read line owns the command port until all of its
@@ -198,7 +240,7 @@ module MIGFrontend #(
             rd_issue_active_next = 1'b1;
             rd_issue_beat_next   = 'b0;
             rd_issue_line_next   = ar_line;
-            rd_last_port_next    = grant_d;
+            rd_last_port_next    = rd_grant_port;
         end else if (rd_cmd_fire) begin
             rd_issue_beat_next = rd_issue_beat + 1'b1;
             if (&rd_issue_beat) rd_issue_active_next = 1'b0;
@@ -215,7 +257,7 @@ module MIGFrontend #(
     // ------------------------------------------------------------------
     always_ff @(posedge clk) begin
         if (app_rd_data_valid) rd_fifo[rd_fifo_wr_ptr[rd_fifo_order-1:0]] <= app_rd_data;
-        if (ar_accept) pq[pq_wr_ptr[pq_order-1:0]] <= grant_d;
+        if (ar_accept) pq[pq_wr_ptr[pq_order-1:0]] <= rd_grant_port;
     end
 
     always_comb begin
@@ -223,7 +265,11 @@ module MIGFrontend #(
         rd_fifo_head  = rd_fifo[rd_fifo_rd_ptr[rd_fifo_order-1:0]];
         out_port      = pq[pq_rd_ptr[pq_order-1:0]];
         out_valid     = !rd_fifo_empty;
-        out_ready     = out_port == PORT_D ? dbus.rready : ibus.rready;
+        unique case (out_port)
+            PORT_D:  out_ready = dbus.rready;
+            PORT_X:  out_ready = xbus.rready;
+            default: out_ready = ibus.rready;
+        endcase
         out_fire      = out_valid && out_ready;
         out_data      = rd_fifo_head[{out_word, 5'b0}+:32];
         out_last      = &out_word && &out_beat;
@@ -233,10 +279,13 @@ module MIGFrontend #(
 
     assign ibus.rvalid = out_valid && out_port == PORT_I;
     assign dbus.rvalid = out_valid && out_port == PORT_D;
+    assign xbus.rvalid = out_valid && out_port == PORT_X;
     assign ibus.rdata  = out_data;
     assign dbus.rdata  = out_data;
+    assign xbus.rdata  = out_data;
     assign ibus.rlast  = out_last;
     assign dbus.rlast  = out_last;
+    assign xbus.rlast  = out_last;
 
     RXVDFF #(
         .width(rd_fifo_order + 1)
@@ -299,20 +348,44 @@ module MIGFrontend #(
     );
 
     // ------------------------------------------------------------------
-    // Write path (data port only)
+    // Write path (data and DMA ports)
     // ------------------------------------------------------------------
+    // The data port's address is combinational from the D-cache tags, so the
+    // ready signals only depend on registered state to keep the D-cache ->
+    // MemSplit -> frontend -> D-cache path short: the arbitration uses
+    // whether the data port was waiting on the previous cycle, and write data
+    // is accepted from the cycle after the address.
     always_comb begin
-        aw_accept    = dbus.awvalid && !wr_busy && init_calib_complete;
-        // Accept data in the same cycle as the address
-        w_open       = (wr_busy && !wr_words_done) || aw_accept;
-        wdf_fire     = wr_beat_valid && app_wdf_rdy;
-        wr_slot      = aw_accept ? 2'b0 : wr_word;
-        w_fire       = dbus.wvalid && dbus.wready;
+        // Alternate between the data and DMA ports when both are waiting
+        aw_grant_port = xbus.awvalid && (!d_aw_waiting || !wr_last_x) ? PORT_X : PORT_D;
+        aw_valid      = aw_grant_port == PORT_X ? xbus.awvalid : dbus.awvalid;
+        aw_addr       = aw_grant_port == PORT_X ? xbus.waddr : dbus.waddr;
+        aw_len        = aw_grant_port == PORT_X ? xbus.wlen : dbus.wlen;
+
+        // The write response is routed by wr_port so don't start another
+        // write until any pending response has been taken.
+        b_taken       = wr_bvalid && (wr_port == PORT_X ? xbus.bready : dbus.bready);
+        aw_ready      = !wr_busy && init_calib_complete && (!wr_bvalid || b_taken);
+        aw_accept     = aw_valid && aw_ready;
+
+        w_port        = wr_port;
+        w_valid       = w_port == PORT_X ? xbus.wvalid : dbus.wvalid;
+        w_data        = w_port == PORT_X ? xbus.wdata : dbus.wdata;
+        w_strb        = w_port == PORT_X ? xbus.wstb : dbus.wstb;
+        w_last        = w_port == PORT_X ? xbus.wlast : dbus.wlast;
+
+        w_open        = wr_busy && !wr_words_done;
+        wdf_fire      = wr_beat_valid && app_wdf_rdy;
+        wr_slot       = wr_word;
+        w_fire        = w_valid && w_open && (!wr_beat_valid || app_wdf_rdy);
     end
 
-    assign dbus.awready = !wr_busy && init_calib_complete;
-    assign dbus.wready  = w_open && (!wr_beat_valid || app_wdf_rdy);
-    assign dbus.bvalid  = wr_bvalid;
+    assign dbus.awready = aw_ready && aw_grant_port == PORT_D;
+    assign xbus.awready = aw_ready && aw_grant_port == PORT_X;
+    assign dbus.wready  = w_open && (!wr_beat_valid || app_wdf_rdy) && w_port == PORT_D;
+    assign xbus.wready  = w_open && (!wr_beat_valid || app_wdf_rdy) && w_port == PORT_X;
+    assign dbus.bvalid  = wr_bvalid && wr_port == PORT_D;
+    assign xbus.bvalid  = wr_bvalid && wr_port == PORT_X;
 
     assign app_wdf_data = wr_beat_data;
     assign app_wdf_mask = wr_beat_mask;
@@ -327,12 +400,14 @@ module MIGFrontend #(
         wr_beat_valid_next    = wr_beat_valid && !wdf_fire;
         wr_words_done_next    = aw_accept ? 1'b0 : wr_words_done;
 
+        if (aw_accept) wr_word_next = 2'b0;
+
         if (w_fire) begin
-            wr_beat_data_next[{wr_slot, 5'b0}+:32] = dbus.wdata;
-            wr_beat_mask_next[{wr_slot, 2'b0}+:4]  = ~dbus.wstb;
+            wr_beat_data_next[{wr_slot, 5'b0}+:32] = w_data;
+            wr_beat_mask_next[{wr_slot, 2'b0}+:4]  = ~w_strb;
             wr_word_next                           = wr_slot + 1'b1;
-            if (&wr_slot || dbus.wlast) wr_beat_valid_next = 1'b1;
-            if (dbus.wlast) begin
+            if (&wr_slot || w_last) wr_beat_valid_next = 1'b1;
+            if (w_last) begin
                 wr_words_done_next = 1'b1;
                 wr_word_next       = 2'b0;
             end
@@ -346,7 +421,7 @@ module MIGFrontend #(
         else if (wr_cmd_fire && wr_cmds_issued == (beat_bits + 1)'(beats_per_line - 1))
             wr_busy_next = 1'b0;
 
-        wr_bvalid_next = wr_bvalid && !dbus.bready;
+        wr_bvalid_next = wr_bvalid && !b_taken;
         if (wr_cmd_fire && wr_cmds_issued == (beat_bits + 1)'(beats_per_line - 1))
             wr_bvalid_next = 1'b1;
     end
@@ -362,8 +437,34 @@ module MIGFrontend #(
         .clk  (clk),
         .reset(reset),
         .en   (aw_accept),
-        .d    (dbus.waddr[app_addr_width-1:line_bits]),
+        .d    (aw_addr[app_addr_width-1:line_bits]),
         .q    (wr_line)
+    );
+
+    RXVDFF #(
+        .width(2)
+    ) wr_port_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (aw_accept),
+        .d    (aw_grant_port),
+        .q    (wr_port)
+    );
+
+    RXVDFF d_aw_waiting_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (dbus.awvalid && !dbus.awready),
+        .q    (d_aw_waiting)
+    );
+
+    RXVDFF wr_last_x_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (aw_accept),
+        .d    (aw_grant_port == PORT_X),
+        .q    (wr_last_x)
     );
 
     RXVDFF wr_busy_dff (
@@ -477,7 +578,9 @@ module MIGFrontend #(
         .q    (rd_issue_line)
     );
 
-    RXVDFF rd_last_port_dff (
+    RXVDFF #(
+        .width(2)
+    ) rd_last_port_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
@@ -501,7 +604,8 @@ module MIGFrontend #(
     ) rd_full_line (
         .clk      (clk),
         .en       (ar_accept),
-        .condition(grant_d ? dbus.rlen == bus_len : ibus.rlen == bus_len)
+        .condition(grant_x ? xbus.rlen == bus_len :
+                   grant_d ? dbus.rlen == bus_len : ibus.rlen == bus_len)
     );
 
     RXVAssert #(
@@ -509,7 +613,7 @@ module MIGFrontend #(
     ) wr_full_line (
         .clk      (clk),
         .en       (aw_accept),
-        .condition(dbus.wlen == bus_len)
+        .condition(aw_len == bus_len)
     );
 
     RXVAssert #(

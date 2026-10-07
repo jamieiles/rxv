@@ -173,9 +173,11 @@ struct Result {
     uint64_t end;
 };
 
+enum Port { PORT_I, PORT_D, PORT_X };
+
 // Drives a BusAdapter the same way the caches do: valid is held until
 // complete, write data follows beat_num.
-template <bool is_data>
+template <Port port>
 class PortDriver
 {
 public:
@@ -220,9 +222,12 @@ public:
             set_valid(true);
         }
         if (active && cur.txn.write) {
-            if constexpr (is_data) {
+            if constexpr (port == PORT_D) {
                 auto n = dut.d_beat_num;
                 dut.d_wdata = cur.txn.data[n & 0xf];
+            } else if constexpr (port == PORT_X) {
+                auto n = dut.x_beat_num;
+                dut.x_wdata = cur.txn.data[n & 0xf];
             }
         }
     }
@@ -239,26 +244,46 @@ public:
 private:
     bool beat_ack() const
     {
-        return is_data ? dut.d_beat_ack : dut.i_beat_ack;
+        if constexpr (port == PORT_D)
+            return dut.d_beat_ack;
+        else if constexpr (port == PORT_X)
+            return dut.x_beat_ack;
+        return dut.i_beat_ack;
     }
     bool complete() const
     {
-        return is_data ? dut.d_complete : dut.i_complete;
+        if constexpr (port == PORT_D)
+            return dut.d_complete;
+        else if constexpr (port == PORT_X)
+            return dut.x_complete;
+        return dut.i_complete;
     }
     uint32_t rdata() const
     {
-        return is_data ? dut.d_rdata : dut.i_rdata;
+        if constexpr (port == PORT_D)
+            return dut.d_rdata;
+        else if constexpr (port == PORT_X)
+            return dut.x_rdata;
+        return dut.i_rdata;
     }
 
     void set_valid(bool v)
     {
-        if constexpr (is_data) {
+        if constexpr (port == PORT_D) {
             dut.d_valid = v;
             if (v) {
                 dut.d_address = cur.txn.addr >> 2;
                 dut.d_wren = cur.txn.write;
                 dut.d_bytesel = cur.txn.bytesel;
                 dut.d_len = cur.txn.len;
+            }
+        } else if constexpr (port == PORT_X) {
+            dut.x_valid = v;
+            if (v) {
+                dut.x_address = cur.txn.addr >> 2;
+                dut.x_wren = cur.txn.write;
+                dut.x_bytesel = cur.txn.bytesel;
+                dut.x_len = cur.txn.len;
             }
         } else {
             dut.i_valid = v;
@@ -290,7 +315,7 @@ class MIGFrontendTestbench : public VerilogTestbench<VMIGFrontendWrapper>,
                              public ::testing::Test
 {
 public:
-    MIGFrontendTestbench() : mig(dut), iport(dut), dport(dut)
+    MIGFrontendTestbench() : mig(dut), iport(dut), dport(dut), xport(dut)
     {
         dut.init_calib_complete = 1;
         dut.app_rdy = 1;
@@ -300,17 +325,22 @@ public:
         dut.i_len = 15;
         dut.d_len = 15;
         dut.d_bytesel = 0xf;
+        dut.x_valid = 0;
+        dut.x_len = 15;
+        dut.x_bytesel = 0xf;
         reset();
 
         periodic(ClockSetup, [&] {
             mig.setup();
             iport.setup(cur_cycle());
             dport.setup(cur_cycle());
+            xport.setup(cur_cycle());
         });
         periodic(ClockCapture, [&] {
             mig.capture();
             iport.capture(cur_cycle());
             dport.capture(cur_cycle());
+            xport.capture(cur_cycle());
             dut.eval();
         });
     }
@@ -318,7 +348,7 @@ public:
     void run_until_idle(int max_cycles = 100000)
     {
         int i = 0;
-        while ((iport.busy() || dport.busy() || !mig.idle()) &&
+        while ((iport.busy() || dport.busy() || xport.busy() || !mig.idle()) &&
                i++ < max_cycles)
             cycle();
         ASSERT_LT(i, max_cycles) << "timed out";
@@ -338,8 +368,9 @@ public:
     }
 
     MIGModel mig;
-    PortDriver<false> iport;
-    PortDriver<true> dport;
+    PortDriver<PORT_I> iport;
+    PortDriver<PORT_D> dport;
+    PortDriver<PORT_X> xport;
 };
 
 TEST_F(MIGFrontendTestbench, ReadLineInstruction)
@@ -527,4 +558,105 @@ TEST_F(MIGFrontendTestbench, FillHasNoBubbles)
     EXPECT_LE(wr_cycles, 16u + 3u);
     RecordProperty("fill_cycles",
                    int(dport.results[0].end - dport.results[0].start));
+}
+
+TEST_F(MIGFrontendTestbench, DMAPortWriteThenReadBack)
+{
+    auto line = make_line(20);
+
+    xport.push(write_line(dram_base + 0x5040, line));
+    xport.push(read_line(dram_base + 0x5040));
+    run_until_idle();
+
+    EXPECT_EQ(mig.peek(dram_base + 0x5040), line);
+    ASSERT_EQ(xport.results.size(), 2u);
+    EXPECT_EQ(xport.results[1].data, line);
+}
+
+// A DMA write that is still waiting for its commands must be observed by a
+// CPU read of the same line, as for the data port.
+TEST_F(MIGFrontendTestbench, DMAWriteThenDataReadHazard)
+{
+    auto old_line = make_line(21);
+    auto new_line = make_line(22);
+    mig.preload(dram_base + 0x6000, old_line);
+    mig.set_backpressure(30, 100);
+
+    xport.push(write_line(dram_base + 0x6000, new_line));
+    while (xport.results.empty())
+        cycle();
+    EXPECT_LT(mig.write_cmds, 4u) << "test did not exercise the hazard";
+
+    dport.push(read_line(dram_base + 0x6000));
+    run_until_idle();
+
+    ASSERT_EQ(dport.results.size(), 1u);
+    EXPECT_EQ(dport.results[0].data, new_line);
+}
+
+TEST_F(MIGFrontendTestbench, ThreePortsRandomStress)
+{
+    std::mt19937 rng(7);
+    mig.set_backpressure(60, 70);
+    mig.set_latency(8, 40);
+
+    // The data port owns lines [0, 32), the DMA port [32, 64), both read and
+    // write them, the instruction port reads [64, 96).
+    std::map<uint32_t, Line> golden;
+    for (uint32_t l = 0; l < 96; ++l) {
+        golden[l] = make_line(200 + l);
+        mig.preload(dram_base + l * 64, golden[l]);
+    }
+
+    std::vector<std::pair<bool, Line>> expected_d;
+    std::vector<std::pair<bool, Line>> expected_x;
+    std::vector<uint32_t> expected_i;
+    for (int n = 0; n < 300; ++n) {
+        uint32_t dl = rng() % 32;
+        if (rng() % 2) {
+            golden[dl] = make_line(rng());
+            dport.push(write_line(dram_base + dl * 64, golden[dl]));
+            expected_d.push_back({true, {}});
+        } else {
+            dport.push(read_line(dram_base + dl * 64));
+            expected_d.push_back({false, golden[dl]});
+        }
+
+        uint32_t xl = 32 + rng() % 32;
+        if (rng() % 2) {
+            golden[xl] = make_line(rng());
+            xport.push(write_line(dram_base + xl * 64, golden[xl]));
+            expected_x.push_back({true, {}});
+        } else {
+            xport.push(read_line(dram_base + xl * 64));
+            expected_x.push_back({false, golden[xl]});
+        }
+
+        uint32_t il = 64 + rng() % 32;
+        iport.push(read_line(dram_base + il * 64));
+        expected_i.push_back(il);
+    }
+
+    run_until_idle(2000000);
+
+    ASSERT_EQ(dport.results.size(), expected_d.size());
+    for (size_t i = 0; i < expected_d.size(); ++i) {
+        if (!expected_d[i].first) {
+            EXPECT_EQ(dport.results[i].data, expected_d[i].second) << "d txn " << i;
+        }
+    }
+
+    ASSERT_EQ(xport.results.size(), expected_x.size());
+    for (size_t i = 0; i < expected_x.size(); ++i) {
+        if (!expected_x[i].first) {
+            EXPECT_EQ(xport.results[i].data, expected_x[i].second) << "x txn " << i;
+        }
+    }
+
+    ASSERT_EQ(iport.results.size(), expected_i.size());
+    for (size_t i = 0; i < expected_i.size(); ++i)
+        EXPECT_EQ(iport.results[i].data, golden[expected_i[i]]) << "i txn " << i;
+
+    for (uint32_t l = 0; l < 64; ++l)
+        EXPECT_EQ(mig.peek(dram_base + l * 64), golden[l]) << "line " << l;
 }

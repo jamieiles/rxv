@@ -24,6 +24,17 @@ module MIGFrontendWrapper (
     output logic [ 31:0] d_rdata,
     output logic         d_beat_ack,
     output logic [  3:0] d_beat_num,
+    // DMA port manager
+    input  logic         x_valid,
+    input  logic [ 31:2] x_address,
+    input  logic [  3:0] x_len,
+    input  logic         x_wren,
+    input  logic [ 31:0] x_wdata,
+    input  logic [  3:0] x_bytesel,
+    output logic         x_complete,
+    output logic [ 31:0] x_rdata,
+    output logic         x_beat_ack,
+    output logic [  3:0] x_beat_num,
     // MIG native interface
     input  logic         init_calib_complete,
     output logic [ 27:0] app_addr,
@@ -51,10 +62,12 @@ module MIGFrontendWrapper (
     MemInterface d_dram ();
     MemInterface i_dev ();
     MemInterface d_dev ();
+    MemInterface x_dram ();
 
     // verilator lint_off UNUSED
     logic [ 3:0] i_beat_num_next;
     logic [ 3:0] d_beat_num_next;
+    logic [ 3:0] x_beat_num_next;
     logic [31:0] i_dev_last_waddr;
     logic [31:0] i_dev_last_wdata;
     logic [ 3:0] i_dev_last_wstb;
@@ -93,6 +106,23 @@ module MIGFrontendWrapper (
         .beat_num     (d_beat_num),
         .beat_num_next(d_beat_num_next),
         .beat_ack     (d_beat_ack)
+    );
+
+    BusAdapter x_adapter (
+        .clk          (clk),
+        .reset        (reset),
+        .bus          (x_dram.Manager),
+        .valid        (x_valid),
+        .complete     (x_complete),
+        .address      (x_address),
+        .wdata        (x_wdata),
+        .wren         (x_wren),
+        .bytesel      (x_bytesel),
+        .rdata        (x_rdata),
+        .len          (x_len),
+        .beat_num     (x_beat_num),
+        .beat_num_next(x_beat_num_next),
+        .beat_ack     (x_beat_ack)
     );
 
     MemSplit i_split (
@@ -135,6 +165,7 @@ module MIGFrontendWrapper (
         .reset              (reset),
         .ibus               (i_dram.Subordinate),
         .dbus               (d_dram.Subordinate),
+        .xbus               (x_dram.Subordinate),
         .init_calib_complete(init_calib_complete),
         .app_addr           (app_addr),
         .app_cmd            (app_cmd),

@@ -1,14 +1,14 @@
 #include "string.h"
-#include "uart.h"
+#include "console.h"
 
 void putstr(const char *str)
 {
     while (*str) {
         const char *p = str++;
 
-        uart_putc(*p);
+        console_putc(*p);
         if (*p == '\n')
-            uart_putc('\r');
+            console_putc('\r');
     }
 }
 

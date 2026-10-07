@@ -1,7 +1,7 @@
 #include "common.h"
 #include "string.h"
 #include "printk.h"
-#include "uart.h"
+#include "console.h"
 #include "mtime.h"
 
 #define SZ_KB (1024)
@@ -39,11 +39,11 @@ static void fmt_size(unsigned long sz,
 static void clear(int clear_chars)
 {
     for (int i = 0; i < clear_chars; ++i)
-        uart_putc('\x08');
+        console_putc('\x08');
     for (int i = 0; i < clear_chars; ++i)
-        uart_putc(' ');
+        console_putc(' ');
     for (int i = 0; i < clear_chars; ++i)
-        uart_putc('\x08');
+        console_putc('\x08');
 }
 
 static int last_draw_len;

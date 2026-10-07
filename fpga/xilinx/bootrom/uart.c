@@ -1,4 +1,4 @@
-#include "uart.h"
+#include "console.h"
 
 static const unsigned long uart_base = 0xffff1000;
 static volatile unsigned long *uart_mmio = (volatile unsigned long *)uart_base;
@@ -12,24 +12,13 @@ static void uart_wait_tx_empty(void)
     } while (!(lsr & (1 << 5)));
 }
 
-void uart_putc(int c)
+void console_putc(int c)
 {
     uart_wait_tx_empty();
     uart_mmio[0] = c;
 }
 
-int uart_getc(void)
-{
-    unsigned long lsr;
-
-    do {
-        lsr = uart_mmio[5];
-    } while (!(lsr & (1 << 0)));
-
-    return uart_mmio[0];
-}
-
-void uart_init(void)
+void console_init(void)
 {
     uart_mmio = (volatile unsigned long *)uart_base;
 

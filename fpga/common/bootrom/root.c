@@ -1,7 +1,8 @@
 #include "common.h"
+#include "board.h"
 #include "string.h"
 #include "printk.h"
-#include "uart.h"
+#include "console.h"
 #include "fat.h"
 #include "disk.h"
 #include "sdhci.h"
@@ -54,7 +55,7 @@ static const struct boot_file boot_files[] = {
      .load_address = 0x80400000,
      .required = 0,
      .compressed = 1},
-    {.name = u"ARTY.DTB", .load_address = 0x80200000, .required = 1},
+    {.name = BOARD_DTB_NAME, .load_address = 0x80200000, .required = 1},
     {}};
 
 long tinflate(const void *compressed_data,
@@ -148,7 +149,7 @@ void root(void)
     unsigned long start = 0, size = 0;
     struct fat_superblock sb;
 
-    uart_init();
+    console_init();
 
     putstr(banner);
     putstr("BootROM " __DATE__ " " __TIME__ "\n");

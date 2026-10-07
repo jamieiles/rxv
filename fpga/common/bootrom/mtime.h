@@ -1,7 +1,8 @@
 #pragma once
 #include <stdint.h>
+#include "board.h"
 
-#define TICKS_PER_MS (10140625 / 1000)
+#define TICKS_PER_MS (BOARD_TIMER_HZ / 1000)
 
 static inline uint64_t get_time(void)
 {
@@ -16,13 +17,9 @@ static inline uint64_t get_time(void)
     return ((uint64_t)hi << 32) | lo;
 }
 
-/*
- * The timer runs at 10.140625MHz, exactly 649/64 ticks per microsecond, so
- * conversions avoid a 64-bit division (no libgcc).
- */
 static inline uint64_t us_to_ticks(unsigned long us)
 {
-    return ((uint64_t)us * 649) >> 6;
+    return BOARD_US_TO_TICKS(us);
 }
 
 /* Return a deadline us microseconds from now for timed_out(). */

@@ -3,7 +3,7 @@
 #include "disk.h"
 #include "sdhci.h"
 #include "fat.h"
-#include "uart.h"
+#include "console.h"
 #include "printk.h"
 #include "progress.h"
 

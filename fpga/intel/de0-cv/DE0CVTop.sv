@@ -167,7 +167,30 @@ module DE0CVTop #(
         .vga_vsync    (VGA_VS),
         .leds         (LEDR),
         .hex_n        (hex_n),
-        .debug_probe  (debug_probe)
+        .debug_probe  (debug_probe),
+        .console_read_addr (console_read_addr),
+        .console_read_data (console_read_data),
+        .console_byte_count(console_byte_count)
+    );
+
+    // The console UART's output, read over JTAG by jtag-console.tcl: the
+    // source selects 8 bytes of the buffer.
+    wire [ 9:0] console_read_addr;
+    wire [63:0] console_read_data;
+    wire [31:0] console_byte_count;
+
+    altsource_probe #(
+        .sld_auto_instance_index("YES"),
+        .instance_id            ("CON"),
+        .probe_width            (96),
+        .source_width           (10),
+        .source_initial_value   ("0"),
+        .enable_metastability   ("YES")
+    ) console_jtag (
+        .probe     ({console_byte_count, console_read_data}),
+        .source    (console_read_addr),
+        .source_clk(sys_clk),
+        .source_ena(1'b1)
     );
 
     // Read over JTAG with quartus_stp, see debug-probe.tcl.

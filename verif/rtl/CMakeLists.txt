@@ -657,6 +657,7 @@ verilate(rtl-unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/RXVCLINT.v
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/PLIC.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/DebugRegs.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ConsoleUART.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/PS2Host.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/AltPS2.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/video/VGAScanout.sv
@@ -758,6 +759,7 @@ verilate(rtl-unittest
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/RXVCLINT.v
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/PLIC.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/DebugRegs.sv
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ConsoleUART.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/PS2Host.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/ps2/AltPS2.sv
     ${CMAKE_CURRENT_SOURCE_DIR}/../../fpga/common/video/VGAScanout.sv

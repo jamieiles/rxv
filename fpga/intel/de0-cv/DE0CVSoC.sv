@@ -16,6 +16,7 @@
 //   0xfffa0000  PS/2 keyboard
 //   0xfffb0000  PS/2 mouse
 //   0xfffc0000  SD host controller
+//   0xffff1000  console UART, read out over JTAG
 module DE0CVSoC #(
     parameter int    clk_freq          = 60000000,
     parameter        bootrom_init       = "",
@@ -70,6 +71,10 @@ module DE0CVSoC #(
     // Debug
     output logic [ 9:0] leds,
     output logic [41:0] hex_n,
+    // Console UART read out
+    input  logic [ 9:0] console_read_addr,
+    output logic [63:0] console_read_data,
+    output logic [31:0] console_byte_count,
     // For a JTAG probe:
     //   [255:224] the PC of the last jump and link
     //   [223:192] mtval
@@ -82,19 +87,20 @@ module DE0CVSoC #(
     output logic [255:0] debug_probe
 );
 
-    localparam int num_slaves = 6;
+    localparam int num_slaves = 7;
     localparam int SLAVE_CLINT = 0;
     localparam int SLAVE_PLIC = 1;
     localparam int SLAVE_DEBUG = 2;
     localparam int SLAVE_KBD = 3;
     localparam int SLAVE_MOUSE = 4;
     localparam int SLAVE_SDHCI = 5;
+    localparam int SLAVE_CONSOLE = 6;
 
     localparam logic [num_slaves*32-1:0] slave_base = {
-        32'hfffc0000, 32'hfffb0000, 32'hfffa0000, 32'hfff90000, 32'hfc000000, 32'hf0000000
+        32'hffff0000, 32'hfffc0000, 32'hfffb0000, 32'hfffa0000, 32'hfff90000, 32'hfc000000, 32'hf0000000
     };
     localparam logic [num_slaves*32-1:0] slave_mask = {
-        32'hffff0000, 32'hffff0000, 32'hffff0000, 32'hffff0000, 32'hffc00000, 32'hffff0000
+        32'hffff0000, 32'hffff0000, 32'hffff0000, 32'hffff0000, 32'hffff0000, 32'hffc00000, 32'hffff0000
     };
 
     // ------------------------------------------------------------------
@@ -453,6 +459,22 @@ module DE0CVSoC #(
     `REG_BLOCK(debug, SLAVE_DEBUG)
     `REG_BLOCK(kbd, SLAVE_KBD)
     `REG_BLOCK(mouse, SLAVE_MOUSE)
+    `REG_BLOCK(console, SLAVE_CONSOLE)
+
+    ConsoleUART console (
+        .clk       (clk),
+        .reset     (reset),
+        .reg_wr    (console_wr),
+        .reg_waddr (console_waddr),
+        .reg_wdata (console_wdata),
+        .reg_wstrb (console_wstrb),
+        .reg_rd    (console_rd),
+        .reg_raddr (console_raddr),
+        .reg_rdata (console_rdata),
+        .read_addr (console_read_addr),
+        .read_data (console_read_data),
+        .byte_count(console_byte_count)
+    );
 
     DebugRegs debug (
         .clk      (clk),

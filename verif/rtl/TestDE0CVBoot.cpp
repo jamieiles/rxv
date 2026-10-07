@@ -114,6 +114,19 @@ TEST_F(DE0CVBootTestbench, BootsPayload)
     EXPECT_FALSE(card.contention);
     EXPECT_EQ(card.bad_commands, 0u);
 
+    // The boot ROM's output is also in the console UART's buffer, as read
+    // over JTAG on the board.
+    std::string console;
+    for (uint32_t pos = 0; pos < dut.console_byte_count; pos += 8) {
+        dut.console_read_addr = (pos / 8) % 1024;
+        cycle(2);
+        for (uint32_t b = 0; b < 8 && pos + b < dut.console_byte_count; ++b)
+            console += char(dut.console_read_data >> (8 * b));
+    }
+    EXPECT_NE(console.find("BootROM"), std::string::npos) << console;
+    EXPECT_NE(console.find("Loaded, jumping to entry point"), std::string::npos)
+        << console;
+
     // Optionally save the screen as a PPM to look at.
     if (auto path = getenv("DE0CV_FB_DUMP")) {
         std::ofstream ppm(path, std::ios::binary);

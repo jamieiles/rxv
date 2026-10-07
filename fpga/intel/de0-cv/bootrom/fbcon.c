@@ -5,7 +5,8 @@
 // 640x480 RGB565, written through the uncached framebuffer window.  The
 // text is kept in a shadow buffer so that scrolling only writes the
 // framebuffer.  UTF-8 is decoded for the glyphs in font.c (ASCII and the
-// block characters in the banner).
+// block characters in the banner).  Everything is also written to the
+// console UART so that it can be read over JTAG.
 #include <stdint.h>
 
 #include "common.h"
@@ -27,6 +28,7 @@ extern const uint8_t font_glyphs[][GLYPH_HEIGHT];
 extern const unsigned font_num_glyphs;
 
 static volatile uint32_t *const fb = (volatile uint32_t *)BOARD_FB_BASE;
+static volatile uint32_t *const uart = (volatile uint32_t *)BOARD_CONSOLE_UART;
 static uint8_t text[ROWS][COLS];
 static unsigned col, row;
 static uint32_t utf8_cp;
@@ -93,6 +95,9 @@ void console_init(void)
 void console_putc(int c)
 {
     uint8_t ch = c;
+
+    // The UART is always ready to transmit.
+    uart[0] = ch;
 
     if (utf8_remaining) {
         utf8_cp = (utf8_cp << 6) | (ch & 0x3f);

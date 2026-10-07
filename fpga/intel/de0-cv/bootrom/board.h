@@ -13,3 +13,6 @@
 
 /* The SD host controller's base clock, the system clock. */
 #define BOARD_SDHCI_BASE_KHZ 60000
+
+/* The console UART, read out over JTAG. */
+#define BOARD_CONSOLE_UART 0xffff1000

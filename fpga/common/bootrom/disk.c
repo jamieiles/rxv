@@ -2,6 +2,7 @@
 #include "string.h"
 #include "disk.h"
 #include "sdhci.h"
+#include "printk.h"
 
 static int assert_partitioned(const unsigned char *mbr)
 {
@@ -48,6 +49,14 @@ void find_boot_partition(unsigned long *start, unsigned long *size)
     if (read_sector(0, mbr))
         panic("unable to read MBR");
 
-    if (get_active_partition(mbr, start, size))
+    if (get_active_partition(mbr, start, size)) {
+        // The partition table and signature as read
+        for (unsigned off = 0x1b0; off < BLOCK_SIZE; off += 16) {
+            printk("%x:", off);
+            for (unsigned b = 0; b < 16; ++b)
+                printk(" %x", mbr[off + b]);
+            printk("\n");
+        }
         panic("unable to get boot partition");
+    }
 }

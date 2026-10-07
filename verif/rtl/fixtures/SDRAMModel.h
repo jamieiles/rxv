@@ -136,7 +136,7 @@ public:
             if (cmd == WRITE) {
                 if (!dut.s_dq_oe)
                     error("write without driving DQ");
-                uint16_t v = mem.count(key) ? mem[key] : 0;
+                uint16_t v = read16(key);
                 if (!(dut.s_dqm & 1))
                     v = (v & 0xff00) | (dut.s_dq_o & 0x00ff);
                 if (!(dut.s_dqm & 2))
@@ -147,7 +147,7 @@ public:
             } else {
                 if (dut.s_dqm)
                     error("DQM asserted for a read");
-                uint16_t v = mem.count(key) ? mem[key] : 0;
+                uint16_t v = read16(key);
                 // Sampled by the controller CL edges after this one
                 reads_out.push_back({edge + cl, v});
                 ++reads;
@@ -198,9 +198,8 @@ public:
 
     uint32_t peek32(uint32_t byte_addr)
     {
-        uint32_t lo = mem.count(key_of(byte_addr)) ? mem[key_of(byte_addr)] : 0;
-        uint32_t hi = mem.count(key_of(byte_addr + 2)) ?
-                          mem[key_of(byte_addr + 2)] : 0;
+        uint32_t lo = read16(key_of(byte_addr));
+        uint32_t hi = read16(key_of(byte_addr + 2));
         return lo | (hi << 16);
     }
 
@@ -235,6 +234,16 @@ private:
         uint64_t last_pre = 0;
         uint64_t last_write = 0;
     };
+
+    // Unwritten locations read as power up garbage, as on a real part.
+    uint16_t read16(uint32_t key) const
+    {
+        auto it = mem.find(key);
+        if (it != mem.end())
+            return it->second;
+        uint32_t h = key * 0x9e3779b1u;
+        return (h ^ (h >> 16)) & 0xffff;
+    }
 
     void error(const std::string &msg)
     {

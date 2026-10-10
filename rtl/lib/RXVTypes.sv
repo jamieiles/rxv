@@ -85,6 +85,14 @@ package RXVTypes;
     typedef logic [pmu_num_events-1:0] pmu_evt_bus;
     typedef logic [rxv_pmu_evt_bits-1:0] pmu_evt_sel;
 
+    // Where exec takes an operand from: the register file or a result
+    // forwarded from a pipe before it is written back.
+    typedef enum logic [1:0] {
+        OPERAND_RF  = 2'b00,
+        OPERAND_INT = 2'b01,
+        OPERAND_LSU = 2'b10
+    } rxv_operand_src;
+
     typedef enum logic [1:0] {
         CSR_SWAP,
         CSR_SET,

@@ -44,6 +44,9 @@ module RXVLSU #(
     output logic                            lsu_reg_wr_en,
     output logic         [            31:0] lsu_reg_wr_data,
     output logic                            lsu_complete,
+    // The load result that will be in lsu_reg_wr_data next cycle
+    output logic                            lsu_fwd_valid,
+    output phys_reg_tag                     lsu_fwd_rd,
     output logic         [commit_width-1:0] lsu_complete_id,
     // To data cache
     output logic         [            31:2] dcache_address,
@@ -258,6 +261,14 @@ module RXVLSU #(
 
     always_comb begin
         lsu_complete = lsu_reg_busy && lsu_reg_wr_en ? 1'b0 : lsu_complete_reg;
+    end
+
+    // Stage 2 is registered into lsu_reg_wr_data at the end of this cycle
+    // unless a result held for write port contention is still pending.
+    always_comb begin
+        lsu_fwd_valid = op_stage2.valid && op_stage2.reg_wr_en &&
+            !(lsu_complete_reg && lsu_reg_busy && lsu_reg_wr_en);
+        lsu_fwd_rd    = op_stage2.rd;
     end
 
     always_comb begin

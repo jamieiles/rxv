@@ -127,6 +127,11 @@ module RXVLSUWrapper #(
         .device_memory       (dcache_device_memory)
     );
 
+    // verilator lint_off UNUSED
+    logic        lsu_fwd_valid;
+    phys_reg_tag lsu_fwd_rd;
+    // verilator lint_on UNUSED
+
     RXVLSU RXVLSU (
         .clk             (clk),
         .reset           (reset),

@@ -16,6 +16,7 @@ import RXVTypes::commit_width;
 import RXVTypes::rxv_pmu_evt;
 import RXVTypes::pmu_evt_bus;
 import RXVTypes::pmu_evt_sel;
+import RXVTypes::rxv_operand_src;
 import RXVTrace::trace_write_reg;
 import RXVTrace::trace_write_csr;
 import RXVCSR::RXVException;
@@ -140,8 +141,10 @@ module RXVCore #(
     logic          [                  31:0] exec_immed;
     rxv_opcode                              exec_opcode;
     rxv_uop                                 exec_uop;
-    logic                                   exec_bypass_rs1;
-    logic                                   exec_bypass_rs2;
+    rxv_operand_src                         exec_rs1_src;
+    rxv_operand_src                         exec_rs2_src;
+    logic                                   lsu_fwd_valid;
+    phys_reg_tag                            lsu_fwd_rd;
     logic          [                  31:0] exec_csr_rd_data;
     logic          [                  11:0] exec_csr_wr_addr;
     logic          [                  31:0] exec_csr_wr_data;
@@ -509,8 +512,10 @@ module RXVCore #(
         .exec_immed                 (exec_immed),
         .exec_opcode                (exec_opcode),
         .exec_uop                   (exec_uop),
-        .exec_bypass_rs1            (exec_bypass_rs1),
-        .exec_bypass_rs2            (exec_bypass_rs2),
+        .exec_rs1_src               (exec_rs1_src),
+        .exec_rs2_src               (exec_rs2_src),
+        .lsu_fwd_valid              (lsu_fwd_valid),
+        .lsu_fwd_rd                 (lsu_fwd_rd),
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction),
@@ -632,6 +637,8 @@ module RXVCore #(
         .lsu_reg_wr_en       (lsu_reg_wr_en),
         .lsu_reg_wr_data     (lsu_reg_wr_data),
         .lsu_complete        (lsu_complete_valid),
+        .lsu_fwd_valid       (lsu_fwd_valid),
+        .lsu_fwd_rd          (lsu_fwd_rd),
         .lsu_complete_id     (lsu_complete_id),
         .dcache_address      (lsu_dcache_address),
         .dcache_valid        (lsu_dcache_valid),
@@ -1024,8 +1031,17 @@ module RXVCore #(
     );
 
     always_comb begin
-        rs1_data = exec_bypass_rs1 ? int_exec_reg_wr_data : rd_data_a;
-        rs2_data = exec_bypass_rs2 ? int_exec_reg_wr_data : rd_data_b;
+        unique case (exec_rs1_src)
+            RXVTypes::OPERAND_INT: rs1_data = int_exec_reg_wr_data;
+            RXVTypes::OPERAND_LSU: rs1_data = lsu_reg_wr_data;
+            default: rs1_data = rd_data_a;
+        endcase
+
+        unique case (exec_rs2_src)
+            RXVTypes::OPERAND_INT: rs2_data = int_exec_reg_wr_data;
+            RXVTypes::OPERAND_LSU: rs2_data = lsu_reg_wr_data;
+            default: rs2_data = rd_data_b;
+        endcase
     end
 
     always_comb begin

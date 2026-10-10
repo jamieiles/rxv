@@ -18,6 +18,7 @@ import RXVTypes::s_immed;
 import RXVTypes::u_immed;
 import RXVTypes::commit_entry;
 import RXVTypes::commit_width;
+import RXVTypes::rxv_operand_src;
 import RXVTrace::trace_start_instruction;
 import RXVTrace::trace_uop;
 import RXVCSR::RXVException;
@@ -107,8 +108,11 @@ module RXVDecode (
     output logic          [             31:0] exec_immed,
     output rxv_opcode                         exec_opcode,
     output rxv_uop                            exec_uop,
-    output logic                              exec_bypass_rs1,
-    output logic                              exec_bypass_rs2,
+    output rxv_operand_src                    exec_rs1_src,
+    output rxv_operand_src                    exec_rs2_src,
+    // Load result forwarding
+    input  logic                              lsu_fwd_valid,
+    input  phys_reg_tag                       lsu_fwd_rd,
     // Exec branch
     output logic          [             31:2] exec_pc,
     output logic          [             31:2] exec_next_pc,
@@ -171,8 +175,10 @@ module RXVDecode (
     logic          [                  31:0] exec_immed_next;
     logic          [                  31:0] exec_branch_target_next;
     logic          [    $bits(rxv_uop)-1:0] exec_uop_next;
-    logic                                   exec_bypass_rs1_next;
-    logic                                   exec_bypass_rs2_next;
+    rxv_operand_src                         exec_rs1_src_next;
+    rxv_operand_src                         exec_rs2_src_next;
+    logic          [                   1:0] exec_rs1_src_q;
+    logic          [                   1:0] exec_rs2_src_q;
     rxv_prediction                          exec_prediction_next;
 
     logic                                   opc_op;
@@ -951,21 +957,34 @@ module RXVDecode (
              exec_uop == RXVTypes::UOP_LUI);
     end
 
+    // The integer result is forwarded by architectural register as it is
+    // always the most recent writer, the LSU result by physical register as
+    // a newer instruction may have renamed the destination.
     always_comb begin
-        exec_bypass_rs1_next = int_bypass_valid && last_rd_arch == rs1;
-        exec_bypass_rs2_next = int_bypass_valid && last_rd_arch == rs2;
+        exec_rs1_src_next = RXVTypes::OPERAND_RF;
+        if (lsu_fwd_valid && lsu_fwd_rd == ra_phys) exec_rs1_src_next = RXVTypes::OPERAND_LSU;
+        if (int_bypass_valid && last_rd_arch == rs1) exec_rs1_src_next = RXVTypes::OPERAND_INT;
+
+        exec_rs2_src_next = RXVTypes::OPERAND_RF;
+        if (lsu_fwd_valid && lsu_fwd_rd == rb_phys) exec_rs2_src_next = RXVTypes::OPERAND_LSU;
+        if (int_bypass_valid && last_rd_arch == rs2) exec_rs2_src_next = RXVTypes::OPERAND_INT;
+    end
+
+    always_comb begin
+        exec_rs1_src = rxv_operand_src'(exec_rs1_src_q);
+        exec_rs2_src = rxv_operand_src'(exec_rs2_src_q);
     end
 
     always_comb begin
         rs1_busy = busy_status[ra_phys];
         if (reg_wr_en && reg_wr_addr == ra_phys) rs1_busy = 1'b0;
-        if (exec_bypass_rs1_next) rs1_busy = 1'b0;
+        if (exec_rs1_src_next != RXVTypes::OPERAND_RF) rs1_busy = 1'b0;
     end
 
     always_comb begin
         rs2_busy = busy_status[rb_phys];
         if (reg_wr_en && reg_wr_addr == rb_phys) rs2_busy = 1'b0;
-        if (exec_bypass_rs2_next) rs2_busy = 1'b0;
+        if (exec_rs2_src_next != RXVTypes::OPERAND_RF) rs2_busy = 1'b0;
     end
 
     always_comb begin
@@ -1218,20 +1237,24 @@ module RXVDecode (
         .q    (last_rd_arch)
     );
 
-    RXVDFF exec_bypass_rs1_dff (
+    RXVDFF #(
+        .width($bits(rxv_operand_src))
+    ) exec_rs1_src_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_bypass_rs1_next),
-        .q    (exec_bypass_rs1)
+        .d    (exec_rs1_src_next),
+        .q    (exec_rs1_src_q)
     );
 
-    RXVDFF exec_bypass_rs2_dff (
+    RXVDFF #(
+        .width($bits(rxv_operand_src))
+    ) exec_rs2_src_dff (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
-        .d    (exec_bypass_rs2_next),
-        .q    (exec_bypass_rs2)
+        .d    (exec_rs2_src_next),
+        .q    (exec_rs2_src_q)
     );
 
     RXVDFF #(

@@ -31,7 +31,8 @@ synthesized to ~100MHz for Intel Cyclone V or Xilinx Spartan 7.
       and issue.  All instructions apart from atomic fetch/op/store are a single
       uop, atomic operations may require more than one uop
     - Execute: execute in one of 4 functional units:
-      - LSU: fully pipelined 3 cycle load-use latency.  Misaligned load/store
+      - LSU: fully pipelined, a dependent instruction can issue 3 cycles after
+        a load with the result forwarded before writeback.  Misaligned load/store
         exceptions are raised in the first cycle, invalid AMO (atomic to device
         memory) and page faults are handled in the second cycle
       - Integer: integer operations, branches, CSR accesses, 1 cycle latency

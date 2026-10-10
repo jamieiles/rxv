@@ -208,12 +208,16 @@ module RXVIntExec (
         is_sret = exec_uop == RXVTypes::UOP_SRET;
     end
 
+    // The predicted target only matters for a taken prediction of a taken
+    // branch, and has to be compared against the resolved target as decode
+    // doesn't know the target of a jalr.
     always_comb begin
         branch_mispredict = 1'b0;
         if (branch_taken && !exec_prediction.predicted) branch_mispredict = 1'b1;
         if (exec_prediction.predicted && exec_prediction.predict_taken != branch_taken)
             branch_mispredict = 1'b1;
-        if (exec_prediction.predicted && exec_prediction.prediction != exec_branch_target[31:2])
+        if (exec_prediction.predicted && exec_prediction.predict_taken && branch_taken &&
+            exec_prediction.prediction != branch_target[31:2])
             branch_mispredict = 1'b1;
     end
 

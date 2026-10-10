@@ -227,7 +227,10 @@ module RXVIntExec (
     end
 
     always_comb begin
-        exec_predict_update_next = valid && is_branch && !branch_misalign;
+        // A not-taken branch that missed in the BTB would only be predicted
+        // not-taken again so don't evict a useful entry for it.
+        exec_predict_update_next = valid && is_branch && !branch_misalign &&
+            (branch_taken || exec_prediction.predicted);
         exec_predict_prev_strength_next  = unconditional_branch ? 2'b01 : exec_prediction.predict_strength;
         exec_update_predict_taken_next = branch_taken;
         exec_update_predict_address_next = exec_pc;

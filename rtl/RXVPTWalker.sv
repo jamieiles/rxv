@@ -84,6 +84,7 @@ module RXVPTWalker (
             next_state = (dcache_grant && !pmp.read) ? STATE_IDLE :
                 ~dcache_latency_expired || dcache_busy ? STATE_LEVEL1 :
                 !pte_in.valid ? STATE_IDLE :
+                pte_in.write && !pte_in.read ? STATE_IDLE :
                 pte_in.read || pte_in.exec ? STATE_IDLE :
                 STATE_LEVEL0;
             STATE_LEVEL0:
@@ -128,12 +129,16 @@ module RXVPTWalker (
 
     always_comb begin
         unique case (state)
+            // W without R is reserved at any level, a megapage must be
+            // aligned and the last level must be a leaf.
             STATE_LEVEL1: begin
-                translation_error_next = !pte_in.valid || |pte_in.ppn0;
+                translation_error_next = !pte_in.valid || (pte_in.write && !pte_in.read) ||
+                    |pte_in.ppn0;
                 pmp_violation_next     = dcache_grant && !pmp.read && !translation_error_next;
             end
             STATE_LEVEL0: begin
-                translation_error_next = !pte_in.valid;
+                translation_error_next = !pte_in.valid || (pte_in.write && !pte_in.read) ||
+                    !(pte_in.read || pte_in.exec);
                 pmp_violation_next     = dcache_grant && !pmp.read && !translation_error_next;
             end
             default: begin

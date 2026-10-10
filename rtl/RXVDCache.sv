@@ -99,6 +99,8 @@ module RXVDCache #(
     logic   [                  way_bits-1:0] lru;
     logic                                    lru_update;
     logic   [                  way_bits-1:0] lru_way_sel;
+    logic                                    lru_update_q;
+    logic   [                  way_bits-1:0] lru_way_sel_q;
     logic   [                index_bits-1:0] tag_ram_index;
     logic   [                index_bits-1:0] dirty_ram_index;
     logic   [                index_bits-1:0] cmo_index;
@@ -224,8 +226,8 @@ module RXVDCache #(
         .clk       (clk),
         .reset     (reset),
         .read_index(addr_index(phys_in)),
-        .access_way(lru_way_sel),
-        .valid     (lru_update),
+        .access_way(lru_way_sel_q),
+        .valid     (lru_update_q),
         .lru_out   (lru)
     );
 
@@ -525,6 +527,26 @@ module RXVDCache #(
             default: next_state = state;
         endcase
     end
+
+    // The PLRU is indexed by phys_in in the tag compare cycle, the update for
+    // that access is presented on the following cycle.
+    RXVDFF lru_update_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (lru_update),
+        .q    (lru_update_q)
+    );
+
+    RXVDFF #(
+        .width(way_bits)
+    ) lru_way_sel_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (lru_way_sel),
+        .q    (lru_way_sel_q)
+    );
 
     RXVDFF #(
         .width(way_bits)

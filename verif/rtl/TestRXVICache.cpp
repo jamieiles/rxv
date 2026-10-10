@@ -272,3 +272,34 @@ TEST_F(ICacheTestbench, MultiIndex)
     EXPECT_EQ(read(48), 0x0000beef);
     cycle();
 }
+
+// Hits must update the PLRU state of the set that hit even when the next
+// fetch is to a different set.
+TEST_F(ICacheTestbench, PLRUUpdatesHitSet)
+{
+    auto expect_fill = [&](uint32_t addr) {
+        for (size_t i = 0; i < line_size_bytes / sizeof(uint32_t); ++i)
+            EXPECT_CALL(*this->bus, read(addr + i * 4, true))
+                .WillOnce(::testing::Return((addr << 16) + i));
+    };
+
+    ::testing::InSequence seq;
+
+    for (uint32_t a : {0x10, 0x00, 0x40, 0x80, 0xc0, 0x100, 0x40})
+        expect_fill(a);
+
+    // Ways are filled in PLRU order: 0x00 in way 3 down to 0xc0 in way 0
+    // which is then the only most recently used way.
+    for (uint32_t a : {0x10, 0x00, 0x40, 0x80, 0xc0})
+        EXPECT_EQ(read(a), a << 16);
+
+    // Touch 0x00 immediately followed by a fetch from set 1 so 0x40 becomes
+    // the PLRU victim in set 0.
+    auto v = read_pipelined(std::vector<uint32_t>{0x00, 0x10});
+    EXPECT_THAT(v, ::testing::ElementsAre(0x00 << 16, 0x10 << 16));
+
+    // Evicts 0x40, 0x00 should still hit.
+    EXPECT_EQ(read(0x100), 0x100 << 16);
+    EXPECT_EQ(read(0x00), 0x00 << 16);
+    EXPECT_EQ(read(0x40), 0x40 << 16);
+}

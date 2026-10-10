@@ -17,12 +17,21 @@ module BitPLRU #(
     localparam addr_bits = $clog2(depth);
     localparam way_bits = $clog2(width);
 
+    // read_index is the set being looked up, valid+access_way give the way
+    // that was accessed in that set on the following cycle (the tag compare)
+    // and lru_out is the PLRU way for that set in the same cycle.  Updates
+    // are registered and written back the cycle after, so the last two
+    // updates are forwarded as they are not yet visible in the RAM output.
     wire  [    width-1:0] read_plru_ram_out;
     wire  [    width-1:0] read_plru;
+    wire  [addr_bits-1:0] lookup_index;
     wire  [addr_bits-1:0] write_index;
+    wire  [addr_bits-1:0] write_index_q;
     logic [    width-1:0] new_plru;
     wire  [    width-1:0] new_plru_reg;
+    wire  [    width-1:0] new_plru_reg_q;
     wire                  update;
+    wire                  update_q;
 
     DPRAM #(
         .depth(depth),
@@ -40,12 +49,32 @@ module BitPLRU #(
 
     RXVDFF #(
         .width(addr_bits)
-    ) write_index_ff (
+    ) lookup_index_ff (
         .clk  (clk),
         .reset(1'b0),
         .en   (1'b1),
         .d    (read_index),
+        .q    (lookup_index)
+    );
+
+    RXVDFF #(
+        .width(addr_bits)
+    ) write_index_ff (
+        .clk  (clk),
+        .reset(1'b0),
+        .en   (1'b1),
+        .d    (lookup_index),
         .q    (write_index)
+    );
+
+    RXVDFF #(
+        .width(addr_bits)
+    ) write_index_q_ff (
+        .clk  (clk),
+        .reset(1'b0),
+        .en   (1'b1),
+        .d    (write_index),
+        .q    (write_index_q)
     );
 
     RXVDFF #(
@@ -58,15 +87,34 @@ module BitPLRU #(
         .q    (new_plru_reg)
     );
 
-    RXVDFF update_dff (
+    RXVDFF #(
+        .width(width)
+    ) new_plru_q_dff (
         .clk  (clk),
         .reset(1'b0),
+        .en   (1'b1),
+        .d    (new_plru_reg),
+        .q    (new_plru_reg_q)
+    );
+
+    RXVDFF update_dff (
+        .clk  (clk),
+        .reset(reset),
         .en   (1'b1),
         .d    (valid),
         .q    (update)
     );
 
-    assign read_plru = read_index == write_index && update ? new_plru_reg : read_plru_ram_out;
+    RXVDFF update_q_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (update),
+        .q    (update_q)
+    );
+
+    assign read_plru = update && write_index == lookup_index ? new_plru_reg :
+        update_q && write_index_q == lookup_index ? new_plru_reg_q : read_plru_ram_out;
 
     always_comb begin
         new_plru = read_plru;

@@ -667,3 +667,30 @@ TEST_F(DCacheTestbench, FlushOnlyHitWay)
     expect_line_fill(4096 * 2, 0x22220000);
     EXPECT_EQ(read(4096 * 2), 0x22220000);
 }
+
+// The PLRU state must be read and written for the set being accessed when
+// accesses alternate between sets.
+TEST_F(DCacheTestbench, PLRUInterleavedSets)
+{
+    ::testing::InSequence seq;
+
+    for (uint32_t a : {0x010, 0x050, 0x090, 0x0d0, 0x000, 0x040, 0x080, 0x0c0})
+        expect_line_fill(a, a << 20);
+    expect_line_fill(0x100, 0x100 << 20);
+    expect_line_fill(0x0c0, 0x0c0 << 20);
+
+    // Fill set 1 then set 0, empty ways are used first so 0x0d0 and 0x0c0 are
+    // in way 3.
+    for (uint32_t a : {0x010, 0x050, 0x090, 0x0d0, 0x000, 0x040, 0x080, 0x0c0})
+        EXPECT_EQ(read(a), a << 20);
+
+    // Touch the other three lines in set 0 with accesses to way 3 of set 1
+    // in between, 0x0c0 becomes the least recently used line in set 0.
+    for (uint32_t a : {0x000, 0x0d0, 0x040, 0x0d0, 0x080, 0x0d0, 0x000})
+        EXPECT_EQ(read(a), a << 20);
+
+    // Evicts 0x0c0, the others still hit.
+    EXPECT_EQ(read(0x100), 0x100 << 20);
+    for (uint32_t a : {0x000, 0x040, 0x080, 0x0c0})
+        EXPECT_EQ(read(a), a << 20);
+}

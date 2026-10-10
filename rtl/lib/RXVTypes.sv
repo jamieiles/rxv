@@ -90,7 +90,8 @@ package RXVTypes;
     typedef enum logic [1:0] {
         OPERAND_RF  = 2'b00,
         OPERAND_INT = 2'b01,
-        OPERAND_LSU = 2'b10
+        OPERAND_LSU = 2'b10,
+        OPERAND_MUL = 2'b11
     } rxv_operand_src;
 
     typedef enum logic [1:0] {

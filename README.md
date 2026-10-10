@@ -38,7 +38,8 @@ synthesized to ~100MHz for Intel Cyclone V or Xilinx Spartan 7.
       - Integer: integer operations, branches, CSR accesses, 1 cycle latency
         with result forwarding back to input.  Illegal instruction, branch
         alignment and environment call exceptions are raised here
-      - Multiply: fully pipelined 5 cycle result-use latency
+      - Multiply: fully pipelined, a dependent instruction can issue 5 cycles
+        after a multiply with the result forwarded before writeback
       - Divide: non-pipelined 33 cycle result-use latency
     - Writeback: results are written back to the register file
     - Commit: rename file updated and exceptions raised

@@ -20,6 +20,9 @@ module RXVMulExec (
     output phys_reg_tag                    exec_reg_addr,
     output logic                           exec_reg_wr_en,
     output logic        [            31:0] exec_reg_wr_data,
+    // The result that will be in exec_reg_wr_data next cycle
+    output logic                           mul_fwd_valid,
+    output phys_reg_tag                    mul_fwd_rd,
     output logic                           exec_complete,
     output logic        [commit_width-1:0] exec_complete_id,
     input  rxv_uop                         exec_uop
@@ -79,6 +82,11 @@ module RXVMulExec (
                 signed_b = 1'b1;
             end
         endcase
+    end
+
+    always_comb begin
+        mul_fwd_valid = mul_op_out.have_writeback;
+        mul_fwd_rd    = mul_op_out.addr;
     end
 
     always_comb begin

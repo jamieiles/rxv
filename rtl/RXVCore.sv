@@ -145,6 +145,8 @@ module RXVCore #(
     rxv_operand_src                         exec_rs2_src;
     logic                                   lsu_fwd_valid;
     phys_reg_tag                            lsu_fwd_rd;
+    logic                                   mul_fwd_valid;
+    phys_reg_tag                            mul_fwd_rd;
     logic          [                  31:0] exec_csr_rd_data;
     logic          [                  11:0] exec_csr_wr_addr;
     logic          [                  31:0] exec_csr_wr_data;
@@ -516,6 +518,8 @@ module RXVCore #(
         .exec_rs2_src               (exec_rs2_src),
         .lsu_fwd_valid              (lsu_fwd_valid),
         .lsu_fwd_rd                 (lsu_fwd_rd),
+        .mul_fwd_valid              (mul_fwd_valid),
+        .mul_fwd_rd                 (mul_fwd_rd),
         .exec_pc                    (exec_pc),
         .exec_next_pc               (exec_next_pc),
         .exec_prediction            (exec_prediction),
@@ -589,6 +593,8 @@ module RXVCore #(
         .exec_reg_addr      (mul_exec_reg_wr_addr),
         .exec_reg_wr_en     (mul_exec_reg_wr_en),
         .exec_reg_wr_data   (mul_exec_reg_wr_data),
+        .mul_fwd_valid      (mul_fwd_valid),
+        .mul_fwd_rd         (mul_fwd_rd),
         .exec_complete      (mul_exec_complete_valid),
         .exec_complete_id   (mul_exec_complete_id),
         .exec_uop           (exec_uop)
@@ -1034,12 +1040,14 @@ module RXVCore #(
         unique case (exec_rs1_src)
             RXVTypes::OPERAND_INT: rs1_data = int_exec_reg_wr_data;
             RXVTypes::OPERAND_LSU: rs1_data = lsu_reg_wr_data;
+            RXVTypes::OPERAND_MUL: rs1_data = mul_exec_reg_wr_data;
             default: rs1_data = rd_data_a;
         endcase
 
         unique case (exec_rs2_src)
             RXVTypes::OPERAND_INT: rs2_data = int_exec_reg_wr_data;
             RXVTypes::OPERAND_LSU: rs2_data = lsu_reg_wr_data;
+            RXVTypes::OPERAND_MUL: rs2_data = mul_exec_reg_wr_data;
             default: rs2_data = rd_data_b;
         endcase
     end

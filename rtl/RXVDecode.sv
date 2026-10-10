@@ -113,6 +113,9 @@ module RXVDecode (
     // Load result forwarding
     input  logic                              lsu_fwd_valid,
     input  phys_reg_tag                       lsu_fwd_rd,
+    // Multiply result forwarding
+    input  logic                              mul_fwd_valid,
+    input  phys_reg_tag                       mul_fwd_rd,
     // Exec branch
     output logic          [             31:2] exec_pc,
     output logic          [             31:2] exec_next_pc,
@@ -958,15 +961,18 @@ module RXVDecode (
     end
 
     // The integer result is forwarded by architectural register as it is
-    // always the most recent writer, the LSU result by physical register as
-    // a newer instruction may have renamed the destination.
+    // always the most recent writer, the LSU and multiply results by
+    // physical register as a newer instruction may have renamed the
+    // destination.
     always_comb begin
         exec_rs1_src_next = RXVTypes::OPERAND_RF;
         if (lsu_fwd_valid && lsu_fwd_rd == ra_phys) exec_rs1_src_next = RXVTypes::OPERAND_LSU;
+        if (mul_fwd_valid && mul_fwd_rd == ra_phys) exec_rs1_src_next = RXVTypes::OPERAND_MUL;
         if (int_bypass_valid && last_rd_arch == rs1) exec_rs1_src_next = RXVTypes::OPERAND_INT;
 
         exec_rs2_src_next = RXVTypes::OPERAND_RF;
         if (lsu_fwd_valid && lsu_fwd_rd == rb_phys) exec_rs2_src_next = RXVTypes::OPERAND_LSU;
+        if (mul_fwd_valid && mul_fwd_rd == rb_phys) exec_rs2_src_next = RXVTypes::OPERAND_MUL;
         if (int_bypass_valid && last_rd_arch == rs2) exec_rs2_src_next = RXVTypes::OPERAND_INT;
     end
 

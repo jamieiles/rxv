@@ -61,8 +61,8 @@ mcycle+minstret fixed counters which can be used for profiling:
     - PMU_INSTRET
     - PMU_BRANCH
     - PMU_BRANCH_MISPRED
-    - PMU_FE_STALL
-    - PMU_BE_STALL
+    - PMU_FE_STALL: cycles with no instruction for decode to issue
+    - PMU_BE_STALL: cycles with an instruction in decode that can't yet issue
     - PMU_L1D_READ
     - PMU_L1D_READ_MISS
     - PMU_L1D_WRITE

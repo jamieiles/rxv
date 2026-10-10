@@ -925,7 +925,10 @@ module RXVDecode (
     end
 
     always_comb begin
-        pmu_fe_stall = decode_fe_stall;
+        // Front-end stall: no instruction to issue, from instruction cache
+        // and TLB misses and refetching after a resteer.  Back-end stall: an
+        // instruction that can't issue yet.
+        pmu_fe_stall = ~decode_valid;
         pmu_be_stall = decode_be_stall;
     end
 

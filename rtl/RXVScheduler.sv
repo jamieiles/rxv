@@ -5,6 +5,7 @@
 import RXVTypes::int_latency;
 import RXVTypes::lsu_latency;
 import RXVTypes::mul_latency;
+import RXVTypes::mul_lo_latency;
 import RXVTypes::div_latency;
 
 module RXVScheduler (
@@ -13,12 +14,14 @@ module RXVScheduler (
     input  logic schedule_int,
     input  logic schedule_lsu,
     input  logic schedule_mul,
+    input  logic schedule_mul_lo,
     input  logic schedule_div,
     input  logic global_stall_start,
     input  logic global_stall_end,
     output logic int_ready,
     output logic lsu_ready,
     output logic mul_ready,
+    output logic mul_lo_ready,
     output logic div_ready,
     output logic global_stall_active
 );
@@ -43,6 +46,7 @@ module RXVScheduler (
         if (schedule_int) commit_schedule_next[int_latency-1] = 1'b1;
         if (schedule_lsu) commit_schedule_next[lsu_latency-1] = 1'b1;
         if (schedule_mul) commit_schedule_next[mul_latency-1] = 1'b1;
+        if (schedule_mul_lo) commit_schedule_next[mul_lo_latency-1] = 1'b1;
         if (schedule_div) commit_schedule_next[div_latency-1] = 1'b1;
     end
 
@@ -50,6 +54,7 @@ module RXVScheduler (
         int_ready = ~commit_schedule[int_latency] & ~global_stall;
         lsu_ready = ~commit_schedule[lsu_latency] & ~global_stall;
         mul_ready = ~commit_schedule[mul_latency] & ~global_stall;
+        mul_lo_ready = ~commit_schedule[mul_lo_latency] & ~global_stall;
         div_ready = ~commit_schedule[div_latency] & ~global_stall;
     end
 
@@ -71,6 +76,12 @@ module RXVScheduler (
         .condition(!commit_schedule[mul_latency])
     );
 
+    RXVAssert schedule_mul_lo_idle (
+        .clk      (clk),
+        .en       (schedule_mul_lo),
+        .condition(!commit_schedule[mul_lo_latency])
+    );
+
     RXVAssert schedule_div_idle (
         .clk      (clk),
         .en       (schedule_div),
@@ -80,7 +91,8 @@ module RXVScheduler (
     RXVAssert no_simultaneous_dispatch (
         .clk      (clk),
         .en       (1'b1),
-        .condition(3'(schedule_lsu) + 3'(schedule_int) + 3'(schedule_mul) + 3'(schedule_div) <= 1)
+        .condition(3'(schedule_lsu) + 3'(schedule_int) + 3'(schedule_mul) + 3'(schedule_mul_lo) +
+                   3'(schedule_div) <= 1)
     );
 
     RXVDFF #(

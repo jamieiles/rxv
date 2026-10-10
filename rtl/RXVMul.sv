@@ -9,7 +9,9 @@ module RXVMul (
     input  logic [31:0] a,
     input  logic        signed_b,
     input  logic [31:0] b,
-    output logic [63:0] q
+    output logic [63:0] q,
+    // The low word is complete one cycle earlier
+    output logic [31:0] q_lo_early
 );
 
     typedef struct packed {
@@ -70,6 +72,10 @@ module RXVMul (
         stage3_next.bh = stage2_reg.p.bh;
         stage3_next.ah = stage2_reg.p.ah;
         stage3_next.q  = 51'($signed(stage2_reg.q)) + 51'($signed({stage3_product, 16'b0}));
+    end
+
+    always_comb begin
+        q_lo_early = stage3_reg.q[31:0];
     end
 
     always_comb begin

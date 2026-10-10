@@ -10,6 +10,8 @@ package RXVTypes;
     localparam int int_latency = 1;
     localparam int lsu_latency = 3;
     localparam int mul_latency = 5;
+    // MUL only needs the low word which is complete a stage earlier
+    localparam int mul_lo_latency = 4;
     localparam int div_latency = 33;
     localparam int commit_order = 3;
     localparam int commit_num_entries = (1 << commit_order);

@@ -104,6 +104,8 @@ module RXVCore #(
     logic                                   schedule_int;
     logic                                   schedule_lsu;
     logic                                   schedule_mul;
+    logic                                   schedule_mul_lo;
+    logic                                   mul_lo_ready;
     logic                                   schedule_div;
     logic                                   int_ready;
     logic                                   lsu_ready;
@@ -487,10 +489,12 @@ module RXVCore #(
         .int_ready                  (int_ready),
         .lsu_ready                  (lsu_ready),
         .mul_ready                  (mul_ready),
+        .mul_lo_ready               (mul_lo_ready),
         .div_ready                  (div_ready),
         .schedule_int               (schedule_int),
         .schedule_lsu               (schedule_lsu),
         .schedule_mul               (schedule_mul),
+        .schedule_mul_lo            (schedule_mul_lo),
         .schedule_div               (schedule_div),
         .lsu_busy                   (lsu_busy),
         .mmu_busy                   (mmu_busy),
@@ -971,6 +975,7 @@ module RXVCore #(
         .schedule_int       (schedule_int),
         .schedule_lsu       (schedule_lsu),
         .schedule_mul       (schedule_mul),
+        .schedule_mul_lo    (schedule_mul_lo),
         .schedule_div       (schedule_div),
         .global_stall_start (lsu_global_stall_start),
         .global_stall_end   (lsu_global_stall_end),
@@ -978,6 +983,7 @@ module RXVCore #(
         .int_ready          (int_ready),
         .lsu_ready          (lsu_ready),
         .mul_ready          (mul_ready),
+        .mul_lo_ready       (mul_lo_ready),
         .div_ready          (div_ready)
     );
 

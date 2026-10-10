@@ -38,7 +38,13 @@ module RXVMulExec (
 
     mul_op                          mul_op_in;
     mul_op                          mul_op_out;
+    mul_op                          mul_op_mid;
+    mul_op                          mul_op_mid_high;
+    mul_op                          mul_op_sel;
+    logic        [            31:0] result_lo_early;
+    // verilator lint_off UNUSED
     logic        [            63:0] result;
+    // verilator lint_on UNUSED
     logic        [            31:0] exec_reg_wr_data_next;
     phys_reg_tag                    exec_reg_addr_next;
     logic                           exec_reg_wr_en_next;
@@ -54,7 +60,8 @@ module RXVMulExec (
         .a       (op1),
         .signed_b(signed_b),
         .b       (op2),
-        .q       (result)
+        .q       (result),
+        .q_lo_early(result_lo_early)
     );
 
     always_comb begin
@@ -84,28 +91,52 @@ module RXVMulExec (
         endcase
     end
 
+    // MUL completes after 3 stages, the high word ops after 4: the scheduler
+    // prevents both completing in the same cycle.
     always_comb begin
-        mul_fwd_valid = mul_op_out.have_writeback;
-        mul_fwd_rd    = mul_op_out.addr;
+        mul_op_sel = mul_op_mid.valid && !mul_op_mid.high ? mul_op_mid : mul_op_out;
+        mul_op_mid_high = mul_op_mid;
+        if (!mul_op_mid.high) mul_op_mid_high = 'b0;
     end
 
     always_comb begin
-        exec_reg_addr_next    = mul_op_out.addr;
-        exec_reg_wr_en_next   = mul_op_out.have_writeback;
-        exec_reg_wr_data_next = mul_op_out.high ? result[63:32] : result[31:0];
-        exec_complete_next    = mul_op_out.valid;
-        exec_complete_id_next = mul_op_out.complete_id;
+        mul_fwd_valid = mul_op_sel.have_writeback;
+        mul_fwd_rd    = mul_op_sel.addr;
+    end
+
+    always_comb begin
+        exec_reg_addr_next    = mul_op_sel.addr;
+        exec_reg_wr_en_next   = mul_op_sel.have_writeback;
+        exec_reg_wr_data_next = !mul_op_sel.high ? result_lo_early : result[63:32];
+        exec_complete_next    = mul_op_sel.valid;
+        exec_complete_id_next = mul_op_sel.complete_id;
     end
 
     RXVDFFPipe #(
-        .stages(4),
+        .stages(3),
         .width ($bits(mul_op))
     ) mul_op_pipe (
         .clk  (clk),
         .reset(reset),
         .en   (1'b1),
         .d    (mul_op_in),
+        .q    (mul_op_mid)
+    );
+
+    RXVDFF #(
+        .width($bits(mul_op))
+    ) mul_op_out_dff (
+        .clk  (clk),
+        .reset(reset),
+        .en   (1'b1),
+        .d    (mul_op_mid_high),
         .q    (mul_op_out)
+    );
+
+    RXVAssert no_mul_complete_collision (
+        .clk      (clk),
+        .en       (1'b1),
+        .condition(!(mul_op_mid.valid && !mul_op_mid.high && mul_op_out.valid))
     );
 
     RXVDFF #(

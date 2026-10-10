@@ -81,6 +81,8 @@ module RXVDecode (
     input  logic                              lsu_ready,
     output logic                              schedule_mul,
     input  logic                              mul_ready,
+    output logic                              schedule_mul_lo,
+    input  logic                              mul_lo_ready,
     output logic                              schedule_div,
     input  logic                              div_ready,
     input  logic                              lsu_busy,
@@ -170,6 +172,7 @@ module RXVDecode (
     logic                                   dispatch_int;
     logic                                   dispatch_div;
     logic                                   decode_be_stall;
+    logic                                   is_mul_lo;
 
     logic                                   is_branch;
 
@@ -894,6 +897,11 @@ module RXVDecode (
         misc_mem_stall = opcode[6:2] == RXVTypes::OPC_MISC_MEM && ~commit_buffer_empty;
     end
 
+    // MUL writes back a cycle before the high word multiplies
+    always_comb begin
+        is_mul_lo = funct3 == 3'b000;
+    end
+
     always_comb begin
         logic lsu_stall;
         logic int_stall;
@@ -902,7 +910,7 @@ module RXVDecode (
 
         lsu_stall = exec_pipe_en[EXEC_PIPE_LSU] && (!lsu_ready || lsu_busy || mmu_busy);
         int_stall = exec_pipe_en[EXEC_PIPE_INT] && !int_ready;
-        mul_stall = exec_pipe_en[EXEC_PIPE_MUL] && !mul_ready;
+        mul_stall = exec_pipe_en[EXEC_PIPE_MUL] && !(is_mul_lo ? mul_lo_ready : mul_ready);
         // Divider isn't pipelined so busy may not yet be raised, check if
         // another divide was just started
         div_stall = exec_pipe_en[EXEC_PIPE_DIV] && (!div_ready || div_exec_busy || div_exec_valid);
@@ -939,7 +947,8 @@ module RXVDecode (
         dispatch_mul = exec_pipe_en[EXEC_PIPE_MUL] &&
             !illegal_instruction && decode_valid && !decode_page_fault &&
             !decode_pmp_fault && !decode_be_stall && !kill_valid && !exec_resteer;
-        schedule_mul = dispatch_mul & exec_have_writeback_next;
+        schedule_mul    = dispatch_mul & exec_have_writeback_next & ~is_mul_lo;
+        schedule_mul_lo = dispatch_mul & exec_have_writeback_next & is_mul_lo;
     end
 
     always_comb begin

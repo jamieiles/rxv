@@ -37,7 +37,7 @@ module RXVCore #(
     parameter int          dcache_nr_lines        = 16,
     parameter int          dcache_nr_ways         = 4,
     parameter int          dcache_line_size_bytes = 32,
-    parameter int          btb_num_entries        = 256,
+    parameter int          btb_num_entries        = 512,
     parameter int          btb_tag_bits           = 10,
     parameter int          banked_register_file   = 0,
     parameter int          num_itlb_entries       = 8,
